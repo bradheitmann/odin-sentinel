@@ -1,0 +1,56 @@
+version: 0.3.0
+default_topology:
+  executive_office:
+    team: A
+    slots:
+      - A/EXEC-PM
+      - A/EXEC-ODIN
+      - A/EXEC-ASST
+      - A/EXEC-RSCH
+      - A/EXEC-QA
+  development_pod:
+    slots:
+      - "{TEAM}/TEAM-PM"
+      - "{TEAM}/ODIN"
+      - "{TEAM}/DEV-1"
+      - "{TEAM}/QA-1"
+      - "{TEAM}/SHADOW-1"
+  fresh_repo_default_pods: 1
+  odin_mesh:
+    bootstrap_identity_exchange: true
+    health_round_robin_minutes: 10
+    aggregator: A/EXEC-ODIN
+surface_layout:
+  description: >-
+    Canonical CMUX surface layout rule for EXEC PM. Teams arrive as letters
+    (Team A is executive; Team B onward are development pods). Columns are
+    equal width. Surfaces stack vertically inside a column with at most two
+    surfaces per column. Team A always occupies column 0. When the team count
+    is odd and at least 3, column 0 holds only Team A (the "tall column").
+  rules:
+    max_surfaces_per_column: 2
+    column_widths: equal
+    exec_team_column: 0
+    tall_column_when_odd_team: A
+  custodianship:
+    sole_custodian: A/EXEC-PM
+    includes:
+      - cmux new-split
+      - cmux new-surface
+      - cmux move-surface
+      - cmux close-surface
+  pre_staffing_gate: >-
+    Before adding any agent beyond A/EXEC, EXEC PM must (1) call
+    odin.compute_surface_layout for teamCount=N+1, (2) execute the splits
+    required to reach that layout via cmux, (3) confirm each new surface
+    is empty and addressable via cmux list-pane-surfaces, and only then
+    (4) dispatch the spawn to the newly created surface.
+  reference_layouts:
+    teams_1: "[A]"
+    teams_2: "[A] [B]"
+    teams_3: "[A] [B/C]"
+    teams_4: "[A/D] [B/C]"
+    teams_5: "[A] [B/C] [D/E]"
+    teams_6: "[A/F] [B/C] [D/E]"
+    teams_7: "[A] [B/C] [D/E] [F/G]"
+    teams_8: "[A/H] [B/C] [D/E] [F/G]"

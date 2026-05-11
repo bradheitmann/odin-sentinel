@@ -1,0 +1,20 @@
+version: 0.2.1
+modes:
+  PARK_FOR_CONTINUITY:
+    description: Keep role slots open, park occupants, save handoffs, and preserve continuity.
+    required_steps:
+      - collect_handoffs
+      - classify_worktree
+      - record_metrics
+      - park_or_reset_occupants
+      - verify_restart_path
+  FULL_SESSION_SHUTDOWN:
+    description: Save handoffs, quit occupants, verify exit, close panes, and leave only the final user-designated surface.
+    required_steps:
+      - collect_handoffs
+      - classify_worktree
+      - record_metrics
+      - quit_each_agent_occupant
+      - verify_agent_exit
+      - close_agent_panes
+      - deliver_final_report

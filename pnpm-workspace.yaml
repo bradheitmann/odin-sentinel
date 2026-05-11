@@ -1,0 +1,12 @@
+allowBuilds:
+  esbuild: true
+
+# Pin patched versions of transitive dependencies pulled through
+# @modelcontextprotocol/sdk's HTTP transport stack. The stdio server does not
+# invoke these code paths, but the overrides keep `pnpm audit` clean.
+#   ip-address >= 10.1.1: GHSA-v2v4-37r5-5v8g
+#   hono       >= 4.12.18: GHSA-qp7p-654g-cw7p, GHSA-p77w-8qqv-26rm,
+#                          GHSA-hm8q-7f3q-5f36
+overrides:
+  ip-address: "^10.1.1"
+  hono: "^4.12.18"

@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.DS_Store
+.env
+.env.*
+!.env.example
+.gemini/
+.odin/
+coverage/
+.vitest/
+npm-debug.log*
+.wrangler/
+telemetry/node_modules/
+telemetry/.wrangler/
+telemetry/dist/

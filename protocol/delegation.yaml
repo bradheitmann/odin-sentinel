@@ -1,0 +1,41 @@
+version: 0.3.0
+delegation_contract:
+  required_fields:
+    - receipt_type
+    - source_role
+    - target_role_slot
+    - task
+    - scope
+    - authority
+    - report_back
+    - visibility
+  authority_fields:
+    - may_implement
+    - may_qa_accept
+    - write_scope
+    - read_scope
+    - prohibited_paths
+  visibility_fields:
+    - requires_visible_role_slot
+    - hidden_agents_allowed
+    - delivery_proof_required
+  receipt_types:
+    - SCP-DELEGATE
+    - SCP-TERMINAL-DELIVERY
+    - SCP-CMUX-DELIVERY
+    - SCP-COORDINATION
+  delivery_states:
+    - DELIVERED_ACKED
+    - DELIVERED_NO_ACK
+    - INPUT_BAR_ONLY
+    - PANE_BLOCKED_ON_PERMISSION
+    - PANE_STILL_THINKING
+  rules:
+    - Delegation must target a visible role slot.
+    - Delegation must not create hidden agents or off-ledger workers.
+    - Delegation must include exact authority and scope.
+    - Terminal text left in an input bar is not delivery.
+    - QA acceptance cannot be delegated to the same role that implemented the deliverable.
+    - Staffing actions (spawn, rename, kill, reassign, move-surface) are the sole authority of A/EXEC-PM and may not be delegated to TEAM PMs or workers.
+    - Surface custodianship (new-split, new-surface, move-surface, close-surface) is held exclusively by A/EXEC-PM.
+    - TEAM PMs needing more staff must escalate to A/EXEC-PM rather than act.
