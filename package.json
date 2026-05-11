@@ -1,0 +1,71 @@
+{
+  "name": "@bradheitmann/odin-sentinel",
+  "version": "0.4.5",
+  "publishConfig": {
+    "access": "public"
+  },
+  "description": "Multi-harness terminal-pane team builder and orchestrator over MCP.",
+  "type": "module",
+  "main": "./dist/src/protocol/index.js",
+  "types": "./dist/src/protocol/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/protocol/index.d.ts",
+      "import": "./dist/src/protocol/index.js"
+    },
+    "./mcp": {
+      "types": "./dist/src/mcp/server.d.ts",
+      "import": "./dist/src/mcp/server.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "packageManager": "pnpm@11.0.3",
+  "bin": {
+    "odin-sentinel": "./dist/src/bin/index.js",
+    "odin-sentinel-mcp": "./dist/src/bin/index.js"
+  },
+  "files": [
+    "dist",
+    "docs",
+    "protocol",
+    "scripts",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "pnpm run clean && tsc -p tsconfig.build.json",
+    "dev": "tsx src/bin/index.ts",
+    "audit:public": "node scripts/audit/public-surface.mjs",
+    "prepack": "pnpm run build",
+    "test:package": "node scripts/audit/verify-pack.mjs",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "validate": "pnpm run audit:public && pnpm run typecheck && pnpm test && pnpm run build && pnpm run test:package"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "agent-orchestration",
+    "multi-agent",
+    "sentinel"
+  ],
+  "author": "ODIN Sentinel contributors",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "yaml": "^2.8.2",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@vitest/coverage-v8": "4.1.5",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "4.1.5"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  }
+}

@@ -1,0 +1,16 @@
+name = "odin-sentinel-telemetry"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+# Replace database_id after running `pnpm run db:create`. The CLI prints the
+# new database_id; paste it here and commit.
+[[d1_databases]]
+binding = "DB"
+database_name = "odin-sentinel-telemetry"
+database_id = "c8d8cab8-d6dc-4375-aa3c-5356ca41940b"
+
+# Optional GLM credentials for server-side redaction. Configure via:
+#   wrangler secret put GLM_API_KEY
+#   wrangler secret put GLM_API_URL
+# If unset, the Worker skips GLM redaction and stores the client-redacted
+# payload as-is.

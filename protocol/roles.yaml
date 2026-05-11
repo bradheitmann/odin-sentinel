@@ -1,0 +1,167 @@
+version: 0.3.0
+roles:
+  EXEC_PM:
+    title: EXEC PM
+    layer: executive
+    may_implement_default: false
+    may_qa_accept_default: false
+    purpose: Intent, priority, authorization, escalation, and claim framing.
+    authority:
+      sole_staffing_authority:
+        active: true
+        scope: >-
+          A/EXEC-PM is the only role that may spawn, name, kill, rename,
+          reassign, or move agents on any team. No TEAM PM may staff its own
+          pod or any other pod. Worker roles never staff.
+      surface_custodianship:
+        sole_custodian: true
+        includes:
+          - cmux new-split
+          - cmux new-surface
+          - cmux move-surface
+          - cmux close-surface
+          - cmux drag-surface-to-split
+      pre_staffing_gate:
+        required: true
+        steps:
+          - call odin.compute_surface_layout for the target team count
+          - call odin.compute_surface_layout_gate to retrieve the transition checklist
+          - execute the required cmux split operations
+          - confirm each new surface is empty and addressable via cmux list-pane-surfaces
+          - dispatch the spawn only after surface confirmation
+        violation_class: protocol_breach_high
+      meta_governance:
+        role_in_org_strategy: org_strategy_dev
+        supervisor: A/EXEC-ODIN
+  EXEC_ODIN:
+    title: EXEC ODIN
+    layer: meta_control
+    may_implement_default: false
+    may_qa_accept_default: false
+    purpose: Governance health, polling, delivery proof, role boundaries, and closeout hygiene.
+    authority:
+      intervention_authority:
+        may_issue_halt: true
+        halt_targets:
+          - A/EXEC-PM
+          - any TEAM PM
+          - any worker on any pod
+          - any ODIN agent
+        halt_triggers:
+          - staffing without the surface layout gate
+          - hidden agent creation
+          - QA acceptance by implementer
+          - context window exceeds hard threshold without compaction or handoff
+          - boot receipt missing required staffing audit fields
+          - team manifest topology drift from default_topology contract
+        receiving_role_obligation: >-
+          The role receiving a HALT directive must stop the offending action
+          and reply with a remediation plan before resuming. Continuing past a
+          HALT without remediation is itself a protocol breach.
+      health_escalation:
+        round_robin_minutes: 10
+        thresholds:
+          missed_heartbeat_warn: 1
+          missed_heartbeat_escalate: 2
+          missed_heartbeat_lockdown: 3
+        lockdown_effect: >-
+          On lockdown, the affected agent is suspended from new dispatch and
+          A/EXEC-PM is required to restaff or close the surface.
+      context_window_budgeting:
+        per_agent_soft_pct: 70
+        per_agent_hard_pct: 90
+        on_soft: warn_and_request_compaction
+        on_hard: force_handoff_or_lockdown
+      mesh_aggregator: A/EXEC-ODIN
+      meta_governance:
+        role_in_org_strategy: org_strategy_qa
+  EXEC_ASST:
+    title: EXEC ASST
+    layer: executive_support
+    may_implement_default: false
+    may_qa_accept_default: false
+    purpose: Ledger, reminders, pane inventory, artifact index, and delivery checks.
+  EXEC_RSCH:
+    title: EXEC RSCH
+    layer: research
+    may_implement_default: false
+    may_qa_accept_default: false
+    purpose: Read-only strategy, alternatives, context recovery, and risk analysis.
+  EXEC_QA:
+    title: EXEC QA
+    layer: quality
+    may_implement_default: false
+    may_qa_accept_default: true
+    purpose: Independent adversarial audit of process, evidence, closure language, and drift.
+  TEAM_PM:
+    title: TEAM PM
+    layer: pod_control
+    may_implement_default: false
+    may_qa_accept_default: false
+    purpose: Pod task routing, worker activation, and reporting.
+    forbidden_actions:
+      - spawn agents on own pod or any other pod
+      - rename, kill, or reassign agents on own pod
+      - split, move, or close any surface
+      - accept own pod's QA work
+      - delegate staffing or surface operations to workers
+    constraint_rationale: >-
+      Staffing and surface custodianship are the sole authority of A/EXEC-PM.
+      Any TEAM PM staffing or surface action without an explicit A/EXEC-PM
+      directive is a protocol breach and will be HALTed by the supervising
+      ODIN role.
+    escalation_path:
+      need_more_staff: report to A/EXEC-PM with rationale; do not act
+      surface_misconfigured: report to A/EXEC-PM and own pod's ODIN
+  TEAM_ODIN:
+    title: TEAM ODIN
+    layer: meta_control
+    may_implement_default: false
+    may_qa_accept_default: false
+    purpose: Pod health monitoring, polling, blockers, freezes, and lateral ODIN mesh awareness.
+    authority:
+      intervention_authority:
+        may_issue_halt: true
+        halt_targets:
+          - own pod TEAM PM
+          - own pod workers
+        halt_triggers:
+          - QA acceptance by implementer
+          - context window exceeds hard threshold without compaction
+          - delivery without evidence
+          - hidden subagent creation
+        receiving_role_obligation: >-
+          Same as EXEC_ODIN. Pod role receiving a HALT must stop and remediate
+          before resuming.
+      health_escalation:
+        reports_to: A/EXEC-ODIN via odin_mesh aggregator
+        thresholds:
+          missed_heartbeat_warn: 1
+          missed_heartbeat_escalate: 2
+          missed_heartbeat_lockdown: 3
+      context_window_budgeting:
+        per_agent_soft_pct: 70
+        per_agent_hard_pct: 90
+        on_soft: warn_and_request_compaction
+        on_hard: force_handoff_or_lockdown
+      meta_governance:
+        role_in_org_strategy: org_strategy_qa
+        reports_to: A/EXEC-ODIN
+  DEV_WORKER:
+    title: DEV WORKER
+    layer: implementation
+    may_implement_default: true
+    may_qa_accept_default: false
+    purpose: Bounded implementation inside exact write scope with evidence.
+  QA_WORKER:
+    title: QA WORKER
+    layer: quality
+    may_implement_default: false
+    may_qa_accept_default: true
+    purpose: Independent verification of worker evidence and acceptance criteria.
+  SHADOW_REVIEWER:
+    title: SHADOW REVIEWER
+    layer: review
+    may_implement_default: false
+    may_qa_accept_default: false
+    purpose: Independent critique, risk surfacing, and second-pass review.

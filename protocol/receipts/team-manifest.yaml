@@ -1,0 +1,9 @@
+required_fields:
+  - session_id
+  - topology
+  - executive_office
+  - development_pods
+  - odin_mesh
+  - model_profile
+  - handoff_sources
+  - startup_objectives

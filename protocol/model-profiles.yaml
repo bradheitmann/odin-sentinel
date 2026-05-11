@@ -1,0 +1,63 @@
+version: 0.2.1
+policy:
+  semantics: Recommended starter profiles, not bundled dependencies or availability guarantees.
+  runtime_requirement: Users must install and configure their own harnesses. Launchers must verify local harness/model availability before dispatch and apply fallbacks when unavailable.
+profiles:
+  A/EXEC-PM:
+    model: GPT-5.5-class frontier reasoning model
+    harness: Codex CLI
+    reasoning: high
+    rationale: "Use for steady executive coordination, careful instruction following, and claim-bound status control."
+  A/EXEC-ODIN:
+    model: GPT-5.5-class frontier reasoning model
+    harness: Codex CLI
+    reasoning: xhigh
+    rationale: "Use for sentinel work: staying awake, polling, quality control, closeout hygiene, and follow-up."
+  A/EXEC-ASST:
+    model: Claude Haiku-class fast assistant model
+    harness: Claude Code
+    reasoning: default_or_high_if_supported
+    rationale: "Use for low-latency ledger, reminders, artifact indexing, and assistant chores."
+  A/EXEC-RSCH:
+    model: Kimi K2.6-class orchestration model
+    harness: Droid
+    reasoning: high
+    rationale: "Use for broad research, alternatives, synthesis, and context recovery."
+  A/EXEC-QA:
+    model: Kimi K2.6-class review model
+    harness: Droid
+    reasoning: high
+    rationale: "Use for independent process review, evidence checks, and drift detection."
+  TEAM_PM:
+    model: Claude Opus/Sonnet-class coding model
+    harness: Claude Code
+    reasoning: high_if_supported
+    rationale: "Use for pod orchestration, task decomposition, dispatch, and worker follow-up."
+  TEAM_ODIN:
+    model: GPT-5.5-class frontier reasoning model
+    harness: Codex CLI
+    reasoning: low
+    rationale: "Use for lightweight pod sentinel duties, polling, blocker detection, and quality reminders."
+  DEV_WORKER:
+    model: Kimi K2.6-class coding model
+    harness: Droid
+    reasoning: high
+    rationale: "Use for bounded implementation work when the task benefits from strong local execution."
+  QA_WORKER:
+    model: GLM-5.1-class independent review model
+    harness: Crush
+    reasoning: high
+    rationale: "Use for independent QA so the reviewer differs from the implementer."
+  SHADOW_REVIEWER:
+    model: Kimi K2.6-class review model
+    harness: Droid
+    reasoning: high
+    rationale: "Use for second-pass critique, architectural concerns, and risk surfacing."
+fallbacks:
+  worker:
+    - harness: Droid
+      model: Kimi K2.6-class coding model
+      reasoning: high
+    - harness: Claude Code
+      model: Claude Sonnet-class balanced coding model
+      reasoning: high_if_supported
