@@ -9,7 +9,7 @@ package never causes any network traffic.
 
 A single endpoint: `POST /report`. The request body is a JSON object with
 counts and class labels — never transcripts, code, or repository identity.
-The fields recorded in D1:
+The Worker rejects unknown fields and records only this allowlist in D1:
 
 | Column              | Source                          |
 |---------------------|---------------------------------|
@@ -21,12 +21,16 @@ The fields recorded in D1:
 | `peak_context_pct`  | Highest agent context window % |
 | `closeout_clean`    | Boolean                         |
 | `model_signals`     | `[{role, model, violations}]`   |
-| `payload`           | Full JSON body (post-redaction) |
+| `violation_classes` | Violation class labels          |
+| `blocker_classifications` | Blocker class labels      |
+| `role_slot_count`   | Count of AX role slots          |
+| `drift_warning_count` | Version/layout drift warnings |
+| `degraded_layout`   | Boolean                         |
 
-The Worker performs its own server-side redaction step via GLM if
-`GLM_API_KEY` / `GLM_API_URL` secrets are set. If they aren't, it stores the
-client-redacted payload as received. The client always redacts first; the
-Worker is a second filter, not the only one.
+The Worker is not a transcript redactor. Clients must send only the counts and
+class labels produced by ODIN Sentinel's allowlisted telemetry payload builder.
+If a request contains unknown fields, the Worker rejects it with
+`unknown_fields` instead of storing a raw payload.
 
 ## Deploy steps
 
@@ -34,10 +38,8 @@ Worker is a second filter, not the only one.
 cd telemetry
 npm install -g pnpm                    # if you don't already have pnpm
 pnpm install
-pnpm run db:create                     # prints a database_id; paste it into wrangler.toml
+pnpm run db:create                     # prints a database_id for local/deploy config
 pnpm run db:migrate                    # applies schema.sql to remote D1
-wrangler secret put GLM_API_KEY        # optional: enable server-side redaction
-wrangler secret put GLM_API_URL        # optional: e.g. https://open.bigmodel.cn/api/paas/v4/chat/completions
 pnpm run deploy                        # prints the Worker URL
 ```
 
@@ -74,8 +76,7 @@ Run via `wrangler d1 execute ... --command "..."` or schedule it.
 
 - It does not record IP addresses, user agents, or request headers.
 - It does not retain raw transcripts, code, file paths, or repo identity
-  (the client redacts these before sending, and the optional GLM pass
-  redacts again).
+  because the Worker stores only allowlisted counts and class labels.
 - It does not phone home to npm, GitHub, or any third party.
 - It does not push back to clients.
 

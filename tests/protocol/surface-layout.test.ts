@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  computeHumanCmuxQuadLayout,
   computeSurfaceLayout,
   computeSurfaceLayoutGate,
   renderSurfaceLayoutAscii
@@ -145,5 +146,36 @@ describe("computeSurfaceLayoutGate", () => {
   it("rejects gates where toTeamCount is not greater than fromTeamCount", () => {
     expect(() => computeSurfaceLayoutGate(4, 4)).toThrow(/toTeamCount/);
     expect(() => computeSurfaceLayoutGate(4, 3)).toThrow(/toTeamCount/);
+  });
+
+  it("rejects tab-only layout as degraded unless approved", () => {
+    const gate = computeSurfaceLayoutGate(1, 3, { layoutMode: "tab_only" });
+
+    expect(gate.status).toBe("DEGRADED_OPERATOR_LAYOUT");
+    expect(gate.warnings.join("\n")).toContain("Tab-only");
+  });
+
+  it("blocks governed launch when CMUX is absent", () => {
+    const gate = computeSurfaceLayoutGate(1, 3, { cmuxAvailable: false });
+
+    expect(gate.status).toBe("NOT_GOVERNED_NO_CMUX");
+  });
+});
+
+describe("computeHumanCmuxQuadLayout", () => {
+  it("produces the canonical 2x2 human operator profile for exec plus two pods", () => {
+    const layout = computeHumanCmuxQuadLayout(3);
+
+    expect(layout.profile).toBe("human_cmux_quad");
+    expect(layout.workspace.execPmSameWorkspaceRequired).toBe(true);
+    expect(layout.regions.map((region) => region.quadrant)).toEqual(["A", "B", "C", "D"]);
+    expect(layout.humanSummary).toContain("Quadrant A executive office");
+  });
+
+  it("keeps A/EXEC-PM in the governed workspace by default", () => {
+    const layout = computeHumanCmuxQuadLayout(3);
+    const execPm = layout.roleSlots.find((slot) => slot.roleSlot === "A/EXEC-PM");
+
+    expect(execPm).toMatchObject({ workspace: "workspace:governed", emptyBeforeLaunch: true });
   });
 });

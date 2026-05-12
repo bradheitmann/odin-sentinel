@@ -218,6 +218,80 @@ describe("ODIN protocol helpers", () => {
     expect(result.valid).toBe(true);
   });
 
+  it("rejects weakened role slots that omit schema-required fields", () => {
+    const result = validateTeamManifest({
+      session_id: "session-1",
+      topology: {},
+      executive_office: ["A/EXEC-PM", "A/EXEC-ODIN"],
+      development_pods: ["B"],
+      odin_mesh: {},
+      model_profile: {},
+      handoff_sources: ["docs/handoffs/"],
+      startup_objectives: ["bootstrap"],
+      role_slots: [
+        {
+          role_slot: "A/EXEC-ODIN",
+          harness: "Codex",
+          readiness_status: "PASS",
+          layout_locator: { workspace: "workspace:1" },
+          scp_context_source: "unknown context source",
+          mcp_available: true,
+          mcp_version: "0.4.5",
+          watches: ["A/EXEC-PM"]
+        }
+      ]
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.invalid).toEqual(
+      expect.arrayContaining([
+        "role_slots.0.layout_locator.pane",
+        "role_slots.0.layout_locator.surface",
+        "role_slots.0.scp_context_source"
+      ])
+    );
+  });
+
+  it("rejects each required role slot field when omitted or invalid", () => {
+    const baseManifest = {
+      session_id: "session-1",
+      topology: {},
+      executive_office: ["A/EXEC-PM", "A/EXEC-ODIN"],
+      development_pods: ["B"],
+      odin_mesh: {},
+      model_profile: {},
+      handoff_sources: ["docs/handoffs/"],
+      startup_objectives: ["bootstrap"]
+    };
+    const validSlot = {
+      role_slot: "A/EXEC-ODIN",
+      harness: "Codex",
+      readiness_status: "PASS",
+      layout_locator: { workspace: "workspace:1", pane: "pane:1", surface: "surface:1" },
+      scp_context_source: "native sentinel-coordination-protocol skill",
+      scp_skill_available: true,
+      mcp_available: true,
+      mcp_version: "0.4.5",
+      watches: ["A/EXEC-PM"]
+    };
+
+    const cases: Array<[string, Record<string, unknown>, string]> = [
+      ["missing role_slot", { ...validSlot, role_slot: undefined }, "role_slots.0.role_slot"],
+      ["missing harness", { ...validSlot, harness: undefined }, "role_slots.0.harness"],
+      ["missing readiness_status", { ...validSlot, readiness_status: undefined }, "role_slots.0.readiness_status"],
+      ["invalid readiness_status", { ...validSlot, readiness_status: "READY" }, "role_slots.0.readiness_status"],
+      ["missing layout_locator", { ...validSlot, layout_locator: undefined }, "role_slots.0.layout_locator"],
+      ["missing layout workspace", { ...validSlot, layout_locator: { pane: "pane:1", surface: "surface:1" } }, "role_slots.0.layout_locator.workspace"],
+      ["missing scp_context_source", { ...validSlot, scp_context_source: undefined }, "role_slots.0.scp_context_source"]
+    ];
+
+    for (const [, slot, expectedInvalid] of cases) {
+      const result = validateTeamManifest({ ...baseManifest, role_slots: [slot] });
+      expect(result.valid).toBe(false);
+      expect(result.invalid).toContain(expectedInvalid);
+    }
+  });
+
   it("returns full shutdown closeout checklist", () => {
     const checklist = getCloseoutChecklist("FULL_SESSION_SHUTDOWN") as {
       required_steps: string[];
@@ -434,10 +508,15 @@ describe("ODIN protocol helpers", () => {
 
     expect(notice.inferenceProvider).toBe("none");
     expect(notice.hostedService).toBe(false);
-    expect(notice.telemetry).toBe(false);
-    expect(notice.networkCalls).toBe(false);
+    expect(notice.telemetry).toBe("local_optional");
+    expect(notice.networkCalls).toBe("none_by_default_optional_on_submit");
+    expect(notice.telemetryAutomaticCollection).toBe(false);
+    expect(notice.telemetrySubmissionRequiresEndpoint).toBe(true);
+    expect(notice.telemetrySubmissionRequiresExplicitInvocation).toBe(true);
     expect(notice.maintainerPaysForUserInference).toBe(false);
     expect(notice.externalOrchestrationBundled).toBe(false);
+    expect(notice.notes.join(" ")).toContain("no automatic telemetry collection");
+    expect(notice.notes.join(" ")).toContain("only after an endpoint is configured");
   });
 
   it("exports receipt templates in the fallback protocol snapshot", async () => {

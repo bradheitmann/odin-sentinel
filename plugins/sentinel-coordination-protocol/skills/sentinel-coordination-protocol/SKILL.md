@@ -9,17 +9,20 @@ updated: 2026-05-11
 
 Use this skill for SCP policy introduction, repo landing, adoption-gate proof, controlled dissemination, active multi-agent control loops, and automated team lifecycle management. SCP is a governance layer for multi-team agent operation; it complements other coordination layers and `AGENTS.md` files where present. It sits above them after activation.
 
+SCP_PUBLIC_VERSION: 0.4.5
+MIN_COMPATIBLE_CHILD_MCP: 0.4.5
+
 ## Source Of Truth
 
 Master editable source:
 
-- the active canonical SCP skill directory for the local installation, normally `~/.agents/skills/sentinel-coordination-protocol/`.
+- the repository-distributed SCP protocol bundle, or an operator-declared canonical SCP skill source outside this public package.
 
-All other installed copies are synchronized runtime snapshots, not independent policy forks. Any agent modifying this skill must edit the master first, then propagate the full skill directory to the installed harness targets and verify matching hashes.
+All other installed copies are synchronized runtime snapshots, not independent policy forks. Any agent modifying SCP policy must edit the declared source first, then propagate the full skill/protocol bundle to the installed harness targets and verify matching hashes.
 
-Use `scripts/sync-installations.sh` from the master directory after edits. Do not hand-edit a runtime copy under `~/.codex`, `~/.claude`, `~/.config/goose`, `~/.config/opencode`, `~/.opencode`, `~/.crush`, `~/.cursor`, `~/.kilocode`, `~/.openhands`, `~/.pi`, or `~/.zed` except as a temporary emergency patch that is immediately backported to the master and resynced.
+Use the operator-declared sync procedure after edits. Do not hand-edit generated runtime copies except as a temporary emergency patch that is immediately backported to the declared source and resynced.
 
-Portable curated skill/session records may live under the skill directory, for example `decisions/YYYY-MM-DD-<slug>.md` and optionally `CHANGELOG.md`. Raw evidence belongs under `.odin/local/audit/<session-id>/` or the declared `evidence_path`. Do not create empty folders just to satisfy policy; create `decisions/` only when writing the first curated decision record.
+Portable curated skill/session records may live under the declared source, for example `decisions/YYYY-MM-DD-<slug>.md` and optionally `CHANGELOG.md`. Raw audit evidence belongs under `.odin/audit/<session-id>/` or the declared `evidence_path`. Do not create empty folders just to satisfy policy; create `decisions/` only when writing the first curated decision record.
 
 ## Non-Negotiables
 
@@ -267,7 +270,7 @@ Team PMs and team ODINs may coordinate laterally when needed, but lateral messag
 
 ODINs must establish a lateral ODIN mesh at bootstrap. `A/EXEC-ODIN` and each `TEAM ODIN` must exchange a short introduction containing role, team, reports-to/coordinates-with chain, team composition, active agent occupants, model/harness/cost tier, known blockers, and next poll time. This is a meta-communication layer, not command authority.
 
-During active execution, `A/EXEC-ODIN` should run an ODIN round-robin health pass on a declared cadence, default 10 minutes unless the user or `EXEC PM` sets another cadence. The executive ODIN starts with its own executive-office health note, sends it to the first team ODIN, and instructs each team ODIN to append its short team composition/status/health note and forward to the next ODIN. The final team ODIN returns the appended packet to `A/EXEC-ODIN`. `A/EXEC-ODIN` compiles the packet, may ask `EXEC DISPATCH` / `SWITCHBOARD` for outstanding communication or waiting-agent notes, then sends a concise status report to `EXEC PM`.
+During active execution, `A/EXEC-ODIN` should run an ODIN round-robin health pass on a declared cadence, default 30 seconds unless the user or `EXEC PM` sets another cadence. The executive ODIN starts with its own executive-office health note, sends it to the first team ODIN, and instructs each team ODIN to append its short team composition/status/health note and forward to the next ODIN. The final team ODIN returns the appended packet to `A/EXEC-ODIN`. `A/EXEC-ODIN` compiles the packet, may ask `EXEC DISPATCH` / `SWITCHBOARD` for outstanding communication or waiting-agent notes, then sends a concise status report to `EXEC PM`.
 
 ODIN mesh reports must stay short by default and include: team, active occupants, provider/model/harness mix, blocked agents, permission waits, plan-mode/quota/provider failures, role breaches, delivery failures, outstanding relays, and recommended intervention. ODINs may request temporary secondment of another control-plane agent through `EXEC PM` when a PM/ODIN lane fails, but they must not directly reassign agents or expand topology without authorization.
 
@@ -660,7 +663,7 @@ If a control-plane pane begins product/source/test implementation, authors worke
 
 Editing canonical skills, adapters, runtime skill copies, sync scripts, lifecycle ledgers, branch state, or policy text is a control-plane governance mutation and requires `[SCP-CONTROL-PLANE-MUTATION]` before or with the mutation. ODIN/control-plane roles must not self-accept governance mutations they authored. Acceptance requires independent QA, user ratification, or explicitly named `EXEC PM` ratification after evidence review. An authorized control-plane mutation may be reported as implemented and validation complete, but remains pending ratification until the named ratifier accepts the evidence.
 
-Canonical SCP audit, research, ODIN, and control-plane outputs must be written under a durable governance path such as `.odin/local/audit/<audit-id>/` or another declared `evidence_path`. `/tmp` may be used for intermediate captures, cache, delivery-proof repair, or mirrors only. Before `[SCP-FINISH]`, any `/tmp` artifact used for a claim must be copied, summarized, hashed, or explicitly declared non-canonical in the durable audit ledger.
+Canonical SCP audit, research, ODIN, and control-plane outputs must be written under a durable governance path such as `.odin/audit/<audit-id>/` or another declared `evidence_path`. `/tmp` may be used for intermediate captures, cache, delivery-proof repair, or mirrors only. Before `[SCP-FINISH]`, any `/tmp` artifact used for a claim must be copied, summarized, hashed, or explicitly declared non-canonical in the durable audit ledger.
 
 `repo_clean` must not be used as shorthand for `governance_clean`. Governance-surface mutations outside the active repository require separate reporting: `external_skill_paths_touched`, `runtime_targets`, `hash_before_after_or_current_hash`, `sync_log_path`, `validation_command`, and `unsynced_or_dirty_runtime_paths`. A clean git worktree proves only the repository checkout state. It does not prove canonical skill, Codex skill, Claude skill, adapter, CMUX runtime, or `/tmp` artifact state.
 
@@ -694,7 +697,7 @@ Continuing past a HALT without remediation is itself a protocol breach. ODIN mus
 
 ### Health Escalation
 
-The ODIN mesh runs round-robin health checks per `odin_mesh.health_round_robin_minutes` (default 10). Per-agent escalation ladder:
+The ODIN mesh runs round-robin health checks per `odin_mesh.health_round_robin_seconds` (default 30). Per-agent escalation ladder:
 
 - **1 missed heartbeat** — warn the affected agent.
 - **2 missed heartbeats** — escalate to `A/EXEC-ODIN` via the mesh aggregator.
@@ -1410,7 +1413,7 @@ git diff --cached --name-status
 
 If upstream is not the declared branch authority, stop before mutation. If `HEAD` and `@{u}` differ for a branch-visible closure claim, stop before mutation.
 
-If excluded or out-of-scope debris appears, especially `project/planning/story-reviews/**`, runtime logs, holdout paths, design artifacts, external memory paths, or non-branchable paths, stop and require `EXEC PM` classification before lifecycle mutation or evidence verdict.
+If excluded or out-of-scope debris appears, especially private story-review planning paths, runtime logs, holdout paths, design artifacts, external memory paths, or non-branchable paths, stop and require `EXEC PM` classification before lifecycle mutation or evidence verdict.
 
 Before any `status: Done`, `PHASE: VERIFIED`, `VERDICT: PASS`, active-to-done move, commit, or push, run the slice/evidence validators required by the dispatch. At minimum for slice/evidence work:
 
@@ -1432,14 +1435,14 @@ If a closure/evidence hook fails after a lifecycle move or verdict attempt, mark
   - Read `00-SCP-protocol.md`, especially sections 0, 6, 7, 8, 10, 18, and 20.
 
 2. Land the package, but do not activate it.
-  - Canonical package path: `project/planning/org/agentic-executive-mgmt/`.
+  - Canonical package path: the operator-declared governance planning package path.
   - Package landing branch: use a deterministic ops branch unless the user supplies another branch.
   - Ledger branch: `ops/ledger` for `ledger.yaml`.
   - If branch topology is ambiguous or conflicts with current repo state, stop and ask the user.
 
 3. Create adoption-gate scaffolding.
-  - `project/planning/org/agentic-executive-mgmt/artifacts/adoption/adoption-gate.md`
-  - `project/planning/org/agentic-executive-mgmt/ledger.yaml`
+  - governance adoption gate artifact
+  - governance ledger artifact
   - `tools/agentic-executive-mgmt/audit/banned-phrases.txt`
   - `tools/agentic-executive-mgmt/qa-review/RUBRIC.md`
   - Other artifact directories required by the SCP package.

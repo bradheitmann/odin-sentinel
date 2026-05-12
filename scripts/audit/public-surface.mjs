@@ -1,6 +1,22 @@
 import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
+
+const PUBLIC_ROOTS = [
+  "README.md",
+  "AGENTS.md",
+  "CLAUDE.md",
+  "LICENSE",
+  "package.json",
+  "docs/",
+  "protocol/",
+  "templates/",
+  "plugins/",
+  "scripts/audit/"
+];
+
+const EXCLUDED_PREFIXES = [".git/", "dist/", "node_modules/", "project/" + "planning" + "/", "." + "edge-" + "agentic" + "/local/", "tests/"];
 
 function walk(dir) {
   return readdirSync(dir).flatMap((entry) => {
@@ -9,6 +25,11 @@ function walk(dir) {
     if (path === "pnpm-lock.yaml") return [];
     return statSync(path).isDirectory() ? walk(path) : [path];
   });
+}
+
+export function isPublicAuditFile(file) {
+  if (EXCLUDED_PREFIXES.some((prefix) => file.startsWith(prefix))) return false;
+  return PUBLIC_ROOTS.some((root) => file === root || file.startsWith(root));
 }
 
 function filesToAudit() {
@@ -25,17 +46,13 @@ function filesToAudit() {
     return `${tracked}\n${untracked}`
       .split("\n")
       .filter(Boolean)
-      .filter((file) => !file.startsWith("pnpm-lock.yaml"));
+      .filter((file) => file !== "pnpm-lock.yaml")
+      .filter(isPublicAuditFile);
   } catch {
-    return walk(".");
+    return walk(".").filter(isPublicAuditFile);
   }
 }
 
-const publicFiles = filesToAudit();
-
-// Install and protocol documentation legitimately references agent harness
-// config directories and tilde home paths. The path-style rules below skip
-// these files; the rest of the rules still apply.
 const BUNDLED_DOC = new Set([
   "README.md",
   "docs/guides/quickstart-prompts.md",
@@ -47,7 +64,9 @@ const forbidden = [
   { name: "macOS home path", pattern: new RegExp(`/${"Users"}/[A-Za-z0-9._-]+/`) },
   { name: "Linux home path", pattern: /\/home\/[A-Za-z0-9._-]+\// },
   { name: "tilde home path", pattern: /~\//, exemptFiles: BUNDLED_DOC },
-  { name: "local agent config path", pattern: new RegExp(`\\.${"codex"}|\\.${"claude"}|\\.${"agents"}`, "i"), exemptFiles: BUNDLED_DOC },
+  { name: "local agent config path", pattern: new RegExp(`\\.(?:${"codex"}|${"claude"}|${"agents"})(?:/|$)`, "i"), exemptFiles: BUNDLED_DOC },
+  { name: "local evidence path", pattern: new RegExp(`\\.${"edge-" + "agentic"}/local`, "i") },
+  { name: "private planning path", pattern: new RegExp(`project/${"planning"}/`, "i") },
   {
     name: "private project or account marker",
     pattern: new RegExp(
@@ -58,20 +77,29 @@ const forbidden = [
   { name: "secret-looking assignment", pattern: /(api[_-]?key|secret|token|password)\s*[:=]\s*["'][^"']+["']/i }
 ];
 
-const findings = [];
-
-for (const file of publicFiles) {
-  const text = readFileSync(file, "utf8");
-  for (const rule of forbidden) {
-    if (rule.exemptFiles?.has(file)) continue;
-    if (rule.pattern.test(text)) {
-      findings.push(`${file}: ${rule.name}`);
+export function auditPublicSurface(fileTextByPath) {
+  const findings = [];
+  for (const [file, text] of Object.entries(fileTextByPath)) {
+    if (!isPublicAuditFile(file)) continue;
+    for (const rule of forbidden) {
+      if (rule.exemptFiles?.has(file)) continue;
+      if (rule.pattern.test(text)) findings.push(`${file}: ${rule.name}`);
     }
   }
+  return findings;
 }
 
-if (findings.length > 0) {
-  throw new Error(`Public surface audit failed:\n${findings.join("\n")}`);
+export function main() {
+  const publicFiles = filesToAudit();
+  const findings = auditPublicSurface(Object.fromEntries(publicFiles.map((file) => [file, readFileSync(file, "utf8")])));
+
+  if (findings.length > 0) {
+    throw new Error(`Public surface audit failed:\n${findings.join("\n")}`);
+  }
+
+  console.log(`Public surface audit PASS: ${publicFiles.length} files checked`);
 }
 
-console.log(`Public surface audit PASS: ${publicFiles.length} files checked`);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}

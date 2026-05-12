@@ -1,35 +1,53 @@
 # Recommended Starter Team
 
-ODIN is opinionated, but not rigid.
-
-The profiles below are a good starting point for a visible multi-agent session.
-They are not bundled dependencies. Install and configure the harnesses you want,
-then point them at ODIN Sentinel through MCP.
+This is a small, visible starter shape for ODIN Sentinel. It is not a dependency
+list and not a guarantee that every named harness is ready on your machine.
 
 ## Executive Office
 
-| Role | Suggested Harness | Suggested Model Class | Why |
-| --- | --- | --- | --- |
-| `A/EXEC-PM` | Codex CLI | GPT-5.5-class frontier reasoning model | Stable coordination, claim-bound reporting, and careful instruction handling. |
-| `A/EXEC-ODIN` | Codex CLI | GPT-5.5-class frontier reasoning model | Sentinel work: staying awake, polling, quality control, and closeout hygiene. |
-| `A/EXEC-ASST` | Claude Code | Claude Haiku-class fast assistant model | Low-latency ledger work, reminders, artifact indexing, and simple checks. |
-| `A/EXEC-RSCH` | Droid | Kimi K2.6-class orchestration model | Research, alternatives, synthesis, and context recovery. |
-| `A/EXEC-QA` | Droid | Kimi K2.6-class review model | Independent process review, evidence checks, and drift detection. |
+| Role | Suggested Harness Type | Responsibility |
+| --- | --- | --- |
+| `A/EXEC-PM` | Strong coordination agent | Routing, activation, assignments, waivers, escalation. |
+| `A/EXEC-ODIN` | Strong monitoring agent | Health, scope, drift, permission waits, closeout hygiene. |
+| `A/EXEC-ASST` | Fast assistant | Ledger notes, reminders, artifact index, delivery checks. |
+| `A/EXEC-RSCH` | Research/synthesis agent | Alternatives, context recovery, risk analysis. |
+| `A/EXEC-QA` | Independent reviewer | Process review and drift detection. |
 
 ## Development Pod
 
-| Role | Suggested Harness | Suggested Model Class | Why |
-| --- | --- | --- | --- |
-| `<TEAM>/TEAM-PM` | Claude Code | Claude Opus/Sonnet-class coding model | Pod orchestration, task decomposition, dispatch, and worker follow-up. |
-| `<TEAM>/ODIN` | Codex CLI | GPT-5.5-class frontier reasoning model | Lightweight pod sentinel duties, blocker detection, and quality reminders. |
-| `<TEAM>/DEV-1` | Droid | Kimi K2.6-class coding model | Bounded implementation work. |
-| `<TEAM>/QA-1` | Crush | GLM-5.1-class independent review model | Independent QA with a different review style from the implementer. |
-| `<TEAM>/SHADOW-1` | Droid | Kimi K2.6-class review model | Second-pass critique, architectural concerns, and risk surfacing. |
+| Role | Suggested Harness Type | Responsibility |
+| --- | --- | --- |
+| `<TEAM>/TEAM-PM` | Coding-capable coordinator | Pod assignments, follow-up, blocker routing. |
+| `<TEAM>/ODIN` | Monitor | Polling, scope reminders, unsafe-lane freezes. |
+| `<TEAM>/DEV-1` | Implementer | Bounded code/docs changes inside assigned write scope. |
+| `<TEAM>/QA-1` | Independent reviewer | Fresh-context QA; no self-fixes during QA. |
+| `<TEAM>/SHADOW-1` | Read-only reviewer | Optional second-pass critique and risk surfacing. |
 
-## Notes
+## Readiness Before Launch
 
-Use faster models for ledger work, routine research, and low-risk monitoring.
-Use stronger models for coordination, implementation, QA, and places where the
-cost of a missed detail is high.
+Each persistent role should have:
 
-The defaults live in `protocol/model-profiles.yaml`. Change them freely.
+- MCP server proof or an accepted fallback path.
+- Native skill context where supported, or full prompt fallback.
+- Auth/account readiness checked without printing secrets.
+- Local inference smoke-tested if used.
+- CMUX locator recorded in the same workspace.
+- Watcher assignment recorded in the team manifest.
+
+Role slots may exist before readiness. Occupants should wait until readiness
+passes or EXEC PM records a waiver/substitution.
+
+## ODIN Roles Are Active Monitors
+
+ODIN roles are not passive receipt emitters. Their default job is to watch for
+stall, scope drift, missed delivery, permission waits, stale versions, and role
+boundary breaches. Default active-watch cadence is 30 seconds. Treat 5 minutes
+without meaningful progress as `WATCH_WARN` and 10 minutes without heartbeat or
+observable progress as `STALLED`, unless the team manifest explicitly declares a
+known long-running command. ODIN roles must re-arm the next watch tick instead
+of returning to passive idle.
+
+Human-facing translation: ODIN pauses are safety rails. They protect the
+operator from silent failures, surprise costs, secret exposure, and agents going
+off task. A warning or halt should explain the blocker in plain language and
+offer the next safe choice; it should not blame the operator.

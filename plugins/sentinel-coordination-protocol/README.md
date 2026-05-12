@@ -5,6 +5,11 @@ and auto-wires the `@bradheitmann/odin-sentinel` MCP server.
 
 ## Install
 
+Before running these commands, make sure `claude` works in your terminal. If the
+command is missing, install or open Claude Code first. If Claude asks you to
+sign in, use its normal sign-in flow. Do not paste API keys, OAuth tokens, or
+passwords into plugin commands or chat.
+
 ```bash
 # Add this repo as a marketplace
 claude plugin marketplace add bradheitmann/odin-sentinel
@@ -18,10 +23,14 @@ Restart Claude Code. The plugin will:
 - Install the `sentinel-coordination-protocol` skill (so `/sentinel-coordination-protocol` is available as a slash command).
 - Register the `odin-sentinel` MCP server, spawned via `npx -y -p @bradheitmann/odin-sentinel odin-sentinel-mcp`.
 
+If install fails, treat it as setup state, not user failure. Check whether
+Claude Code is installed, signed in, and allowed to use plugins; otherwise use
+the direct npm install path below.
+
 ## What you get
 
 - **Skill content**: the full SCP governance contract (boot receipts, role topology, delegation, CMUX delivery proof, heartbeat cadence, adversarial QA, finish audit).
-- **MCP tools**: 17 `odin.*` tools including `compute_surface_layout`, `get_role_profile`, `validate_boot_receipt`, `compile_session_report`, and `get_bootstrap_skill`.
+- **MCP tools**: 23 `odin.*` tools including `compute_surface_layout`, `get_role_profile`, `validate_boot_receipt`, `compile_session_report`, and `get_bootstrap_skill`.
 - **MCP resources**: 9 protocol documents addressable via `odin://protocol/*` URIs.
 
 ## Use without Claude Code

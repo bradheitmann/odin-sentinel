@@ -28,7 +28,10 @@
     "dist",
     "docs",
     "protocol",
+    "templates",
     "scripts",
+    "AGENTS.md",
+    "CLAUDE.md",
     "README.md",
     "LICENSE"
   ],
@@ -54,9 +57,9 @@
   "author": "ODIN Sentinel contributors",
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "yaml": "^2.8.2",
-    "zod": "^4.1.12"
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "yaml": "2.8.4",
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
@@ -67,5 +70,17 @@
   },
   "engines": {
     "node": ">=22.13.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bradheitmann/odin-sentinel.git"
+  },
+  "homepage": "https://github.com/bradheitmann/odin-sentinel#readme",
+  "bugs": {
+    "url": "https://github.com/bradheitmann/odin-sentinel/issues"
+  },
+  "odin": {
+    "publicVersion": "0.4.5",
+    "minimumCompatibleChildMcpVersion": "0.4.5"
   }
 }

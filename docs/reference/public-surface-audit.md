@@ -2,132 +2,53 @@
 
 This document records the current public-release audit scope for ODIN Sentinel.
 
-## Current Tree Result
-
-Current tracked source, docs, protocol files, tests, and package metadata pass
-the public-surface audit:
+## Audit Commands
 
 ```bash
 pnpm run audit:public
+pnpm run test:package
+pnpm run validate
 ```
 
-The audit checks for:
+The audits check public distribution files for local home paths, private project
+markers, local evidence paths, stale public versions, missing package metadata,
+telemetry wording drift, and package contents that should not ship.
 
-- local home-directory paths
-- local agent configuration paths
-- legacy extension terminology from adjacent agent systems
-- secret-looking assignments
+## Public Distribution Files
+
+The intended public package includes:
+
+- `dist/`
+- `docs/`
+- `protocol/`
+- `templates/`
+- `scripts/audit/`
+- `AGENTS.md`
+- `CLAUDE.md`
+- `README.md`
+- `LICENSE`
+- `package.json`
+
+Private planning workspaces and local evidence directories are optional local
+operator spaces. They are not public product internals and must not be packaged.
 
 ## Named External Concepts
 
-ODIN Sentinel intentionally names these external concepts:
+ODIN Sentinel intentionally names MCP, stdio, Node.js, TypeScript, pnpm, npm,
+npx, CMUX, Codex, Claude Code, Droid, Crush, Goose, Zed, OpenCode, Cursor,
+Rust, Go, Zig, and WebAssembly as examples, runtimes, package managers,
+languages, or harnesses.
 
-- MCP / Model Context Protocol
-- stdio
-- Node.js
-- TypeScript / JavaScript
-- pnpm / npm / npx
-- Codex CLI
-- Claude Code
-- Droid
-- Crush
-- Goose
-- Zed
-- OpenCode
-- Cursor
-- Rust
-- Go
-- Zig
-- WebAssembly / WASM
-- Homebrew
+## Current Public Surface
 
-These are examples, runtimes, package managers, languages, or harnesses. They
-are not bundled dependencies unless listed in `package.json`.
+- Public package/server version: `0.4.5`
+- Minimum compatible child MCP version: `0.4.5`
+- MCP resources: 9
+- MCP tools: 23
+- Optional telemetry tools: user-invoked, not automatic collection
 
-## Named ODIN Concepts
+## Release Drift Rule
 
-- ODIN Sentinel
-- ODIN
-- SCP / Sentinel Coordination Protocol
-- CMUX-compatible terminal-pane teams
-- EXEC PM
-- EXEC ODIN
-- EXEC ASST
-- EXEC RSCH
-- EXEC QA
-- TEAM PM
-- TEAM ODIN
-- DEV WORKER
-- QA WORKER
-- SHADOW REVIEWER
-
-## Local Paths
-
-ODIN Sentinel intentionally mentions these project-local paths:
-
-- `docs/handoffs/`
-- `.odin/handoffs/`
-- `.odin/audit/`
-
-These are caller-created paths for projects that use ODIN. They are not bundled
-private state.
-
-Docs also use placeholder install paths such as:
-
-- `/absolute/path/to/odin-sentinel/dist/src/bin/index.js`
-- `/path/to/odin-sentinel/dist/src/bin/index.js`
-
-These are examples, not real local paths.
-
-## Scripts Mentioned
-
-Repo scripts in `package.json`:
-
-- `pnpm run clean`
-- `pnpm run build`
-- `pnpm run dev`
-- `pnpm run audit:public`
-- `pnpm run test:package`
-- `pnpm test`
-- `pnpm run typecheck`
-- `pnpm run validate`
-
-Referenced local script files:
-
-- `scripts/audit/public-surface.mjs`
-- `scripts/audit/verify-pack.mjs`
-
-No missing repo-local scripts are known.
-
-External commands mentioned in docs:
-
-- `node`
-- `pnpm`
-- `npm`
-- `npx`
-- `codex mcp add`
-- `droid mcp add`
-
-These are external user-installed tools, not files this repository must provide.
-
-## Snapshot Tools
-
-Current MCP snapshot tool:
-
-- `odin.export_protocol_snapshot`
-
-No external local extension is required for ODIN Sentinel to work.
-
-## Git History Warning
-
-The current tree is sanitized, but this private development repository has older
-commits that contain removed terminology and experimental paths.
-
-Do not make this private development history public as-is. For an open-source
-release, publish from a fresh repository, a squashed root commit, or a sanitized
-history rewrite after re-running:
-
-```bash
-pnpm run validate
-pnpm run audit:public
-```
+Public repo/package/plugin/skill artifacts must be updated together when public
+protocol semantics change. Private local skill copies may differ, but release
+checks must not depend on private local paths.

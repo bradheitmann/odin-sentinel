@@ -75,4 +75,21 @@ describe("file protocol repository", () => {
 
     expect(repository.path("roles.yaml")).toBe(join(realpathSync(root), "protocol", "roles.yaml"));
   });
+
+  it("loads the canonical CMUX surface layout under default_topology.surface_layout", () => {
+    const root = makeProtocolRoot();
+    const repository = createFileProtocolRepository(root);
+
+    expect(repository.load().topology).toMatchObject({
+      default_topology: {
+        surface_layout: {
+          canonical_profile: "human_cmux_quad",
+          human_cmux_quad: {
+            no_cmux_governed_status: "NOT_GOVERNED_NO_CMUX",
+            reject_tab_only_unless_degraded_mode_approved: true
+          }
+        }
+      }
+    });
+  });
 });

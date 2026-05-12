@@ -1,4 +1,4 @@
-version: 0.3.0
+version: 0.4.5
 default_topology:
   executive_office:
     team: A
@@ -18,39 +18,81 @@ default_topology:
   fresh_repo_default_pods: 1
   odin_mesh:
     bootstrap_identity_exchange: true
-    health_round_robin_minutes: 10
+    health_round_robin_seconds: 30
     aggregator: A/EXEC-ODIN
-surface_layout:
-  description: >-
-    Canonical CMUX surface layout rule for EXEC PM. Teams arrive as letters
-    (Team A is executive; Team B onward are development pods). Columns are
-    equal width. Surfaces stack vertically inside a column with at most two
-    surfaces per column. Team A always occupies column 0. When the team count
-    is odd and at least 3, column 0 holds only Team A (the "tall column").
-  rules:
-    max_surfaces_per_column: 2
-    column_widths: equal
-    exec_team_column: 0
-    tall_column_when_odd_team: A
-  custodianship:
-    sole_custodian: A/EXEC-PM
-    includes:
-      - cmux new-split
-      - cmux new-surface
-      - cmux move-surface
-      - cmux close-surface
-  pre_staffing_gate: >-
-    Before adding any agent beyond A/EXEC, EXEC PM must (1) call
-    odin.compute_surface_layout for teamCount=N+1, (2) execute the splits
-    required to reach that layout via cmux, (3) confirm each new surface
-    is empty and addressable via cmux list-pane-surfaces, and only then
-    (4) dispatch the spawn to the newly created surface.
-  reference_layouts:
-    teams_1: "[A]"
-    teams_2: "[A] [B]"
-    teams_3: "[A] [B/C]"
-    teams_4: "[A/D] [B/C]"
-    teams_5: "[A] [B/C] [D/E]"
-    teams_6: "[A/F] [B/C] [D/E]"
-    teams_7: "[A] [B/C] [D/E] [F/G]"
-    teams_8: "[A/H] [B/C] [D/E] [F/G]"
+  launch_phases:
+    - SURFACE_PROVISIONED
+    - OCCUPANT_READINESS
+    - OCCUPANT_LAUNCH
+    - BOOT_RECEIPT_VALIDATION
+    - TEAM_ACTIVATION
+    - ACTIVE_WATCH
+  readiness_gate:
+    minimum_mcp_version: 0.4.5
+    cmux_required_for_governed_team: true
+    occupant_launch_allowed_when:
+      - PASS
+      - WAIVED_BY_EXEC_PM
+      - SUBSTITUTION_APPROVED_BY_EXEC_PM
+    team_activation_allowed_states:
+      - BOOTSTRAPPED_IDLE
+      - ACTIVE_WATCH
+      - VACANT_ROLE_SLOT
+      - AGENT_SUBSTITUTION_REQUIRED
+    safe_auth_failure_outcomes:
+      - choose a different harness
+      - receive setup guidance without pasting secrets
+      - mark slot VACANT_ROLE_SLOT
+      - request EXEC PM-approved substitution
+  surface_layout:
+    description: >-
+      Canonical CMUX surface layout rule for EXEC PM. Governed team bootstrap
+      uses human_cmux_quad by default: one CMUX workspace with four panes/regions
+      (executive office, Team B pod, Team C pod, blockers/status/intake).
+      Legacy columns remain available for compatibility but tab-only layout is
+      degraded unless explicitly approved.
+    canonical_profile: human_cmux_quad
+    human_cmux_quad:
+      workspace_policy: A/EXEC-PM remains in the same CMUX workspace as all governed teams
+      quadrants:
+        A: executive office
+        B: Team B pod
+        C: Team C pod
+        D: blockers/status/intake or overflow
+      empty_role_slots_before_launch: true
+      reject_tab_only_unless_degraded_mode_approved: true
+      reject_split_workspace_without_routing_proof: true
+      no_cmux_governed_status: NOT_GOVERNED_NO_CMUX
+    legacy_columns:
+      description: >-
+        Teams arrive as letters (Team A is executive; Team B onward are
+        development pods). Columns are equal width. Surfaces stack vertically
+        inside a column with at most two surfaces per column. Team A always
+        occupies column 0.
+    rules:
+      max_surfaces_per_column: 2
+      column_widths: equal
+      exec_team_column: 0
+      tall_column_when_odd_team: A
+    custodianship:
+      sole_custodian: A/EXEC-PM
+      includes:
+        - cmux new-split
+        - cmux new-surface
+        - cmux move-surface
+        - cmux close-surface
+    pre_staffing_gate: >-
+      Before adding any agent beyond A/EXEC, EXEC PM must (1) call
+      odin.compute_surface_layout for teamCount=N+1, (2) execute the splits
+      required to reach that layout via cmux, (3) confirm each new surface
+      is empty and addressable via cmux list-pane-surfaces, and only then
+      (4) dispatch the spawn to the newly created surface.
+    reference_layouts:
+      teams_1: "[A]"
+      teams_2: "[A] [B]"
+      teams_3: "[A] [B/C]"
+      teams_4: "[A/D] [B/C]"
+      teams_5: "[A] [B/C] [D/E]"
+      teams_6: "[A/F] [B/C] [D/E]"
+      teams_7: "[A] [B/C] [D/E] [F/G]"
+      teams_8: "[A/H] [B/C] [D/E] [F/G]"

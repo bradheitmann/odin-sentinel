@@ -1,4 +1,10 @@
-version: 0.2.1
+version: 0.4.5
+active_watch_terminal_states:
+  - RELEASED_BY_OPERATOR
+  - HANDED_OFF
+  - PARKED_IDLE
+  - FAILED
+  - WATCH_UNSUPPORTED
 modes:
   PARK_FOR_CONTINUITY:
     description: Keep role slots open, park occupants, save handoffs, and preserve continuity.

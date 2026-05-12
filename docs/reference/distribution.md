@@ -1,27 +1,27 @@
 # Distribution
 
-ODIN Sentinel is a local stdio MCP server. The simplest public distribution is
-an npm package that ships prebuilt JavaScript and protocol files.
+ODIN Sentinel public artifacts are the GitHub repository, npm package, optional
+host plugin, public bootstrap skill/resource, public templates, and docs. When
+public protocol semantics change, update them together.
 
-## Recommended Install Path
+## Current Public Versions
+
+- npm package/server: `0.4.5`
+- minimum compatible child MCP version: `0.4.5`
+
+Private local skill copies may differ for personal workflow reasons. Release
+checks must not rely on private local paths and must distinguish intentional
+private-local divergence from repo-internal public artifact drift.
+
+## Install Paths
+
+Global install:
 
 ```bash
 npm i -g @bradheitmann/odin-sentinel
 ```
 
-MCP client configuration can then use the installed binary directly:
-
-```json
-{
-  "mcpServers": {
-    "odin-sentinel": {
-      "command": "odin-sentinel-mcp"
-    }
-  }
-}
-```
-
-For zero-install via `npx`:
+Zero-install MCP config:
 
 ```json
 {
@@ -34,9 +34,7 @@ For zero-install via `npx`:
 }
 ```
 
-## Local Clone Path
-
-For source builds:
+Source build:
 
 ```bash
 pnpm install
@@ -44,39 +42,26 @@ pnpm run build
 node dist/src/bin/index.js
 ```
 
-Then point the client at the built file:
+## Release Checklist
 
-```json
-{
-  "mcpServers": {
-    "odin-sentinel": {
-      "command": "node",
-      "args": ["/absolute/path/to/odin-sentinel/dist/src/bin/index.js"]
-    }
-  }
-}
-```
+Before publishing or updating a plugin/skill listing:
 
-## Advanced Root Override
+1. Update GitHub source, docs, protocol resources, public templates, and package
+   metadata together.
+2. Confirm npm package metadata includes repository, homepage, bugs, license,
+   engines, and files.
+3. Confirm package contents exclude private planning workspaces and local evidence paths.
+4. Confirm `protocol/SCP.md` and `protocol/bootstrap-skill.md` carry the same
+   public version and minimum compatible child MCP version.
+5. Confirm public docs do not contain stale MCP/server version references.
+6. Confirm telemetry wording explains that session-report submission is optional
+   and user-invoked.
+7. Run offline release validation: `pnpm run validate`.
+8. Run pack dry-run: `pnpm pack --dry-run`.
+9. Tag the release only after GitHub, npm, plugin, public skill/bootstrap, docs,
+   and version tags agree.
 
-The server normally finds its bundled `protocol/` directory automatically.
+## Public Templates
 
-Advanced deployments can set `ODIN_SENTINEL_ROOT` to point at another checked-out
-ODIN Sentinel root that contains the full `protocol/` tree. Most users do not
-need this.
-
-## Binary Strategy
-
-A native binary is possible, but it should not be the first distribution path.
-The server is small, stdio-only, and already fits the package manager workflow
-most MCP clients expect.
-
-Good future binary routes:
-
-- Rust or Go implementation over the same `protocol/` files.
-- Generated single-file protocol bundle for embedded clients.
-- Homebrew formula once the public package name and release cadence are stable.
-
-Avoid a bundled Node executable unless users ask for it. Those bundles tend to
-make asset paths, source maps, and platform support more awkward than the code
-deserves.
+The npm package intentionally ships `templates/` plus `AGENTS.md` and
+`CLAUDE.md`. They are starter templates, not private planning artifacts.

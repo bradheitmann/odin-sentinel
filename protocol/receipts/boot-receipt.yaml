@@ -13,6 +13,42 @@ required_fields:
   - write_scope
   - evidence_path
   - current_task
+receipt_types:
+  - SCP_BOOT_RECEIPT
+  - SCP_MIN_BOOT_RECEIPT
+minimum_compatible_mcp_version: 0.4.5
+field_types:
+  role: string
+  authority_layer: string
+  team: string
+  terminal_locator: string
+  branch: string
+  cwd: string
+  model_harness: string
+  permission_mode: string
+  may_implement: boolean
+  may_qa_accept: boolean
+  reports_to: string
+  write_scope: string_array
+  evidence_path: string
+  current_task: string
+write_scope_policy:
+  empty_array_valid_for:
+    - no current write assignment
+    - may_implement false roles
+    - DEV roles in BOOTSTRAPPED_IDLE before assignment
+  null_policy: invalid; use [] for unassigned scope
+allowed_lifecycle_states:
+  - SURFACE_PROVISIONED
+  - BOOTSTRAPPED_IDLE
+  - ACTIVE_WATCH
+  - VACANT_ROLE_SLOT
+  - AGENT_SUBSTITUTION_REQUIRED
+  - RELEASED_BY_OPERATOR
+  - HANDED_OFF
+  - PARKED_IDLE
+  - FAILED
+  - WATCH_UNSUPPORTED
 recommended_fields:
   - upstream
   - head_sha
@@ -25,6 +61,12 @@ recommended_fields:
   - parent_surface_ref
   - column_index
   - team_letter
+  - lifecycle_state
+  - mcp_version
+  - scp_context_source
+receipt_type_policy:
+  SCP_BOOT_RECEIPT: full governed occupant receipt after role/context/readiness are known
+  SCP_MIN_BOOT_RECEIPT: minimal bootstrap-only receipt for orientation or pre-dispatch identity proof
 staffing_audit:
   description: >-
     For any role outside the executive office (team != "A"), the boot receipt

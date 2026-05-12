@@ -1,10 +1,13 @@
-version: 0.3.0
+version: 0.4.5
 roles:
   EXEC_PM:
     title: EXEC PM
     layer: executive
     may_implement_default: false
     may_qa_accept_default: false
+    must_actively_watch: false
+    may_intervene: false
+    authority_layer: executive
     purpose: Intent, priority, authorization, escalation, and claim framing.
     authority:
       sole_staffing_authority:
@@ -38,6 +41,28 @@ roles:
     layer: meta_control
     may_implement_default: false
     may_qa_accept_default: false
+    must_actively_watch: true
+    may_intervene: true
+    authority_layer: meta_control
+    normal_successor_state_after_receipt: ACTIVE_WATCH
+    watch_contract:
+      default_poll_interval_seconds: 30
+      watch_warn_after_seconds: 300
+      stalled_after_seconds: 600
+      watches:
+        - executive_office_health
+        - team_odin_health
+        - cross_team_drift
+        - stale_proof
+        - blocked_panes
+        - context_exhaustion
+        - missing_receipts
+      may_inject_corrective_prompts: true
+      forbidden:
+        - implement product work
+        - QA-accept work
+        - route business priorities
+        - override EXEC PM launch/activation authority
     purpose: Governance health, polling, delivery proof, role boundaries, and closeout hygiene.
     authority:
       intervention_authority:
@@ -80,24 +105,36 @@ roles:
     layer: executive_support
     may_implement_default: false
     may_qa_accept_default: false
+    must_actively_watch: false
+    may_intervene: false
+    authority_layer: executive_support
     purpose: Ledger, reminders, pane inventory, artifact index, and delivery checks.
   EXEC_RSCH:
     title: EXEC RSCH
     layer: research
     may_implement_default: false
     may_qa_accept_default: false
+    must_actively_watch: false
+    may_intervene: false
+    authority_layer: research
     purpose: Read-only strategy, alternatives, context recovery, and risk analysis.
   EXEC_QA:
     title: EXEC QA
     layer: quality
     may_implement_default: false
     may_qa_accept_default: true
+    must_actively_watch: false
+    may_intervene: false
+    authority_layer: quality
     purpose: Independent adversarial audit of process, evidence, closure language, and drift.
   TEAM_PM:
     title: TEAM PM
     layer: pod_control
     may_implement_default: false
     may_qa_accept_default: false
+    must_actively_watch: false
+    may_intervene: false
+    authority_layer: pod_control
     purpose: Pod task routing, worker activation, and reporting.
     forbidden_actions:
       - spawn agents on own pod or any other pod
@@ -118,6 +155,28 @@ roles:
     layer: meta_control
     may_implement_default: false
     may_qa_accept_default: false
+    must_actively_watch: true
+    may_intervene: true
+    authority_layer: meta_control
+    normal_successor_state_after_receipt: ACTIVE_WATCH
+    watch_contract:
+      default_poll_interval_seconds: 30
+      watch_warn_after_seconds: 300
+      stalled_after_seconds: 600
+      watches:
+        - own_team_pm
+        - own_dev_slots
+        - own_qa_slots
+        - own_shadow_slots
+      reports_to:
+        - own TEAM PM
+        - A/EXEC-ODIN
+      may_inject_corrective_prompts: true
+      forbidden:
+        - implement product work
+        - QA-accept work
+        - route business priorities
+        - override EXEC PM launch/activation authority
     purpose: Pod health monitoring, polling, blockers, freezes, and lateral ODIN mesh awareness.
     authority:
       intervention_authority:
@@ -152,16 +211,25 @@ roles:
     layer: implementation
     may_implement_default: true
     may_qa_accept_default: false
+    must_actively_watch: false
+    may_intervene: false
+    authority_layer: implementation
     purpose: Bounded implementation inside exact write scope with evidence.
   QA_WORKER:
     title: QA WORKER
     layer: quality
     may_implement_default: false
     may_qa_accept_default: true
+    must_actively_watch: false
+    may_intervene: false
+    authority_layer: quality
     purpose: Independent verification of worker evidence and acceptance criteria.
   SHADOW_REVIEWER:
     title: SHADOW REVIEWER
     layer: review
     may_implement_default: false
     may_qa_accept_default: false
+    must_actively_watch: false
+    may_intervene: false
+    authority_layer: review
     purpose: Independent critique, risk surfacing, and second-pass review.

@@ -1,0 +1,163 @@
+session_id: "<session-id>"
+topology:
+  mode: "governed-team"
+  cmux_required: true
+  cmux_workspace: "<workspace-ref>"
+  layout: "human-readable spatial/pod organization"
+executive_office:
+  - "A/EXEC-PM"
+  - "A/EXEC-ODIN"
+  - "A/EXEC-ASST"
+development_pods:
+  - "B"
+odin_mesh:
+  cadence_seconds: 30
+  executive_odin: "A/EXEC-ODIN"
+  team_odins:
+    - "B/ODIN"
+model_profile:
+  minimum_compatible_child_mcp_version: "0.4.5"
+  inference_provider_inventory: []
+handoff_sources:
+  - "<handoff path or none>"
+startup_objectives:
+  - "<plain-language objective>"
+role_slots:
+  - role_slot: "A/EXEC-PM"
+    harness: "<harness>"
+    readiness_status: "PASS"
+    layout_locator:
+      workspace: "<workspace-ref>"
+      pane: "<pane-ref>"
+      surface: "<surface-ref>"
+    scp_context_source: "native sentinel-coordination-protocol skill"
+    mcp_available: true
+    mcp_version: "0.4.5"
+    scp_skill_available: true
+    full_protocol_text_injected: false
+    watcher: "A/EXEC-ODIN"
+  - role_slot: "A/EXEC-ODIN"
+    harness: "<harness>"
+    readiness_status: "PASS"
+    layout_locator:
+      workspace: "<workspace-ref>"
+      pane: "<pane-ref>"
+      surface: "<surface-ref>"
+    scp_context_source: "native sentinel-coordination-protocol skill"
+    mcp_available: true
+    mcp_version: "0.4.5"
+    scp_skill_available: true
+    full_protocol_text_injected: false
+    watches:
+      - "A/EXEC-PM"
+      - "B/ODIN"
+  - role_slot: "B/ODIN"
+    harness: "<harness>"
+    readiness_status: "PASS"
+    layout_locator:
+      workspace: "<workspace-ref>"
+      pane: "<pane-ref>"
+      surface: "<surface-ref>"
+    scp_context_source: "native sentinel-coordination-protocol skill"
+    mcp_available: true
+    mcp_version: "0.4.5"
+    scp_skill_available: true
+    full_protocol_text_injected: false
+    watches:
+      - "B/TEAM-PM"
+      - "B/DEV-1"
+  - role_slot: "B/DEV-1"
+    harness: "<harness>"
+    readiness_status: "PASS"
+    layout_locator:
+      workspace: "<workspace-ref>"
+      pane: "<pane-ref>"
+      surface: "<surface-ref>"
+    scp_context_source: "native sentinel-coordination-protocol skill"
+    mcp_available: true
+    mcp_version: "0.4.5"
+    scp_skill_available: true
+    full_protocol_text_injected: false
+    watcher: "B/ODIN"
+fallback_policy:
+  non_governed_one_shot_only: "Allowed only for bounded, non-persistent help when MCP/skill/protocol proof is absent. Not suitable for a persistent governed role."
+operator_friendly_status:
+  summary: "<what is happening in one sentence>"
+  current_blocker: "<sign-in | permission prompt | API/account setup | local model smoke test | none>"
+  safe_next_choice: "<approve | sign in | choose fallback harness | keep slot vacant | ask for help>"
+user_defined_criteria:
+  - "<project-specific criterion>"
+
+# Minimal filled example
+#
+# session_id: "example-session"
+# topology:
+#   mode: "governed-team"
+#   cmux_required: true
+#   cmux_workspace: "workspace:1"
+#   layout: "A executive office plus B development pod"
+# executive_office:
+#   - "A/EXEC-PM"
+#   - "A/EXEC-ODIN"
+# development_pods:
+#   - "B"
+# odin_mesh:
+#   cadence_seconds: 30
+#   executive_odin: "A/EXEC-ODIN"
+#   team_odins:
+#     - "B/ODIN"
+# model_profile:
+#   minimum_compatible_child_mcp_version: "0.4.5"
+#   inference_provider_inventory: []
+# handoff_sources:
+#   - "none"
+# startup_objectives:
+#   - "Clarify install documentation for first-time users"
+# role_slots:
+#   - role_slot: "A/EXEC-PM"
+#     harness: "Codex"
+#     readiness_status: "PASS"
+#     layout_locator:
+#       workspace: "workspace:1"
+#       pane: "pane:1"
+#       surface: "surface:1"
+#     scp_context_source: "native sentinel-coordination-protocol skill"
+#     mcp_available: true
+#     mcp_version: "0.4.5"
+#     scp_skill_available: true
+#     full_protocol_text_injected: false
+#     watcher: "A/EXEC-ODIN"
+#   - role_slot: "B/ODIN"
+#     harness: "Codex"
+#     readiness_status: "PASS"
+#     layout_locator:
+#       workspace: "workspace:1"
+#       pane: "pane:2"
+#       surface: "surface:2"
+#     scp_context_source: "native sentinel-coordination-protocol skill"
+#     mcp_available: true
+#     mcp_version: "0.4.5"
+#     scp_skill_available: true
+#     full_protocol_text_injected: false
+#     watches:
+#       - "B/TEAM-PM"
+#       - "B/DEV-1"
+#   - role_slot: "B/DEV-1"
+#     harness: "Codex"
+#     readiness_status: "PASS"
+#     layout_locator:
+#       workspace: "workspace:1"
+#       pane: "pane:2"
+#       surface: "surface:3"
+#     scp_context_source: "odin-sentinel MCP at or above minimum version"
+#     mcp_available: true
+#     mcp_version: "0.4.5"
+#     scp_skill_available: false
+#     full_protocol_text_injected: false
+#     watcher: "B/ODIN"
+# operator_friendly_status:
+#   summary: "Docs update is ready to dispatch."
+#   current_blocker: "none"
+#   safe_next_choice: "launch B/DEV-1"
+# user_defined_criteria:
+#   - "Do not ask the operator to paste API keys."

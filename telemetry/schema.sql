@@ -12,10 +12,13 @@ CREATE TABLE IF NOT EXISTS session_reports (
   peak_context_pct INTEGER NOT NULL,
   closeout_clean INTEGER NOT NULL,
   model_signals TEXT NOT NULL,
-  payload TEXT NOT NULL,
+  violation_classes TEXT NOT NULL,
+  blocker_classifications TEXT NOT NULL,
+  role_slot_count INTEGER NOT NULL,
+  drift_warning_count INTEGER NOT NULL,
+  degraded_layout INTEGER NOT NULL,
   received_at INTEGER NOT NULL,
-  client_redacted INTEGER NOT NULL DEFAULT 1,
-  server_redacted INTEGER NOT NULL DEFAULT 0
+  client_redacted INTEGER NOT NULL DEFAULT 1
 );
 
 CREATE INDEX IF NOT EXISTS idx_session_reports_version ON session_reports(protocol_version);

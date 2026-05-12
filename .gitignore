@@ -5,6 +5,7 @@ dist/
 .env.*
 !.env.example
 .gemini/
+.claude/
 .odin/
 coverage/
 .vitest/
@@ -13,3 +14,8 @@ npm-debug.log*
 telemetry/node_modules/
 telemetry/.wrangler/
 telemetry/dist/
+
+# Internal planning artifacts (local-only; do not publish proprietary process notes)
+project/planning/
+.edge-agentic/local/
+.tmp/

@@ -1,6 +1,9 @@
 # ODIN Sentinel Coordination Protocol
 
-Version: 0.3.0
+Version: 0.4.5
+
+SCP_PUBLIC_VERSION: 0.4.5
+MIN_COMPATIBLE_CHILD_MCP: 0.4.5
 
 ODIN Sentinel is a portable coordination layer for visible multi-agent teams.
 SCP means Sentinel Coordination Protocol in this repository. It is not Secure
@@ -9,6 +12,10 @@ It provides generic role contracts, startup packets, receipt validation, team
 manifest validation, native visible-role delegation packets, closeout
 checklists, surface layout rules, and fallback protocol snapshots through an
 MCP server.
+
+## Public Release And Readiness
+
+Public repo, npm package, plugin, bootstrap skill, templates, and docs must be updated together when public protocol semantics change. Private local skill copies may differ intentionally, but release checks must not depend on private local paths. Governed team mode requires CMUX; without CMUX, ODIN may still expose MCP resources and validation tools, but the visible team-management experience is not active governed mode. MCP supplies tools/resources; native skills improve automatic invocation; plugin install paths may package both; full prompt injection is fallback only.
 
 ## Principles
 

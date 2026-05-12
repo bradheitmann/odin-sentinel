@@ -1,7 +1,61 @@
-version: 0.2.1
+version: 0.4.5
 policy:
   semantics: Recommended starter profiles, not bundled dependencies or availability guarantees.
   runtime_requirement: Users must install and configure their own harnesses. Launchers must verify local harness/model availability before dispatch and apply fallbacks when unavailable.
+  governed_launch_probe_required: true
+  visible_output_timeout_seconds_default: 60
+  provisioning_prompt: Are all intended harnesses provisioned with accounts, plans, API keys, or local inference credentials so they will not malfunction when spun up?
+  zero_secret_output: true
+  secret_provider_status_only:
+    - Doppler
+    - 1Password CLI (op)
+    - environment variable names
+    - direnv
+    - mise
+    - dotenv-style file presence
+    - GitHub auth
+    - local provider config files
+  model_responsiveness_statuses:
+    - MODEL_READY
+    - MODEL_SLOW
+    - MODEL_STALLED
+    - MODEL_REASONING_ONLY
+    - STREAMING_PROTOCOL_MISMATCH
+    - MODEL_UNREACHABLE
+harness_capabilities:
+  Codex:
+    can_hydrate_deferred_mcp_tools_at_boot: true
+    native_skill_invocation: true
+    scp_skill_recommended: true
+  Claude Code:
+    can_hydrate_deferred_mcp_tools_at_boot: true
+    native_skill_invocation: true
+    scp_skill_recommended: true
+  Droid:
+    can_hydrate_deferred_mcp_tools_at_boot: true
+    native_skill_invocation: false
+    scp_skill_recommended: false
+  Goose:
+    local_inference_smoke_test_required: true
+    visible_content_required_within_seconds: 60
+    reasoning_content_only_class: MODEL_REASONING_ONLY
+    streaming_mismatch_class: STREAMING_PROTOCOL_MISMATCH
+  Crush:
+    permission_prompt_class: BLOCKED_BY_PERMISSION
+  OpenHands:
+    missing_inference_credentials_class: BLOCKED_BY_API_KEY
+    provider_config_blocker_class: AUTH_PROVIDER_BLOCKED
+  KiloCode:
+    login_commands:
+      - kilo auth login
+      - /connect
+    login_blocker_class: BLOCKED_BY_LOGIN
+  Pi:
+    role_compatibility_failure_class: ROLE_COMPATIBILITY_FAILED
+  Aider:
+    auth_probe_required: true
+  NanoCoder:
+    auth_probe_required: true
 profiles:
   A/EXEC-PM:
     model: GPT-5.5-class frontier reasoning model

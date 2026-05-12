@@ -6,8 +6,6 @@
 
 export interface Env {
   DB: D1Database;
-  GLM_API_KEY?: string;
-  GLM_API_URL?: string;
   ALLOWED_ORIGINS?: string;
   PROTOCOL_VERSION_ALLOWLIST?: string;
 }
@@ -15,17 +13,35 @@ export interface Env {
 type SessionReport = {
   version?: unknown;
   teamCount?: unknown;
-  violations?: unknown;
-  halts?: unknown;
   layoutDriftEvents?: unknown;
   peakContextPct?: unknown;
   closeoutClean?: unknown;
   modelSignals?: unknown;
+  violationClasses?: unknown;
+  blockerClassifications?: unknown;
+  roleSlotCount?: unknown;
+  driftWarningCount?: unknown;
+  degradedLayout?: unknown;
   violationCount?: unknown;
   haltCount?: unknown;
 };
 
 const MAX_BODY_BYTES = 64 * 1024;
+const ALLOWED_REPORT_KEYS = new Set([
+  "version",
+  "teamCount",
+  "violationCount",
+  "haltCount",
+  "layoutDriftEvents",
+  "peakContextPct",
+  "closeoutClean",
+  "modelSignals",
+  "violationClasses",
+  "blockerClassifications",
+  "roleSlotCount",
+  "driftWarningCount",
+  "degradedLayout"
+]);
 
 function json(status: number, body: Record<string, unknown>, origin: string | null): Response {
   const headers: Record<string, string> = { "content-type": "application/json" };
@@ -61,44 +77,29 @@ function toFiniteString(value: unknown, maxLen = 64): string {
   return trimmed.length > maxLen ? trimmed.slice(0, maxLen) : trimmed;
 }
 
-function lengthOfArray(value: unknown): number {
-  return Array.isArray(value) ? value.length : 0;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-async function redactWithGLM(payload: Record<string, unknown>, env: Env): Promise<Record<string, unknown>> {
-  if (!env.GLM_API_KEY || !env.GLM_API_URL) return payload;
-  try {
-    const response = await fetch(env.GLM_API_URL, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${env.GLM_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: "glm-4-flash",
-        response_format: { type: "json_object" },
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a privacy redactor. Return ONLY a JSON object with the same shape as the input, but with any string values that look like file paths, identities, emails, repository names, code snippets, or transcripts replaced with the literal string \"<REDACTED>\". Preserve numbers, booleans, arrays, and structural keys exactly. Do not add fields."
-          },
-          { role: "user", content: JSON.stringify(payload) }
-        ]
-      })
-    });
-    if (!response.ok) return payload;
-    const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
-    const raw = data.choices?.[0]?.message?.content;
-    if (typeof raw !== "string") return payload;
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return parsed as Record<string, unknown>;
-    }
-    return payload;
-  } catch {
-    return payload;
-  }
+function unknownReportKeys(report: Record<string, unknown>): string[] {
+  return Object.keys(report).filter((key) => !ALLOWED_REPORT_KEYS.has(key));
+}
+
+function stringArray(value: unknown, maxEntries = 100, maxLen = 64): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, maxEntries).map((entry) => toFiniteString(entry, maxLen)).filter((entry) => entry.length > 0);
+}
+
+function modelSignalSummaries(value: unknown): Array<{ role: string; model: string; violations: number }> {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 100).flatMap((entry) => {
+    if (!isRecord(entry)) return [];
+    return [{
+      role: toFiniteString(entry.role, 64),
+      model: toFiniteString(entry.model, 64),
+      violations: toFiniteInt(entry.violations, 0, 10_000)
+    }];
+  });
 }
 
 function versionAllowed(version: string, env: Env): boolean {
@@ -142,8 +143,13 @@ export default {
       return json(400, { ok: false, error: "invalid_json" }, allowOrigin);
     }
 
-    if (!body || typeof body !== "object" || Array.isArray(body)) {
+    if (!isRecord(body)) {
       return json(400, { ok: false, error: "invalid_payload" }, allowOrigin);
+    }
+
+    const unknownFields = unknownReportKeys(body);
+    if (unknownFields.length > 0) {
+      return json(400, { ok: false, error: "unknown_fields", fields: unknownFields }, allowOrigin);
     }
 
     const report = body as SessionReport;
@@ -155,28 +161,27 @@ export default {
       return json(403, { ok: false, error: "version_not_allowed" }, allowOrigin);
     }
 
-    const redacted = await redactWithGLM(report as Record<string, unknown>, env);
-    const usedServerRedaction = redacted !== report;
-
     const id = crypto.randomUUID();
     const teamCount = toFiniteInt(report.teamCount, 0, 26);
-    const violationCount = toFiniteInt(
-      report.violationCount ?? lengthOfArray(report.violations),
-      0,
-      10_000
-    );
-    const haltCount = toFiniteInt(report.haltCount ?? lengthOfArray(report.halts), 0, 10_000);
+    const violationCount = toFiniteInt(report.violationCount, 0, 10_000);
+    const haltCount = toFiniteInt(report.haltCount, 0, 10_000);
     const layoutDriftCount = toFiniteInt(report.layoutDriftEvents, 0, 10_000);
     const peakContextPct = toFiniteInt(report.peakContextPct, 0, 100);
     const closeoutClean = report.closeoutClean === true ? 1 : 0;
-    const modelSignals = Array.isArray(report.modelSignals) ? report.modelSignals : [];
+    const modelSignals = modelSignalSummaries(report.modelSignals);
+    const violationClasses = stringArray(report.violationClasses);
+    const blockerClassifications = stringArray(report.blockerClassifications);
+    const roleSlotCount = toFiniteInt(report.roleSlotCount, 0, 10_000);
+    const driftWarningCount = toFiniteInt(report.driftWarningCount, 0, 10_000);
+    const degradedLayout = report.degradedLayout === true ? 1 : 0;
 
     await env.DB.prepare(
       `INSERT INTO session_reports
          (id, protocol_version, team_count, violation_count, halt_count,
           layout_drift_count, peak_context_pct, closeout_clean, model_signals,
-          payload, received_at, client_redacted, server_redacted)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)`
+          violation_classes, blocker_classifications, role_slot_count,
+          drift_warning_count, degraded_layout, received_at, client_redacted)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)`
     )
       .bind(
         id,
@@ -188,10 +193,13 @@ export default {
         peakContextPct,
         closeoutClean,
         JSON.stringify(modelSignals),
-        JSON.stringify(redacted),
+        JSON.stringify(violationClasses),
+        JSON.stringify(blockerClassifications),
+        roleSlotCount,
+        driftWarningCount,
+        degradedLayout,
         Date.now(),
-        1,
-        usedServerRedaction ? 1 : 0
+        1
       )
       .run();
 

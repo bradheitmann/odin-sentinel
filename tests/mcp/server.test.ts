@@ -37,12 +37,18 @@ describe("ODIN MCP server", () => {
 
       expect(tools.tools.map((tool) => tool.name).sort()).toEqual([
         "odin.compile_session_report",
+        "odin.compute_human_cmux_quad_layout",
         "odin.compute_surface_layout",
         "odin.compute_surface_layout_gate",
+        "odin.evaluate_readiness_gate",
         "odin.export_protocol_snapshot",
+        "odin.get_active_watch_packet",
+        "odin.get_boot_receipt_examples",
+        "odin.get_boot_receipt_schema",
         "odin.get_bootstrap_skill",
         "odin.get_closeout_checklist",
         "odin.get_delegation_packet",
+        "odin.get_harness_probe_matrix",
         "odin.get_role_profile",
         "odin.get_runtime_notice",
         "odin.get_startup_packet",
@@ -125,6 +131,14 @@ describe("ODIN MCP server", () => {
           arguments: {}
         },
         {
+          name: "odin.get_boot_receipt_schema",
+          arguments: {}
+        },
+        {
+          name: "odin.get_boot_receipt_examples",
+          arguments: {}
+        },
+        {
           name: "odin.get_runtime_notice",
           arguments: {}
         },
@@ -175,6 +189,41 @@ describe("ODIN MCP server", () => {
           }
         },
         {
+          name: "odin.evaluate_readiness_gate",
+          arguments: {
+            execPmAuthorized: true,
+            cmuxAvailable: true,
+            userProvisioningAnswer: "yes",
+            slots: [
+              {
+                roleSlot: "A/EXEC-PM",
+                harness: "Codex",
+                mcpAvailable: true,
+                mcpVersion: "0.4.5",
+                scpSkillAvailable: true,
+                authStatus: "AUTH_READY",
+                firstRunPermissionStatus: "CLEAR",
+                modelStatus: "MODEL_READY",
+                roleCompatibility: "ACCEPTS_ROLE",
+                occupantState: "BOOTSTRAPPED_IDLE"
+              }
+            ]
+          }
+        },
+        {
+          name: "odin.get_active_watch_packet",
+          arguments: {
+            role: "A/EXEC-ODIN"
+          }
+        },
+        {
+          name: "odin.get_harness_probe_matrix",
+          arguments: {
+            intendedHarnesses: ["OpenHands"],
+            observations: [{ harness: "OpenHands", text: "missing API inference credentials" }]
+          }
+        },
+        {
           name: "odin.get_closeout_checklist",
           arguments: {
             mode: "FULL_SESSION_SHUTDOWN"
@@ -187,6 +236,10 @@ describe("ODIN MCP server", () => {
         {
           name: "odin.compute_surface_layout",
           arguments: { teamCount: 5 }
+        },
+        {
+          name: "odin.compute_human_cmux_quad_layout",
+          arguments: { teamCount: 3 }
         },
         {
           name: "odin.compute_surface_layout_gate",
@@ -211,12 +264,39 @@ describe("ODIN MCP server", () => {
         {
           name: "odin.preview_telemetry_redaction",
           arguments: {
-            report: { note: "ran from " + "/" + "Users/" + "example/repo" }
+            report: {
+              version: "0.4.5",
+              compiledAt: new Date(0).toISOString(),
+              teamCount: 4,
+              violations: [{ class: "path_probe", description: "ran from " + "/" + "Users/" + "example/repo" }],
+              halts: [],
+              layoutDriftEvents: 0,
+              peakContextPct: 50,
+              closeoutClean: true,
+              modelSignals: [],
+              violationCount: 1,
+              haltCount: 0
+            }
           }
         },
         {
           name: "odin.submit_session_report",
-          arguments: { report: { teamCount: 4 } }
+          arguments: {
+            userConsentConfirmed: true,
+            report: {
+              version: "0.4.5",
+              compiledAt: new Date(0).toISOString(),
+              teamCount: 4,
+              violations: [],
+              halts: [],
+              layoutDriftEvents: 0,
+              peakContextPct: 50,
+              closeoutClean: true,
+              modelSignals: [],
+              violationCount: 0,
+              haltCount: 0
+            }
+          }
         },
         {
           name: "odin.get_bootstrap_skill",
@@ -251,6 +331,199 @@ describe("ODIN MCP server", () => {
           expect(parseTextResult(result)).toBeDefined();
         }
       }
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
+
+  it("defaults compute_surface_layout to the canonical human_cmux_quad profile", async () => {
+    const { client, server } = await connectClient();
+
+    try {
+      const layout = parseTextResult(await client.callTool({
+        name: "odin.compute_surface_layout",
+        arguments: { teamCount: 3 }
+      })) as { profile?: string; workspace?: { execPmSameWorkspaceRequired?: boolean }; regions?: unknown[] };
+
+      expect(layout.profile).toBe("human_cmux_quad");
+      expect(layout.workspace?.execPmSameWorkspaceRequired).toBe(true);
+      expect(layout.regions).toHaveLength(4);
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
+
+  it("accepts AX diagnostics through the MCP session report schema", async () => {
+    const { client, server } = await connectClient();
+
+    try {
+      const result = parseTextResult(await client.callTool({
+        name: "odin.compile_session_report",
+        arguments: {
+          teamCount: 2,
+          violations: [],
+          halts: [],
+          layoutDriftEvents: 1,
+          peakContextPct: 60,
+          closeoutClean: false,
+          modelSignals: [],
+          ax: {
+            roleSlots: [
+              {
+                role: "A/EXEC-ODIN",
+                team: "A",
+                harness: "Codex",
+                model: "gpt-test",
+                locator: { workspace: "workspace:1", pane: "pane:1", surface: "surface:2" },
+                mcpAccess: { status: "verified" },
+                mcpVersion: "0.4.5",
+                minimumCompatibleMcpVersion: "0.4.5",
+                skillAccess: { status: "missing", detail: "skill absent" },
+                fullProtocolTextReceived: { status: "missing", detail: "short prompt only" },
+                promptType: "short_boot_prompt",
+                operatorAuthorityRecognized: { status: "verified" },
+                readinessStatus: "blocked",
+                bootReceiptStatus: "missing",
+                activeWatchStatus: "passive",
+                blockerClassification: ["missing_skill", "short_prompt", "passive_odin"]
+              }
+            ],
+            childAgentQuestions: ["What role slot were you assigned?"],
+            odinQuestions: ["Were you instructed to actively poll?"],
+            layout: {
+              sameWorkspace: false,
+              splitWorkspace: true,
+              spatialPodLayout: false,
+              tabHeavyLayout: true,
+              cmuxAvailable: true,
+              degradedLayoutWarnings: ["split workspace"]
+            },
+            launchRunbook: {
+              deterministicRunbookFollowed: false,
+              missingPrompts: ["active watch prompt"],
+              missingTools: ["cmux poller"],
+              missingSchemas: ["ax"]
+            },
+            versions: {
+              currentServerVersion: "0.4.5",
+              minimumCompatibleVersion: "0.4.5",
+              childReportedMcpVersions: [{ role: "B/DEV-1", version: "0.2.1" }],
+              driftWarnings: ["B/DEV-1 reported stale MCP"]
+            },
+            artifacts: {
+              planningArtifactsLocalOnly: true,
+              publicTemplatesSanitized: true,
+              privateArtifactWarnings: []
+            }
+          }
+        }
+      })) as { axSummary?: { blockerClassifications: string[]; degradedLayout: boolean; driftWarningCount: number } };
+
+      expect(result.axSummary?.blockerClassifications).toEqual(
+        expect.arrayContaining(["missing_skill", "short_prompt", "passive_odin", "split_workspace", "tab_heavy_layout", "runbook_improvisation", "stale_mcp_version"])
+      );
+      expect(result.axSummary?.degradedLayout).toBe(true);
+      expect(result.axSummary?.driftWarningCount).toBe(1);
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
+
+  it("rejects unknown report fields for telemetry preview and submit tools", async () => {
+    const { client, server } = await connectClient();
+
+    try {
+      const report = parseTextResult(await client.callTool({
+        name: "odin.compile_session_report",
+        arguments: {
+          teamCount: 1,
+          violations: [],
+          halts: [],
+          layoutDriftEvents: 0,
+          peakContextPct: 10,
+          closeoutClean: true,
+          modelSignals: []
+        }
+      })) as Record<string, unknown>;
+      const reportWithUnknown = {
+        ...report,
+        unexpectedSecretField: "sk-proj-" + "0123456789abcdefghijklmnopqrstuv_0123456789"
+      };
+      const reportWithNestedViolationUnknown = {
+        ...report,
+        violations: [{ class: "nested", unexpectedNestedSecret: "sk-proj-" + "0123456789abcdefghijklmnopqrstuv_0123456789" }]
+      };
+      const reportWithNestedAxUnknown = {
+        ...report,
+        ax: {
+          roleSlots: [
+            {
+              role: "A/EXEC-ODIN",
+              team: "A",
+              harness: "Codex",
+              model: "gpt-test",
+              locator: { workspace: "workspace:1", pane: "pane:1", surface: "surface:1" },
+              mcpAccess: { status: "verified" },
+              skillAccess: { status: "verified" },
+              fullProtocolTextReceived: { status: "verified" },
+              promptType: "full_protocol",
+              operatorAuthorityRecognized: { status: "verified" },
+              readinessStatus: "ready",
+              bootReceiptStatus: "emitted",
+              activeWatchStatus: "active",
+              blockerClassification: ["none"],
+              unknownNested: "should be rejected"
+            }
+          ]
+        }
+      };
+
+      const preview = await client.callTool({
+        name: "odin.preview_telemetry_redaction",
+        arguments: {
+          report: reportWithUnknown
+        }
+      });
+      const submit = await client.callTool({
+        name: "odin.submit_session_report",
+        arguments: {
+          report,
+          userConsentConfirmed: true,
+          unexpectedTopLevel: "should be rejected"
+        }
+      });
+      const missingConsent = await client.callTool({
+        name: "odin.submit_session_report",
+        arguments: {
+          report
+        }
+      });
+      const nestedViolation = await client.callTool({
+        name: "odin.preview_telemetry_redaction",
+        arguments: {
+          report: reportWithNestedViolationUnknown
+        }
+      });
+      const nestedAx = await client.callTool({
+        name: "odin.preview_telemetry_redaction",
+        arguments: {
+          report: reportWithNestedAxUnknown
+        }
+      });
+
+      expect(preview.isError).toBe(true);
+      expect(submit.isError).toBe(true);
+      expect(missingConsent.isError).toBe(true);
+      expect(nestedViolation.isError).toBe(true);
+      expect(nestedAx.isError).toBe(true);
+      expect(JSON.stringify(preview.content)).not.toContain("0123456789abcdefghijklmnopqrstuv");
+      expect(JSON.stringify(submit.content)).not.toContain("should be rejected");
+      expect(JSON.stringify(missingConsent.content)).not.toContain("0123456789abcdefghijklmnopqrstuv");
+      expect(JSON.stringify(nestedViolation.content)).not.toContain("0123456789abcdefghijklmnopqrstuv");
+      expect(JSON.stringify(nestedAx.content)).not.toContain("should be rejected");
     } finally {
       await client.close();
       await server.close();

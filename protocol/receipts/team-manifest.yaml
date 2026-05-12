@@ -7,3 +7,44 @@ required_fields:
   - model_profile
   - handoff_sources
   - startup_objectives
+role_slot_schema:
+  required_fields:
+    - role_slot
+    - harness
+    - readiness_status
+    - layout_locator
+    - scp_context_source
+  layout_locator_fields:
+    - workspace
+    - pane
+    - surface
+  readiness_statuses:
+    - PASS
+    - FAIL
+    - WAIVED_BY_EXEC_PM
+    - SUBSTITUTION_APPROVED_BY_EXEC_PM
+    - NON_GOVERNED_ONE_SHOT_ONLY
+    - VACANT_ROLE_SLOT
+watcher_assignments:
+  A/EXEC-ODIN:
+    watches:
+      - executive_office
+      - team_odins
+      - cross_team_drift
+      - missing_receipts
+      - stale_proof
+  TEAM_ODIN:
+    watches:
+      - own_team_pm
+      - own_dev_slots
+      - own_qa_slots
+      - own_shadow_slots
+  A/EXEC-ASST:
+    may_maintain:
+      - delivery_proof_ledger
+      - heartbeat_ledger
+minimum_compatible_mcp_version: 0.4.5
+scp_context_sources:
+  - native sentinel-coordination-protocol skill
+  - odin-sentinel MCP at or above minimum version
+  - full injected SCP protocol text

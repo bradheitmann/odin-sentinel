@@ -69,3 +69,34 @@ export function validateNonEmptyArrays(value: Record<string, unknown>, fields: s
 export function isVisibleRoleSlot(value: string): boolean {
   return /^[A-Z0-9][A-Z0-9_-]*\/[A-Z0-9][A-Z0-9_-]*(?:-\d+)?$/.test(value);
 }
+
+export function compareSemver(left: string, right: string): number {
+  const normalize = (value: string) =>
+    value
+      .trim()
+      .replace(/^v/i, "")
+      .split(".")
+      .map((part) => {
+        const parsed = Number.parseInt(part.replace(/[^0-9].*$/, ""), 10);
+        return Number.isFinite(parsed) ? parsed : 0;
+      });
+  const a = normalize(left);
+  const b = normalize(right);
+  const length = Math.max(a.length, b.length, 3);
+  for (let i = 0; i < length; i++) {
+    const delta = (a[i] ?? 0) - (b[i] ?? 0);
+    if (delta !== 0) return delta;
+  }
+  return 0;
+}
+
+export function isVersionBelow(version: string, minimum: string): boolean {
+  return compareSemver(version, minimum) < 0;
+}
+
+export function redactSecretLikeText(value: string): string {
+  return value
+    .replace(/(sk|pk|ghp|gho|ghu|github_pat|xox[baprs])-?[A-Za-z0-9_=-]{8,}/gi, "[REDACTED]")
+    .replace(/([A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD)[A-Z0-9_]*=)[^\s]+/gi, "$1[REDACTED]")
+    .replace(/(Bearer\s+)[A-Za-z0-9._=-]+/gi, "$1[REDACTED]");
+}

@@ -2,12 +2,18 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import YAML from "yaml";
 import {
   VERSION,
+  evaluateReadinessGate,
   exportProtocolSnapshot,
+  getActiveWatchPacket,
+  getBootReceiptExamples,
+  getBootReceiptSchema,
   getCloseoutChecklist,
   getDelegationPacket,
+  getHarnessProbeMatrix,
   getRoleProfile,
   getRuntimeNotice,
   getStartupPacket,
+  getVersionMetadata,
   loadProtocolData,
   validateBootReceipt,
   validateDelegationPacket,
@@ -16,10 +22,12 @@ import {
 import {
   computeSurfaceLayout,
   computeSurfaceLayoutGate,
+  computeHumanCmuxQuadLayout,
   renderSurfaceLayoutAscii
 } from "../protocol/surface-layout.js";
 import {
   compileSessionReport,
+  publicTelemetryConfig,
   readTelemetryConfig,
   redactPayload,
   submitSessionReport,
@@ -27,12 +35,17 @@ import {
 } from "../telemetry/index.js";
 import {
   bootReceiptInputShape,
+  activeWatchPacketInputShape,
   closeoutChecklistInputShape,
   delegationPacketInputShape,
+  harnessProbeInputShape,
   recordInputShape,
+  readinessGateInputShape,
   reportRecordInputShape,
+  reportRecordInputSchema,
   roleProfileInputShape,
   sessionReportInputShape,
+  submitSessionReportInputSchema,
   startupPacketInputShape,
   surfaceLayoutGateInputShape,
   surfaceLayoutInputShape,
@@ -200,7 +213,25 @@ export function createServer(): McpServer {
       title: "Get ODIN Sentinel Version",
       description: "Return server and protocol version metadata."
     },
-    () => jsonText({ name: "odin-sentinel", version: VERSION })
+    () => jsonText(getVersionMetadata())
+  );
+
+  server.registerTool(
+    "odin.get_boot_receipt_schema",
+    {
+      title: "Get Boot Receipt Schema",
+      description: "Return canonical boot receipt fields, types, lifecycle states, examples, and minimum MCP version."
+    },
+    () => jsonText(getBootReceiptSchema())
+  );
+
+  server.registerTool(
+    "odin.get_boot_receipt_examples",
+    {
+      title: "Get Boot Receipt Examples",
+      description: "Return valid PM, ODIN, DEV waiting-for-scope, QA, and SHADOW receipt examples."
+    },
+    () => jsonText(getBootReceiptExamples())
   );
 
   server.registerTool(
@@ -253,6 +284,39 @@ export function createServer(): McpServer {
   );
 
   server.registerTool(
+    "odin.evaluate_readiness_gate",
+    {
+      title: "Evaluate Governed Launch Readiness Gate",
+      description:
+        "Return the governed launch readiness matrix before occupant launch. Output is zero-secret and classifies MCP, SCP skill, auth, permission, model, and role-compatibility blockers.",
+      inputSchema: readinessGateInputShape
+    },
+    (input) => jsonText(evaluateReadinessGate(input))
+  );
+
+  server.registerTool(
+    "odin.get_active_watch_packet",
+    {
+      title: "Get ODIN Active Watch Packet",
+      description:
+        "Return exact ACTIVE_WATCH prompt text, watch targets, cadence, blocker taxonomy, interventions, and terminal states for an ODIN role.",
+      inputSchema: activeWatchPacketInputShape
+    },
+    (input) => jsonText(getActiveWatchPacket(input))
+  );
+
+  server.registerTool(
+    "odin.get_harness_probe_matrix",
+    {
+      title: "Get Harness Probe Matrix",
+      description:
+        "Classify harness readiness, auth/login/permission blockers, local inference visible-output smoke results, and skill/MCP capability flags without emitting secret values.",
+      inputSchema: harnessProbeInputShape
+    },
+    (input) => jsonText(getHarnessProbeMatrix(input))
+  );
+
+  server.registerTool(
     "odin.get_closeout_checklist",
     {
       title: "Get Closeout Checklist",
@@ -280,12 +344,26 @@ export function createServer(): McpServer {
       inputSchema: surfaceLayoutInputShape
     },
     (input) => {
-      const layout = computeSurfaceLayout(input.teamCount);
+      const profile = input.profile ?? "human_cmux_quad";
+      const layout = profile === "human_cmux_quad"
+        ? computeHumanCmuxQuadLayout(input.teamCount)
+        : computeSurfaceLayout(input.teamCount);
       return jsonText({
         ...layout,
-        ascii: renderSurfaceLayoutAscii(layout)
+        ascii: "columns" in layout ? renderSurfaceLayoutAscii(layout) : "[EXEC] [TEAM-B] [TEAM-C] [BLOCKERS]"
       });
     }
+  );
+
+  server.registerTool(
+    "odin.compute_human_cmux_quad_layout",
+    {
+      title: "Compute Human CMUX Quad Layout",
+      description:
+        "Return the canonical human_cmux_quad governed team layout with one workspace, four panes, explicit role-slot surfaces, empty pre-launch slots, and machine CMUX instructions.",
+      inputSchema: surfaceLayoutInputShape
+    },
+    (input) => jsonText(computeHumanCmuxQuadLayout(input.teamCount))
   );
 
   server.registerTool(
@@ -296,7 +374,7 @@ export function createServer(): McpServer {
         "Return the pre-staffing checklist EXEC PM must complete when growing the team roster from fromTeamCount to toTeamCount.",
       inputSchema: surfaceLayoutGateInputShape
     },
-    (input) => jsonText(computeSurfaceLayoutGate(input.fromTeamCount, input.toTeamCount))
+    (input) => jsonText(computeSurfaceLayoutGate(input.fromTeamCount, input.toTeamCount, input))
   );
 
   server.registerTool(
@@ -323,7 +401,7 @@ export function createServer(): McpServer {
       description:
         "Return current telemetry configuration. Telemetry is opt-in; reports are never sent unless ODIN_TELEMETRY_ENDPOINT is set in the environment."
     },
-    () => jsonText(readTelemetryConfig())
+    () => jsonText(publicTelemetryConfig(readTelemetryConfig()))
   );
 
   server.registerTool(
@@ -344,9 +422,9 @@ export function createServer(): McpServer {
       title: "Preview Telemetry Redaction",
       description:
         "Return the redacted form of a report payload (file paths, emails, and common secret tokens replaced). Use this for user-facing consent flows before any submission.",
-      inputSchema: reportRecordInputShape
+      inputSchema: reportRecordInputSchema
     },
-    (input) => jsonText(redactPayload(input.report))
+    (input) => jsonText(redactPayload(input.report as Record<string, unknown>))
   );
 
   server.registerTool(
@@ -355,9 +433,9 @@ export function createServer(): McpServer {
       title: "Submit Session Report",
       description:
         "Submit a redacted session report to the configured telemetry endpoint. Telemetry is disabled by default; this tool returns {submitted: false, reason: ...} unless ODIN_TELEMETRY_ENDPOINT is set. Only invoke after explicit user consent for the current session.",
-      inputSchema: reportRecordInputShape
+      inputSchema: submitSessionReportInputSchema
     },
-    async (input) => jsonText(await submitSessionReport(input.report))
+    async (input) => jsonText(await submitSessionReport(input.report as Record<string, unknown>, { userConsentConfirmed: input.userConsentConfirmed === true }))
   );
 
   return server;
