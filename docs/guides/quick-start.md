@@ -85,7 +85,7 @@ printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion
   | npx -y -p @bradheitmann/odin-sentinel odin-sentinel-mcp
 ```
 
-Expect `serverInfo.name = odin-sentinel` and `serverInfo.version = 0.4.5`.
+Expect `serverInfo.name = odin-sentinel` and `serverInfo.version = 0.4.6`.
 Minimum compatible child MCP version: `0.4.5`.
 
 ## 6. Auth And Provider Readiness
@@ -134,7 +134,7 @@ occupants until readiness passes or EXEC PM records a waiver/substitution.
 | Skill missing | Install the native skill where supported or use `odin.get_bootstrap_skill` as full prompt fallback. |
 | Auth/login required | Ask the user to provision the provider; verify status without printing secrets. |
 | Permission prompt | Stop and route to PM/user; do not bypass silently. |
-| Stale MCP version | Reinstall with `@latest`, restart host, and confirm `0.4.5`. |
+| Stale MCP version | Reinstall with `@latest`, restart host, and confirm `0.4.6`. |
 | Local inference stall | Require visible content within timeout; endpoint-only success is insufficient. |
 | Role refusal | Mark the role `NON_GOVERNED_ONE_SHOT_ONLY` unless MCP/skill/full protocol proof is established. |
 

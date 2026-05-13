@@ -1,6 +1,6 @@
 {
   "name": "@bradheitmann/odin-sentinel",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "publishConfig": {
     "access": "public"
   },
@@ -80,7 +80,7 @@
     "url": "https://github.com/bradheitmann/odin-sentinel/issues"
   },
   "odin": {
-    "publicVersion": "0.4.5",
+    "publicVersion": "0.4.6",
     "minimumCompatibleChildMcpVersion": "0.4.5"
   }
 }

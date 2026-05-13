@@ -24,7 +24,7 @@ Rules:
 Smoke test:
 printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"probe","version":"0"}}}\n' | odin-sentinel-mcp
 
-Expected version: 0.4.5.
+Expected version: 0.4.6.
 ```
 
 Restart any host whose MCP config changed.
@@ -37,7 +37,7 @@ Open CMUX first. Paste into the agent that will act as EXEC PM.
 You are A/EXEC-PM. Bootstrap a Sentinel Coordination Protocol governed team in this CMUX workspace.
 
 Procedure:
-1. Call odin.get_version and confirm version 0.4.5 or newer.
+1. Call odin.get_version and confirm version 0.4.6 or newer.
 2. Call odin.get_bootstrap_skill and read the public SCP contract.
 3. Confirm CMUX is active and you are in the same workspace as the team slots.
 4. Compute the target layout with odin.compute_surface_layout using profile=human_cmux_quad.
