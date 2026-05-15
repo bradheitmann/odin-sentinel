@@ -1,6 +1,6 @@
 # ODIN Sentinel
 
-**Visible multi-agent team coordination over MCP.**
+**Portable MCP governance protocol for visible multi-agent teams: 23 tools, 9 resources, role topology, readiness gates, ODIN watchers, receipts, delegation, and closeout over stdio.**
 
 ODIN Sentinel is a local stdio MCP server plus a portable coordination protocol
 for visible agent teams. It gives agents a shared roster, startup packet,
@@ -85,7 +85,7 @@ command = "npx"
 args = ["-y", "-p", "@bradheitmann/odin-sentinel", "odin-sentinel-mcp"]
 ```
 
-Generic `mcpServers` JSON:
+Cursor / VS Code / Droid / Crush (`mcpServers` JSON):
 
 ```json
 {
@@ -96,6 +96,49 @@ Generic `mcpServers` JSON:
     }
   }
 }
+```
+
+Zed (`~/.config/zed/settings.json`):
+
+```json
+"odin-sentinel": {
+  "source": "custom",
+  "command": "npx",
+  "args": ["-y", "-p", "@bradheitmann/odin-sentinel", "odin-sentinel-mcp"]
+}
+```
+
+Goose (`~/.config/goose/config.yaml`):
+
+```yaml
+odin-sentinel:
+  type: stdio
+  cmd: npx
+  args: ["-y", "-p", "@bradheitmann/odin-sentinel", "odin-sentinel-mcp"]
+  enabled: true
+```
+
+OpenCode (`~/.config/opencode/opencode.json`):
+
+```json
+{
+  "mcp": {
+    "odin-sentinel": {
+      "type": "local",
+      "command": ["npx", "-y", "-p", "@bradheitmann/odin-sentinel", "odin-sentinel-mcp"],
+      "enabled": true
+    }
+  }
+}
+```
+
+OpenHands (`~/.openhands/config.toml`):
+
+```toml
+[mcp.stdio_servers.odin-sentinel]
+name = "odin-sentinel"
+command = "npx"
+args = ["-y", "-p", "@bradheitmann/odin-sentinel", "odin-sentinel-mcp"]
 ```
 
 ## MCP, Skill, Plugin, Prompt Fallback
@@ -130,7 +173,7 @@ using them for real work.
 Local operator planning folders may be useful private workspaces, but they are
 not shipped product internals and are not required for public users.
 
-## Provided MCP Resources
+## Provided MCP Resources (9)
 
 - `odin://protocol/main`
 - `odin://protocol/roles`
@@ -142,7 +185,7 @@ not shipped product internals and are not required for public users.
 - `odin://protocol/receipts/team-manifest`
 - `odin://protocol/bootstrap-skill`
 
-## Provided MCP Tools
+## Provided MCP Tools (23)
 
 - `odin.get_version`
 - `odin.get_startup_packet`

@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "description": "Multi-harness terminal-pane team builder and orchestrator over MCP.",
+  "description": "Portable MCP governance protocol for multi-agent terminal teams: 23 tools, 9 resources, readiness gates, ODIN watchers, receipts, delegation, and closeout over stdio.",
   "type": "module",
   "main": "./dist/src/protocol/index.js",
   "types": "./dist/src/protocol/index.d.ts",
