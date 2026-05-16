@@ -1,6 +1,6 @@
 {
   "name": "sentinel-coordination-protocol",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "description": "Operate and improve SCP governance for multi-agent teams: self-bootstrap and teardown of federated pods, generic role topology, EXEC PM / TEAM PM / ODIN separation, boot receipts, terminal locator identity, delegation receipts, terminal/CMUX delivery proof, heartbeat cadence, branch-visible claims, adversarial QA, finish audit. Includes the @bradheitmann/odin-sentinel MCP server wired in automatically.",
   "author": {
     "name": "bradheitmann"

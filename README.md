@@ -17,6 +17,11 @@ For the fastest path, read [docs/guides/quick-start.md](docs/guides/quick-start.
 For copy-paste prompts, read [docs/guides/quickstart-prompts.md](docs/guides/quickstart-prompts.md).
 For a starter team shape, read [docs/guides/recommended-starter-team.md](docs/guides/recommended-starter-team.md).
 
+## Contributor Setup
+- Required: Node.js 22.13+ and pnpm 11.0.3, pinned by `packageManager`.
+- Recommended: `corepack enable && pnpm install`.
+- Corepack fetches pnpm 11.0.3 automatically; mismatched global pnpm versions may warn or fail.
+
 ## Terms In Plain Language
 
 - MCP server: a local tool bridge that lets an agent ask ODIN Sentinel for
@@ -66,7 +71,7 @@ printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion
   | npx -y -p @bradheitmann/odin-sentinel odin-sentinel-mcp
 ```
 
-A successful response includes `"serverInfo":{"name":"odin-sentinel","version":"0.4.6"}`.
+A successful response includes `"serverInfo":{"name":"odin-sentinel","version":"0.4.7"}`.
 Minimum compatible child MCP version for governed-team docs is `0.4.5`.
 
 ## MCP Host Examples

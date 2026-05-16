@@ -9,7 +9,7 @@ updated: 2026-05-11
 
 Use this skill for SCP policy introduction, repo landing, adoption-gate proof, controlled dissemination, active multi-agent control loops, and automated team lifecycle management. SCP is a governance layer for multi-team agent operation; it complements other coordination layers and `AGENTS.md` files where present. It sits above them after activation.
 
-SCP_PUBLIC_VERSION: 0.4.6
+SCP_PUBLIC_VERSION: 0.4.7
 MIN_COMPATIBLE_CHILD_MCP: 0.4.5
 
 ## Source Of Truth

@@ -1,4 +1,4 @@
-version: 0.4.6
+version: 0.4.7
 active_watch_terminal_states:
   - RELEASED_BY_OPERATOR
   - HANDED_OFF

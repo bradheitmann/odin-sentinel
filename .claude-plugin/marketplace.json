@@ -10,7 +10,7 @@
       "name": "sentinel-coordination-protocol",
       "source": "./plugins/sentinel-coordination-protocol",
       "description": "Multi-agent team governance: self-bootstrap, role topology, boot receipts, delegation, CMUX delivery proof, heartbeat cadence, adversarial QA, finish audit. Auto-wires the @bradheitmann/odin-sentinel MCP server.",
-      "version": "0.4.5",
+      "version": "0.4.7",
       "category": "agents",
       "tags": [
         "mcp",

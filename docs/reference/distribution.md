@@ -6,7 +6,7 @@ public protocol semantics change, update them together.
 
 ## Current Public Versions
 
-- npm package/server: `0.4.6`
+- npm package/server: `0.4.7`
 - minimum compatible child MCP version: `0.4.5`
 
 Private local skill copies may differ for personal workflow reasons. Release
