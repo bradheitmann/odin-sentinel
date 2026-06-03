@@ -30,6 +30,20 @@ delegation_contract:
     - INPUT_BAR_ONLY
     - PANE_BLOCKED_ON_PERMISSION
     - PANE_STILL_THINKING
+  delivery_proof_fields:
+    - target_surface_locator
+    - submitted
+    - verification_method
+    - observed_processing_state
+    - timestamp
+    - sender_role
+  delivery_proof_policy:
+    required_for: governed-team CMUX dispatch
+    confirmed_states:
+      - DELIVERED_ACKED
+      - DELIVERED_NO_ACK
+    rule: A dispatch is delivered only after submit (Enter) plus verified processing on the target surface; input-bar text is not delivery.
+    validate_with: odin.validate_cmux_delivery_proof
   rules:
     - Delegation must target a visible role slot.
     - Delegation must not create hidden agents or off-ledger workers.

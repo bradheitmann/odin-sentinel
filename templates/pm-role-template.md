@@ -37,6 +37,19 @@ Use this as a public starter template for an ODIN Sentinel PM role.
 - Safe next choice for the human operator: `<approve | sign in | choose fallback harness | keep slot vacant | ask for help>`
 - Secret-handling reminder: `Do not paste API keys or tokens into chat.`
 
+## Dispatch Delivery Proof
+
+When dispatching to a CMUX role, delivery is not complete until you:
+
+1. Send the text to the target surface.
+2. Submit with Enter (input-bar text is not delivery).
+3. Read the target surface.
+4. Confirm the agent processed or acknowledged the message.
+
+Record `target_surface_locator`, `submitted`, `verification_method`,
+`observed_processing_state`, `timestamp`, and `sender_role`, then validate with
+`odin.validate_cmux_delivery_proof`.
+
 ## Assignments
 
 - `<role slot>` -> `<agent/harness>` -> `<scope>`

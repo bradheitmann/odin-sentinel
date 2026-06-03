@@ -201,7 +201,13 @@ export function validatePublicProtocolSync({ scpText, bootstrapText, currentVers
   return errors;
 }
 
-export function validatePluginSync({ pluginManifestText, pluginSkillText, pluginReadmeText, currentVersion, minimumCompatibleVersion = MINIMUM_COMPATIBLE_CHILD_MCP_VERSION }) {
+export function extractToolCount(text) {
+  if (typeof text !== "string") return null;
+  const match = text.match(/(\d+)\s+(?:`?odin\.\*`?\s+)?tools\b/i);
+  return match ? Number(match[1]) : null;
+}
+
+export function validatePluginSync({ pluginManifestText, pluginSkillText, pluginReadmeText, currentVersion, minimumCompatibleVersion = MINIMUM_COMPATIBLE_CHILD_MCP_VERSION, expectedToolCount }) {
   const errors = [];
   let manifest;
   try {
@@ -228,8 +234,11 @@ export function validatePluginSync({ pluginManifestText, pluginSkillText, plugin
   for (const marker of [`SCP_PUBLIC_VERSION: ${currentVersion}`, `MIN_COMPATIBLE_CHILD_MCP: ${minimumCompatibleVersion}`]) {
     if (!pluginSkillText.includes(marker)) errors.push(`Claude plugin skill missing ${marker}`);
   }
-  if (!/23\s+`?odin\.\*`?\s+tools/i.test(pluginReadmeText)) {
-    errors.push("Claude plugin README must advertise 23 odin.* tools");
+  const pluginToolCount = extractToolCount(pluginReadmeText);
+  if (pluginToolCount === null) {
+    errors.push("Claude plugin README must advertise its odin.* tool count");
+  } else if (typeof expectedToolCount === "number" && pluginToolCount !== expectedToolCount) {
+    errors.push(`Claude plugin README advertises ${pluginToolCount} odin.* tools but package.json describes ${expectedToolCount}`);
   }
 
   return errors;
@@ -304,7 +313,8 @@ export function runVerifyPack({ pack, packageJson, publicVersionFiles, costPriva
       pluginManifestText: publicVersionFiles["plugins/sentinel-coordination-protocol/.claude-plugin/plugin.json"],
       pluginSkillText: publicVersionFiles["plugins/sentinel-coordination-protocol/skills/sentinel-coordination-protocol/SKILL.md"],
       pluginReadmeText: publicVersionFiles["plugins/sentinel-coordination-protocol/README.md"],
-      currentVersion: packageJson.version
+      currentVersion: packageJson.version,
+      expectedToolCount: extractToolCount(packageJson.description)
     }),
     ...validateBootstrapReadiness(publicVersionFiles["protocol/bootstrap-skill.md"]),
     ...validateTelemetryWording(costPrivacyText)

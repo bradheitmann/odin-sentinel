@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "description": "Portable MCP governance protocol for multi-agent terminal teams: 23 tools, 9 resources, readiness gates, ODIN watchers, receipts, delegation, and closeout over stdio.",
+  "description": "Portable MCP governance protocol for multi-agent terminal teams: 26 tools, 9 resources, readiness gates, ODIN watchers, receipts, delegation, and closeout over stdio.",
   "type": "module",
   "main": "./dist/src/protocol/index.js",
   "types": "./dist/src/protocol/index.d.ts",

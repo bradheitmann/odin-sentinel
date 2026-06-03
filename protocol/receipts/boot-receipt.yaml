@@ -64,6 +64,7 @@ recommended_fields:
   - lifecycle_state
   - mcp_version
   - scp_context_source
+  - instruction_read_proof
 receipt_type_policy:
   SCP_BOOT_RECEIPT: full governed occupant receipt after role/context/readiness are known
   SCP_MIN_BOOT_RECEIPT: minimal bootstrap-only receipt for orientation or pre-dispatch identity proof
@@ -80,3 +81,20 @@ staffing_audit:
     - column_index
     - team_letter
   staffed_by_canonical_value: A/EXEC-PM
+instruction_read_proof_policy:
+  required_before:
+    - implementation
+    - QA acceptance
+    - ACTIVE_WATCH
+  per_file_fields:
+    - path
+    - bytes_or_lines
+    - sha256
+  description: >-
+    Activated roles must produce a full-instruction-read proof before acting. Each required
+    instruction file is recorded with a byte or line count and a SHA-256 digest; first-screen
+    or partial reads are insufficient. Verify with scripts/protocol/verify-instruction-read.mjs
+    and validate shape with odin.validate_instruction_read_proof.
+  non_breaking: >-
+    This is a recommended, non-breaking addition. Existing receipts without an
+    instruction_read_proof field remain valid.

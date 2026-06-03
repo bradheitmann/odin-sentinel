@@ -72,4 +72,83 @@ describe("harness probe matrix", () => {
     expect(serialized).not.toContain("abcdefghijklmnop");
     expect(result.zeroSecretOutput).toBe(true);
   });
+
+  it("classifies Droid installed/read-only success but missing governed MCP proof", () => {
+    const row = rowFor(getHarnessProbeMatrix({
+      intendedHarnesses: ["Droid"],
+      installedHarnesses: ["Droid"],
+      userProvisioningAnswer: "yes",
+      observations: [{ harness: "Droid", mcpManagementAvailable: false, taskAutonomy: "read_only", visibleContent: true }]
+    }), "Droid");
+
+    expect(row.classifications).toContain("MCP_UNPROVEN");
+    expect(row.classifications).not.toContain("AUTO_HIGH_REQUIRED");
+    expect((row.readiness as Record<string, unknown>).governed_role_ready).toBe(false);
+  });
+
+  it("requires --auto high for Droid mission/high-autonomy recommendations", () => {
+    const needsHigh = rowFor(getHarnessProbeMatrix({
+      intendedHarnesses: ["Droid"],
+      installedHarnesses: ["Droid"],
+      observations: [{ harness: "Droid", taskAutonomy: "mission", autoLevel: "medium" }]
+    }), "Droid");
+    expect(needsHigh.classifications).toContain("AUTO_HIGH_REQUIRED");
+
+    const highOk = rowFor(getHarnessProbeMatrix({
+      intendedHarnesses: ["Droid"],
+      installedHarnesses: ["Droid"],
+      observations: [{ harness: "Droid", taskAutonomy: "high_autonomy", autoLevel: "high" }]
+    }), "Droid");
+    expect(highOk.classifications).not.toContain("AUTO_HIGH_REQUIRED");
+  });
+
+  it("classifies Crush auth-header failures as auth blockers", () => {
+    const row = rowFor(getHarnessProbeMatrix({
+      intendedHarnesses: ["Crush"],
+      installedHarnesses: ["Crush"],
+      observations: [{ harness: "Crush", text: "unauthorized: Authentication parameter not received in Header" }]
+    }), "Crush");
+
+    expect(row.classifications).toContain("BLOCKED_BY_AUTH");
+    expect(row.classifications).toContain("AUTH_PROVIDER_BLOCKED");
+  });
+
+  it("classifies Crush absence of an MCP-management surface as MCP_UNAVAILABLE", () => {
+    const row = rowFor(getHarnessProbeMatrix({
+      intendedHarnesses: ["Crush"],
+      installedHarnesses: ["Crush"],
+      observations: [{ harness: "Crush", mcpManagementAvailable: false }]
+    }), "Crush");
+
+    expect(row.classifications).toContain("MCP_UNAVAILABLE");
+  });
+
+  it("classifies harnesses without MCP/skill/protocol as NON_GOVERNED_ONE_SHOT_ONLY", () => {
+    const row = rowFor(getHarnessProbeMatrix({
+      intendedHarnesses: ["Aider"],
+      installedHarnesses: ["Aider"],
+      observations: [{ harness: "Aider" }]
+    }), "Aider");
+
+    expect(row.classifications).toContain("NON_GOVERNED_ONE_SHOT_ONLY");
+    expect((row.readiness as Record<string, unknown>).governed_role_ready).toBe(false);
+  });
+
+  it("exposes multi-dimensional readiness and marks a fully provisioned harness governed-ready", () => {
+    const row = rowFor(getHarnessProbeMatrix({
+      intendedHarnesses: ["Codex"],
+      installedHarnesses: ["Codex"],
+      userProvisioningAnswer: "yes",
+      observations: [{ harness: "Codex", mcpConfigured: true, scpSkillInstalled: true, authStatus: "AUTH_READY", visibleContent: true }]
+    }), "Codex");
+    const readiness = row.readiness as Record<string, unknown>;
+
+    expect(Object.keys(readiness)).toEqual(
+      expect.arrayContaining(["installed_binary", "authenticated", "mcp_configured", "mcp_tool_hydration", "governed_role_ready"])
+    );
+    expect(readiness.installed_binary).toBe(true);
+    expect(readiness.authenticated).toBe(true);
+    expect(readiness.mcp_tool_hydration).toBe("AT_BOOT");
+    expect(readiness.governed_role_ready).toBe(true);
+  });
 });

@@ -48,6 +48,7 @@ export type StartupPacket = {
   bootReceiptSchema: Record<string, unknown>;
   teamManifestLocator: string;
   activeWatch: Record<string, unknown>;
+  activationGates: Record<string, unknown>;
   startupPrompt: string;
 };
 
@@ -204,6 +205,13 @@ export type HarnessProbeInput = {
     visibleContent?: boolean;
     reasoningContentOnly?: boolean;
     elapsedSeconds?: number;
+    mcpManagementAvailable?: boolean;
+    mcpConfigured?: boolean;
+    scpSkillInstalled?: boolean;
+    fullProtocolTextInjected?: boolean;
+    authStatus?: "AUTH_READY" | "AUTH_PRESENT_UNVERIFIED" | "AUTH_MISSING" | "AUTH_PROVIDER_BLOCKED" | "AUTH_LOGIN_REQUIRED" | "AUTH_UNKNOWN";
+    autoLevel?: "none" | "low" | "medium" | "high";
+    taskAutonomy?: "read_only" | "mission" | "high_autonomy";
   }>;
   visibleOutputTimeoutSeconds?: number;
 };
@@ -260,6 +268,9 @@ function classifyProbeText(harness: string, text: string): string[] {
   if (harness.toLowerCase() === "openhands" && /api|credential|provider/.test(safeText)) classes.push("AUTH_PROVIDER_BLOCKED");
   if (harness.toLowerCase() === "crush" && /permission|denied|approve/.test(safeText)) classes.push("BLOCKED_BY_PERMISSION");
   if (harness.toLowerCase() === "pi" && /role|mcp|skill|runtime proof|fiction/.test(safeText)) classes.push("ROLE_COMPATIBILITY_FAILED");
+  if (/unauthorized|authentication parameter not received in header|missing auth header|auth header not/.test(safeText)) classes.push("BLOCKED_BY_AUTH");
+  if (harness.toLowerCase() === "crush" && /unauthorized|authentication parameter|auth header/.test(safeText)) classes.push("AUTH_PROVIDER_BLOCKED");
+  if (harness.toLowerCase() === "droid" && /insufficient permission to proceed|re-run with --auto|--auto high/.test(safeText)) classes.push("AUTO_HIGH_REQUIRED");
   return [...new Set(classes)];
 }
 
@@ -313,7 +324,9 @@ export function getStartupPacket(
     "use visible role slots only; do not create hidden subagents",
     `bootstrap executive office plus ${pods} development pod${pods === 1 ? "" : "s"}`,
     "state SESSION_OBJECTIVES before product dispatch",
-    "refresh repo status, upstream parity, worktrees, stashes, and topology before lifecycle claims"
+    "refresh repo status, upstream parity, worktrees, stashes, and topology before lifecycle claims",
+    "before implementation, QA acceptance, or ACTIVE_WATCH: produce full-instruction-read proof (path, byte or line count, and sha256 per file) and verify it with scripts/protocol/verify-instruction-read.mjs",
+    "for CMUX dispatch: send text, submit Enter, read the target surface, and confirm processing before treating the message as delivered (input-bar text is not delivery)"
   ];
 
   const modelProfiles = requireRecord(data.modelProfiles.profiles, "model-profiles.profiles");
@@ -351,6 +364,7 @@ export function getStartupPacket(
     bootReceiptSchema: getBootReceiptSchema(repository),
     teamManifestLocator: "odin://protocol/receipts/team-manifest",
     activeWatch,
+    activationGates: getActivationGates(),
     startupPrompt: [
       "Use ODIN Sentinel coordination.",
       "",
@@ -362,6 +376,8 @@ export function getStartupPacket(
       "Before occupant launch, readiness must PASS or be explicitly WAIVED_BY_EXEC_PM / SUBSTITUTION_APPROVED_BY_EXEC_PM.",
       "Valid SCP context source required for governed occupants: native sentinel-coordination-protocol skill, compatible odin-sentinel MCP, or full injected SCP protocol text.",
       "Boot receipt schema: use write_scope: [] for no current write assignment; do not use null.",
+      "Activation gates: before implementation, QA acceptance, or ACTIVE_WATCH, emit a full-instruction-read proof (path, byte/line count, and sha256 per file) and verify it with scripts/protocol/verify-instruction-read.mjs.",
+      "CMUX dispatch is not delivered until you submit with Enter and confirm processing on the target surface; input-bar text is not delivery.",
       "Team manifest locator: odin://protocol/receipts/team-manifest.",
       input.repoPath ? `Repository: ${input.repoPath}` : "Repository: discover from current working directory.",
       `Bootstrap executive office plus ${pods} development pod${pods === 1 ? "" : "s"} unless handoff or user instruction overrides this.`,
@@ -443,6 +459,159 @@ export function getBootReceiptExamples(): Record<string, Record<string, unknown>
   };
 }
 
+export const CMUX_DELIVERY_STATES = [
+  "DELIVERED_ACKED",
+  "DELIVERED_NO_ACK",
+  "INPUT_BAR_ONLY",
+  "PANE_BLOCKED_ON_PERMISSION",
+  "PANE_STILL_THINKING"
+] as const;
+
+const CMUX_DELIVERY_PROOF_FIELDS = [
+  "target_surface_locator",
+  "submitted",
+  "verification_method",
+  "observed_processing_state",
+  "timestamp",
+  "sender_role"
+];
+
+const INSTRUCTION_READ_PROOF_REQUIRED_FIELDS = ["role", "generated_at", "files"];
+
+const ACTIVATION_GATE_ROLE_WORK = ["implementation", "QA acceptance", "ACTIVE_WATCH"];
+
+/**
+ * Validate a CMUX delivery proof. CMUX dispatch is not delivered until the sender submits
+ * with Enter and verifies processing on the target surface; text left in an input bar is
+ * INPUT_BAR_ONLY, not delivery. A submitted=false proof or an INPUT_BAR_ONLY state fails.
+ */
+export function validateCmuxDeliveryProof(proof: Record<string, unknown>): ValidationResult {
+  const missing = validateRequiredFields(proof, CMUX_DELIVERY_PROOF_FIELDS);
+  const invalid = validateFieldTypes(proof, {
+    target_surface_locator: "string",
+    submitted: "boolean",
+    verification_method: "string",
+    observed_processing_state: "string",
+    timestamp: "string",
+    sender_role: "string"
+  });
+  const warnings: string[] = [];
+
+  const state = typeof proof.observed_processing_state === "string" ? proof.observed_processing_state : undefined;
+  if (state !== undefined && !CMUX_DELIVERY_STATES.includes(state as (typeof CMUX_DELIVERY_STATES)[number])) {
+    if (!invalid.includes("observed_processing_state")) invalid.push("observed_processing_state");
+    warnings.push(`observed_processing_state must be one of: ${CMUX_DELIVERY_STATES.join(", ")}`);
+  }
+
+  if (proof.submitted === false) {
+    invalid.push("submitted");
+    warnings.push("CMUX text was not submitted with Enter; this is INPUT_BAR_ONLY, not delivery. Send Enter and re-read the target surface.");
+  }
+
+  if (state === "INPUT_BAR_ONLY") {
+    if (!invalid.includes("observed_processing_state")) invalid.push("observed_processing_state");
+    warnings.push("INPUT_BAR_ONLY: text is visible in the target input bar but not processed; not a valid delivery until submitted and confirmed.");
+  } else if (state === "PANE_BLOCKED_ON_PERMISSION") {
+    warnings.push("Target pane received the message but is blocked on a permission/approval prompt; classify and resolve before treating it as actioned.");
+  } else if (state === "DELIVERED_NO_ACK") {
+    warnings.push("Delivered, but no acknowledgement observed yet; revisit on the next poll.");
+  } else if (state === "PANE_STILL_THINKING") {
+    warnings.push("Delivered; target is still processing. Revisit to confirm completion.");
+  }
+
+  return buildValidationResult(missing, invalid, warnings);
+}
+
+/**
+ * Validate the shape of a full-instruction-read proof: a role, a generation timestamp, and
+ * a non-empty files[] list where each entry carries a path, a byte or line count, and a
+ * sha256 digest. Disk verification (does the digest still match the file?) is performed by
+ * scripts/protocol/verify-instruction-read.mjs.
+ */
+export function validateInstructionReadProof(proof: Record<string, unknown>): ValidationResult {
+  const missing = validateRequiredFields(proof, INSTRUCTION_READ_PROOF_REQUIRED_FIELDS);
+  const invalid = validateFieldTypes(proof, { role: "string", generated_at: "string" });
+  const warnings: string[] = [];
+
+  const files = Array.isArray(proof.files) ? proof.files : undefined;
+  if (files === undefined) {
+    if (!missing.includes("files") && !invalid.includes("files")) invalid.push("files");
+  } else if (files.length === 0) {
+    invalid.push("files");
+    warnings.push("instruction-read proof must list at least one file");
+  } else {
+    files.forEach((entry, index) => {
+      const file = asRecord(entry);
+      if (!stringFieldPresent(file.path)) invalid.push(`files.${index}.path`);
+      if (!stringFieldPresent(file.sha256)) {
+        invalid.push(`files.${index}.sha256`);
+        warnings.push(`files.${index} must include a sha256 digest proving full-content coverage`);
+      }
+      const hasBytes = typeof file.bytes === "number" && Number.isFinite(file.bytes);
+      const hasLines = typeof file.lines === "number" && Number.isFinite(file.lines);
+      if (!hasBytes && !hasLines) {
+        invalid.push(`files.${index}.bytes`);
+        warnings.push(`files.${index} must include a byte count or line count`);
+      }
+    });
+  }
+
+  return buildValidationResult(missing, invalid, warnings);
+}
+
+/**
+ * Activation-gate guidance for agents using only ODIN MCP resources: how to satisfy CMUX
+ * delivery proof and full-instruction-read proof before acting under SCP.
+ */
+export function getActivationGates(): Record<string, unknown> {
+  return {
+    version: VERSION,
+    summary: "Before acting under SCP, prove delivery and prove full instruction reads.",
+    addressesObservedFailStates: [
+      "CMUX standby text left unsubmitted in an input bar (INPUT_BAR_ONLY) mistaken for delivery",
+      "agents reading only the first 50-100 lines of instructions instead of the full sources"
+    ],
+    cmuxDeliveryProof: {
+      requirement:
+        "CMUX dispatch is not delivered until the sender submits with Enter and verifies processing on the target surface. Text visible in an input bar is not delivery.",
+      requiredFields: CMUX_DELIVERY_PROOF_FIELDS,
+      allowedProcessingStates: CMUX_DELIVERY_STATES,
+      confirmedDeliveryStates: ["DELIVERED_ACKED", "DELIVERED_NO_ACK"],
+      senderSteps: [
+        "send the text to the target surface",
+        "submit with Enter (send-key enter)",
+        "read the target surface",
+        "confirm the agent processed or acknowledged the message"
+      ],
+      validateWith: "odin.validate_cmux_delivery_proof",
+      example: {
+        target_surface_locator: "workspace:1 pane:b surface:qa-1",
+        submitted: true,
+        verification_method: "cmux read-screen",
+        observed_processing_state: "DELIVERED_ACKED",
+        timestamp: "2026-01-01T00:00:00Z",
+        sender_role: "A/EXEC-PM"
+      }
+    },
+    instructionReadProof: {
+      requirement: `Activated roles must produce full-instruction-read proof before ${ACTIVATION_GATE_ROLE_WORK.join(", ")} work. First-screen, head, or partial reads are insufficient.`,
+      requiredFields: INSTRUCTION_READ_PROOF_REQUIRED_FIELDS,
+      perFileFields: ["path", "bytes or lines", "sha256"],
+      verifierScript: "scripts/protocol/verify-instruction-read.mjs",
+      installerScript: "scripts/protocol/install-activation-hooks.mjs",
+      verifyCommand: "node scripts/protocol/verify-instruction-read.mjs <proof.json>",
+      recordCommand: "node scripts/protocol/verify-instruction-read.mjs --record <file...> > proof.json",
+      validateWith: "odin.validate_instruction_read_proof",
+      example: {
+        schema: "odin.instruction_read_proof.v1",
+        role: "B/DEV-1",
+        generated_at: "2026-01-01T00:00:00Z",
+        files: [{ path: "protocol/SCP.md", bytes: 4175, lines: 87, sha256: "<sha256-digest>" }]
+      }
+    }
+  };
+}
+
 export function getDelegationPacket(input: DelegationPacketInput): Record<string, unknown> {
   return {
     receipt_type: "SCP-DELEGATE",
@@ -463,7 +632,16 @@ export function getDelegationPacket(input: DelegationPacketInput): Record<string
       delivery_proof_required: true
     },
     report_back: input.reportBack ?? "Return status, evidence path, blockers, touched files, and next requested action.",
-    required_delivery_states: ["DELIVERED_ACKED", "DELIVERED_NO_ACK", "INPUT_BAR_ONLY", "PANE_BLOCKED_ON_PERMISSION", "PANE_STILL_THINKING"]
+    required_delivery_states: [...CMUX_DELIVERY_STATES],
+    delivery_proof_contract: {
+      required: true,
+      reason: "CMUX dispatch is not delivered until submitted with Enter and confirmed on the target surface; input-bar text is not delivery.",
+      required_fields: CMUX_DELIVERY_PROOF_FIELDS,
+      confirmed_states: ["DELIVERED_ACKED", "DELIVERED_NO_ACK"],
+      sender_steps: ["send text", "submit Enter", "read target surface", "confirm processed or acknowledged"],
+      validate_with: "odin.validate_cmux_delivery_proof",
+      note: "Attach the resulting proof as delivery_proof on the dispatch record after sending."
+    }
   };
 }
 
@@ -536,6 +714,18 @@ export function validateDelegationPacket(
   if (authority?.may_implement === true && authority?.may_qa_accept === true) {
     invalid.push("authority.may_qa_accept");
     warnings.push("same delegation grants implementation and QA acceptance authority");
+  }
+
+  const deliveryProof = packet.delivery_proof;
+  if (deliveryProof !== undefined && deliveryProof !== null) {
+    const deliveryResult = validateCmuxDeliveryProof(asRecord(deliveryProof));
+    for (const field of deliveryResult.missing) missing.push(`delivery_proof.${field}`);
+    for (const field of deliveryResult.invalid) invalid.push(`delivery_proof.${field}`);
+    warnings.push(...deliveryResult.warnings);
+  } else if (packet.cmux_dispatch === true && visibility?.delivery_proof_required !== false) {
+    warnings.push(
+      "governed-team CMUX dispatch requires delivery proof, but the packet omits delivery_proof; after sending, record target_surface_locator, submitted=true, verification_method, observed_processing_state, timestamp, and sender_role"
+    );
   }
 
   return buildValidationResult(missing, invalid, warnings);
@@ -731,6 +921,23 @@ export function validateTeamManifest(
   return buildValidationResult(missing, invalid, warnings);
 }
 
+export function getRoleCompatibilitySmokeTest(): Record<string, unknown> {
+  return {
+    purpose: "Confirm a candidate occupant can hold a governed role before assignment.",
+    runBeforeAssignment: true,
+    questions: [
+      "Do you accept the assigned role contract, its authority limits, and reports-to chain?",
+      "Can you emit a valid SCP boot receipt with the required fields?",
+      "Can you remain in the assigned lifecycle state (e.g., BOOTSTRAPPED_IDLE or ACTIVE_WATCH) until directed?",
+      "Will you treat this protocol as a real governance contract and not reframe it as fictional roleplay?"
+    ],
+    passRequires: "An affirmative, in-character answer to all four questions plus a valid receipt.",
+    mapToInput: "Record the verdict as roleCompatibility: ACCEPTS_ROLE | REFUSES_ROLE | UNPROVEN.",
+    failClassification: "ROLE_COMPATIBILITY_FAILED",
+    zeroSecretOutput: true
+  };
+}
+
 export function evaluateReadinessGate(input: ReadinessGateInput): Record<string, unknown> {
   const minimum = input.minimumMcpVersion ?? MINIMUM_COMPATIBLE_MCP_VERSION;
   const userProvisioningAnswer = input.userProvisioningAnswer ?? "unknown";
@@ -843,6 +1050,8 @@ export function evaluateReadinessGate(input: ReadinessGateInput): Record<string,
     execPmAuthorized,
     cmuxAvailable,
     userPrompt: "Are all intended harnesses provisioned with accounts, plans, API keys, or local inference credentials so they will not malfunction when spun up?",
+    supportedSecretProviders: ["Doppler", "1Password CLI (op)", "environment variable names", "direnv", "mise", "dotenv-style file presence", "GitHub auth", "local provider config files"],
+    roleCompatibilitySmokeTest: getRoleCompatibilitySmokeTest(),
     readinessMatrix: rows,
     zeroSecretOutput: true
   };
@@ -917,15 +1126,43 @@ export function getHarnessProbeMatrix(input: HarnessProbeInput = {}): Record<str
 
   const rows = intended.map((harness) => {
     const observation = observations.find((item) => item.harness.toLowerCase() === harness.toLowerCase());
+    const key = harness.toLowerCase();
+    const installedBinary = installed.has(key);
     const classifications = new Set<string>();
-    if (!installed.has(harness.toLowerCase())) classifications.add("NOT_INSTALLED_OR_UNPROVEN");
+    if (!installedBinary) classifications.add("NOT_INSTALLED_OR_UNPROVEN");
     if (input.userProvisioningAnswer !== "yes") classifications.add("USER_INPUT_REQUIRED");
     for (const item of classifyProbeText(harness, observation?.text ?? "")) classifications.add(item);
     if (observation?.reasoningContentOnly === true && observation.visibleContent !== true) classifications.add("MODEL_REASONING_ONLY");
     if (observation?.httpReachable === false) classifications.add("MODEL_UNREACHABLE");
     if (observation?.modelLoaded === false) classifications.add("MODEL_UNREACHABLE");
     if ((observation?.elapsedSeconds ?? 0) > timeout && observation?.visibleContent !== true) classifications.add("MODEL_STALLED");
-    if (harness.toLowerCase() === "goose" && observation?.reasoningContentOnly === true && observation.visibleContent !== true) classifications.add("STREAMING_PROTOCOL_MISMATCH");
+    if (key === "goose" && observation?.reasoningContentOnly === true && observation.visibleContent !== true) classifications.add("STREAMING_PROTOCOL_MISMATCH");
+
+    // Structured auth status (zero-secret; status only, never values).
+    if (observation?.authStatus === "AUTH_MISSING") classifications.add("BLOCKED_BY_API_KEY");
+    if (observation?.authStatus === "AUTH_PROVIDER_BLOCKED") classifications.add("AUTH_PROVIDER_BLOCKED");
+    if (observation?.authStatus === "AUTH_LOGIN_REQUIRED") classifications.add("BLOCKED_BY_LOGIN");
+    if (observation?.authStatus === "AUTH_UNKNOWN") classifications.add("BLOCKED_BY_AUTH");
+
+    // MCP management surface: `droid mcp` exists; Crush has no MCP management command.
+    const mcpManagementAvailable = observation?.mcpManagementAvailable;
+    if (mcpManagementAvailable === false) classifications.add(key === "crush" ? "MCP_UNAVAILABLE" : "MCP_UNPROVEN");
+
+    // Droid: governed readiness needs `droid mcp`; read-only exec is allowed without write
+    // authority; mission/high-autonomy recommendations require `--auto high`.
+    if (key === "droid") {
+      const autonomy = observation?.taskAutonomy ?? "read_only";
+      if ((autonomy === "mission" || autonomy === "high_autonomy") && observation?.autoLevel !== "high") {
+        classifications.add("AUTO_HIGH_REQUIRED");
+      }
+    }
+
+    // Governed-context proof: MCP configured, native SCP skill, or full injected protocol text.
+    const mcpConfigured = observation?.mcpConfigured === true;
+    const scpSkillInstalled = observation?.scpSkillInstalled === true;
+    const fullProtocolTextInjected = observation?.fullProtocolTextInjected === true;
+    const hasGovernedContext = mcpConfigured || scpSkillInstalled || fullProtocolTextInjected;
+    if (installedBinary && !hasGovernedContext) classifications.add("NON_GOVERNED_ONE_SHOT_ONLY");
 
     const modelStatus =
       classifications.has("STREAMING_PROTOCOL_MISMATCH") ? "STREAMING_PROTOCOL_MISMATCH" :
@@ -934,16 +1171,36 @@ export function getHarnessProbeMatrix(input: HarnessProbeInput = {}): Record<str
       classifications.has("MODEL_UNREACHABLE") ? "MODEL_UNREACHABLE" :
       observation?.visibleContent === true ? "MODEL_READY" : "MODEL_SLOW";
 
+    // Multi-dimensional readiness: never collapse the distinct facts into one boolean.
+    const canHydrateAtBoot = ["Codex", "Claude Code", "Droid"].includes(harness);
+    const authBlockers = ["BLOCKED_BY_API_KEY", "AUTH_PROVIDER_BLOCKED", "BLOCKED_BY_LOGIN", "BLOCKED_BY_AUTH"];
+    const authenticated: boolean | "unknown" =
+      observation?.authStatus === "AUTH_READY" ? true :
+      authBlockers.some((item) => classifications.has(item)) ? false :
+      "unknown";
+    const advisoryClassifications = new Set(["USER_INPUT_REQUIRED", "NON_GOVERNED_ONE_SHOT_ONLY"]);
+    const blockingClassifications = [...classifications].filter((item) => !advisoryClassifications.has(item));
+    const governedRoleReady = installedBinary && authenticated === true && hasGovernedContext && blockingClassifications.length === 0;
+
     return {
       harness,
-      installed: installed.has(harness.toLowerCase()),
+      installed: installedBinary,
       classifications: [...classifications],
       modelStatus,
       visibleOutputTimeoutSeconds: timeout,
-      canHydrateDeferredMcpToolsAtBoot: ["Codex", "Claude Code", "Droid"].includes(harness),
+      canHydrateDeferredMcpToolsAtBoot: canHydrateAtBoot,
       canHydrateDeferredMcpToolsAfterSecondTurn: true,
       nativeSkillInvocation: ["Codex", "Claude Code"].includes(harness),
       sentinelCoordinationProtocolSkill: "install before governed launch when the harness supports native skills",
+      autoLevel: key === "droid" ? (observation?.autoLevel ?? "unknown") : observation?.autoLevel,
+      readiness: {
+        installed_binary: installedBinary,
+        authenticated,
+        mcp_configured: mcpConfigured,
+        mcp_management_available: mcpManagementAvailable ?? "unknown",
+        mcp_tool_hydration: canHydrateAtBoot ? "AT_BOOT" : "AFTER_SECOND_TURN",
+        governed_role_ready: governedRoleReady
+      },
       safeNextActions: classifications.size === 0 ? [] : defaultSafeOutcomes(),
       sanitizedObservation: observation?.text ? redactSecretLikeText(observation.text) : undefined
     };
@@ -1029,6 +1286,9 @@ export function createProtocolService(repository: ProtocolRepository = createFil
     getActiveWatchPacket,
     getHarnessProbeMatrix,
     getDelegationPacket,
+    getActivationGates,
+    validateCmuxDeliveryProof: (proof: Record<string, unknown>) => validateCmuxDeliveryProof(proof),
+    validateInstructionReadProof: (proof: Record<string, unknown>) => validateInstructionReadProof(proof),
     validateDelegationPacket: (packet: Record<string, unknown>) => validateDelegationPacket(packet, repository),
     validateBootReceipt: (receipt: Record<string, unknown>) => validateBootReceipt(receipt, repository),
     validateTeamManifest: (manifest: Record<string, unknown>) => validateTeamManifest(manifest, repository),

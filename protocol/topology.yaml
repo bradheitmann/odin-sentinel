@@ -44,6 +44,14 @@ default_topology:
       - receive setup guidance without pasting secrets
       - mark slot VACANT_ROLE_SLOT
       - request EXEC PM-approved substitution
+    role_compatibility_smoke_test:
+      before_assignment: true
+      questions:
+        - accepts the role contract, authority limits, and reports-to chain
+        - can emit a valid SCP boot receipt
+        - can remain in the assigned lifecycle state until directed
+        - treats the protocol as real governance, not fictional roleplay
+      fail_classification: ROLE_COMPATIBILITY_FAILED
   surface_layout:
     description: >-
       Canonical CMUX surface layout rule for EXEC PM. Governed team bootstrap

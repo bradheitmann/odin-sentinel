@@ -4,6 +4,7 @@ import {
   VERSION,
   evaluateReadinessGate,
   exportProtocolSnapshot,
+  getActivationGates,
   getActiveWatchPacket,
   getBootReceiptExamples,
   getBootReceiptSchema,
@@ -16,7 +17,9 @@ import {
   getVersionMetadata,
   loadProtocolData,
   validateBootReceipt,
+  validateCmuxDeliveryProof,
   validateDelegationPacket,
+  validateInstructionReadProof,
   validateTeamManifest
 } from "../protocol/service.js";
 import {
@@ -37,8 +40,10 @@ import {
   bootReceiptInputShape,
   activeWatchPacketInputShape,
   closeoutChecklistInputShape,
+  cmuxDeliveryProofInputShape,
   delegationPacketInputShape,
   harnessProbeInputShape,
+  instructionReadProofInputShape,
   recordInputShape,
   readinessGateInputShape,
   reportRecordInputShape,
@@ -191,7 +196,8 @@ export function createServer(): McpServer {
     "odin.get_delegation_packet",
     {
       title: "Get Delegation Packet",
-      description: "Build a self-contained visible-role delegation packet without relying on outside local extensions.",
+      description:
+        "Build a self-contained visible-role delegation packet without relying on outside local extensions. Includes the CMUX delivery-proof contract: a dispatch counts as delivered only after submit (Enter) plus verified processing on the target surface; input-bar text is not delivery.",
       inputSchema: delegationPacketInputShape
     },
     (input) => jsonText(getDelegationPacket(input))
@@ -201,7 +207,8 @@ export function createServer(): McpServer {
     "odin.validate_delegation_packet",
     {
       title: "Validate Delegation Packet",
-      description: "Check a delegation packet for required ODIN fields and role-separation warnings.",
+      description:
+        "Check a delegation packet for required ODIN fields and role-separation warnings, and validate any attached CMUX delivery_proof (warns when a CMUX dispatch requires delivery proof but omits it).",
       inputSchema: recordInputShape
     },
     (input) => jsonText(validateDelegationPacket(input.packet))
@@ -281,6 +288,38 @@ export function createServer(): McpServer {
       inputSchema: teamManifestInputShape
     },
     (input) => jsonText(validateTeamManifest(input.manifest))
+  );
+
+  server.registerTool(
+    "odin.validate_cmux_delivery_proof",
+    {
+      title: "Validate CMUX Delivery Proof",
+      description:
+        "Check a CMUX delivery proof. A dispatch is delivered only when submitted=true with verified processing on the target surface; unsubmitted sends and INPUT_BAR_ONLY text fail. Required fields: target_surface_locator, submitted, verification_method, observed_processing_state, timestamp, sender_role.",
+      inputSchema: cmuxDeliveryProofInputShape
+    },
+    (input) => jsonText(validateCmuxDeliveryProof(input.proof))
+  );
+
+  server.registerTool(
+    "odin.validate_instruction_read_proof",
+    {
+      title: "Validate Instruction-Read Proof",
+      description:
+        "Check the shape of a full-instruction-read proof (role, generated_at, and files[] each with path, byte or line count, and sha256). Activated roles must produce this before implementation, QA acceptance, or ACTIVE_WATCH. Disk verification is performed by scripts/protocol/verify-instruction-read.mjs.",
+      inputSchema: instructionReadProofInputShape
+    },
+    (input) => jsonText(validateInstructionReadProof(input.proof))
+  );
+
+  server.registerTool(
+    "odin.get_activation_gates",
+    {
+      title: "Get Activation Gates",
+      description:
+        "Return the SCP activation gates an agent must satisfy before acting: CMUX delivery proof (submit + verify; input-bar text is not delivery) and full-instruction-read proof (path + count + sha256 per file), including verifier/installer script paths and validation tool names."
+    },
+    () => jsonText(getActivationGates())
   );
 
   server.registerTool(

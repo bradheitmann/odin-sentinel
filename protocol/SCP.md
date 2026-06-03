@@ -44,6 +44,42 @@ only Team A (the tall column). EXEC PM must call
 `odin.compute_surface_layout` (and its gate variant) before any spawn beyond
 A/EXEC and must reach the target layout via CMUX splits before dispatching.
 
+## Activation Gates
+
+Two activation gates must be satisfied before an activated role acts under SCP. They
+address two repeatable failure modes: CMUX text that was typed but never submitted, and
+agents that read only the beginning of their instructions.
+
+CMUX delivery proof. A CMUX dispatch is not delivered until the sender submits the text
+with Enter and verifies processing on the target surface. Text sitting in an input bar is
+`INPUT_BAR_ONLY`, not delivery. A delivery proof records `target_surface_locator`,
+`submitted`, `verification_method`, `observed_processing_state`, `timestamp`, and
+`sender_role`. Validate it with `odin.validate_cmux_delivery_proof`.
+
+Full-instruction-read proof. Before implementation, QA acceptance, or ACTIVE_WATCH work, an
+activated role must produce a full-instruction-read proof listing each required instruction
+file with its byte or line count and a SHA-256 digest. First-screen, head, or partial reads
+are insufficient. Verify a proof against local files with
+`scripts/protocol/verify-instruction-read.mjs`, install the precheck hook with
+`scripts/protocol/install-activation-hooks.mjs`, and read the consolidated requirements from
+`odin.get_activation_gates`. Validate proof shape with `odin.validate_instruction_read_proof`.
+
+## Harness Readiness Probes
+
+Installed is not provisioned. Before assigning a governed role, probe each harness and record
+multi-dimensional readiness — `installed_binary`, `authenticated`, `mcp_configured`,
+`mcp_tool_hydration`, and `governed_role_ready` — never a single boolean. Classify first-run
+permission prompts (`BLOCKED_BY_PERMISSION`), login/account prompts (`BLOCKED_BY_LOGIN`), missing
+inference credentials (`BLOCKED_BY_API_KEY` / `AUTH_PROVIDER_BLOCKED` / `BLOCKED_BY_AUTH`), and local
+inference stalls (`MODEL_STALLED` / `MODEL_REASONING_ONLY` / `STREAMING_PROTOCOL_MISMATCH`) before
+launch. A harness without MCP, native SCP skill, or full injected protocol text is
+`NON_GOVERNED_ONE_SHOT_ONLY` and must not hold a persistent governed role. Skill-capable harnesses
+should install the sentinel-coordination-protocol skill before governed launch. Probe via
+`odin.get_harness_probe_matrix` with zero-secret output. Droid exposes `droid mcp` and
+`--auto <low|medium|high>`: read-only `droid exec` is allowed without write authority, but mission
+or high-autonomy work requires `--auto high`. Crush has no MCP management command and its auth-header
+failures are auth blockers, not readiness.
+
 ## Closeout Defaults
 
 Closeout supports two modes:

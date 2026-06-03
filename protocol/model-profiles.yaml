@@ -22,6 +22,14 @@ policy:
     - MODEL_REASONING_ONLY
     - STREAMING_PROTOCOL_MISMATCH
     - MODEL_UNREACHABLE
+  readiness_dimensions:
+    - installed_binary
+    - authenticated
+    - mcp_configured
+    - mcp_tool_hydration
+    - governed_role_ready
+  non_governed_one_shot_only: Harnesses without MCP access, native SCP skill, or full injected protocol text must be classified NON_GOVERNED_ONE_SHOT_ONLY and must not hold persistent governed roles.
+  scp_skill_install_recommendation: Skill-capable harnesses should install the sentinel-coordination-protocol skill before governed launch; native skill discoverability improved compliance in observed runs.
 harness_capabilities:
   Codex:
     can_hydrate_deferred_mcp_tools_at_boot: true
@@ -35,6 +43,12 @@ harness_capabilities:
     can_hydrate_deferred_mcp_tools_at_boot: true
     native_skill_invocation: false
     scp_skill_recommended: false
+    mcp_management_command: droid mcp
+    governed_readiness_requires_mcp: true
+    read_only_exec_allowed_without_write_authority: true
+    mission_or_high_autonomy_requires: --auto high
+    unsafe_skip_flag_is_a_blocker: true
+    auto_levels: [low, medium, high]
   Goose:
     local_inference_smoke_test_required: true
     visible_content_required_within_seconds: 60
@@ -42,6 +56,11 @@ harness_capabilities:
     streaming_mismatch_class: STREAMING_PROTOCOL_MISMATCH
   Crush:
     permission_prompt_class: BLOCKED_BY_PERMISSION
+    auth_header_failure_class: BLOCKED_BY_AUTH
+    auth_provider_blocked_class: AUTH_PROVIDER_BLOCKED
+    auth_header_failure_example: "unauthorized: Authentication parameter not received in Header"
+    mcp_management_command: none
+    mcp_unavailable_class: MCP_UNAVAILABLE
   OpenHands:
     missing_inference_credentials_class: BLOCKED_BY_API_KEY
     provider_config_blocker_class: AUTH_PROVIDER_BLOCKED

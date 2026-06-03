@@ -23,6 +23,9 @@ QA starts from the task contract and changed files, not from DEV's confidence.
   - No unsafe permission or auth behavior: PASS/FAIL
 - Regression risk:
   - Relevant tests or manual checks reproduced: PASS/FAIL
+- Activation gates:
+  - DEV provided a full-instruction-read proof and it verifies against local files: PASS/FAIL
+  - Any CMUX delivery proof is submitted and confirmed (not input-bar-only): PASS/FAIL
 - User-defined criteria:
   - `<project-specific criterion>` -> PASS/FAIL
 

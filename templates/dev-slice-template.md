@@ -32,6 +32,14 @@ Use this as a public starter template. Replace every placeholder before launch.
 - Manual checks:
   - `<check>`
 
+## Instruction-Read Proof (before editing)
+
+Before changing any file, read the full reading-list and context sources, then record a
+full-instruction-read proof (each file with a byte or line count and a SHA-256 digest).
+Generate it with `node scripts/protocol/verify-instruction-read.mjs --record <file...>` and
+verify it with `node scripts/protocol/verify-instruction-read.mjs <proof.json>`. First-screen
+or partial reads are insufficient.
+
 ## DEV Report
 
 Return:

@@ -375,4 +375,36 @@ describe("governed launch readiness gate", () => {
     expect(result.readinessMatrix[0].classifications).toContain("SCP_SKILL_MISSING");
     expect(result.readinessMatrix[0].classifications).not.toContain("NON_GOVERNED_ONE_SHOT_ONLY");
   });
+
+  it("surfaces a role-compatibility smoke test and supported secret providers without secrets", () => {
+    const result = evaluateReadinessGate({
+      execPmAuthorized: true,
+      cmuxAvailable: true,
+      userProvisioningAnswer: "yes",
+      slots: [{
+        roleSlot: "A/EXEC-PM",
+        harness: "Codex",
+        mcpAvailable: true,
+        mcpVersion: "0.4.5",
+        scpSkillAvailable: true,
+        authStatus: "AUTH_READY",
+        firstRunPermissionStatus: "CLEAR",
+        modelStatus: "MODEL_READY",
+        roleCompatibility: "ACCEPTS_ROLE",
+        occupantState: "BOOTSTRAPPED_IDLE"
+      }]
+    }) as {
+      roleCompatibilitySmokeTest: { questions: string[]; failClassification: string; runBeforeAssignment: boolean };
+      supportedSecretProviders: string[];
+    };
+
+    expect(result.roleCompatibilitySmokeTest.questions).toHaveLength(4);
+    expect(result.roleCompatibilitySmokeTest.questions.join(" ")).toMatch(/fictional roleplay/);
+    expect(result.roleCompatibilitySmokeTest.failClassification).toBe("ROLE_COMPATIBILITY_FAILED");
+    expect(result.roleCompatibilitySmokeTest.runBeforeAssignment).toBe(true);
+    expect(result.supportedSecretProviders).toEqual(
+      expect.arrayContaining(["Doppler", "1Password CLI (op)", "environment variable names", "GitHub auth", "local provider config files"])
+    );
+    expect(JSON.stringify(result)).not.toMatch(/sk-[A-Za-z0-9]|bearer\s+[A-Za-z0-9]/i);
+  });
 });

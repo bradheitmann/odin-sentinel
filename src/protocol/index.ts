@@ -2,13 +2,16 @@ export {
   VERSION,
   createProtocolService,
   exportProtocolSnapshot,
+  getActivationGates,
   getCloseoutChecklist,
   getDelegationPacket,
   getRoleProfile,
   getRuntimeNotice,
   getStartupPacket,
   validateBootReceipt,
+  validateCmuxDeliveryProof,
   validateDelegationPacket,
+  validateInstructionReadProof,
   validateTeamManifest
 } from "./service.js";
 

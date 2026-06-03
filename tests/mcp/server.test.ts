@@ -42,6 +42,7 @@ describe("ODIN MCP server", () => {
         "odin.compute_surface_layout_gate",
         "odin.evaluate_readiness_gate",
         "odin.export_protocol_snapshot",
+        "odin.get_activation_gates",
         "odin.get_active_watch_packet",
         "odin.get_boot_receipt_examples",
         "odin.get_boot_receipt_schema",
@@ -57,7 +58,9 @@ describe("ODIN MCP server", () => {
         "odin.preview_telemetry_redaction",
         "odin.submit_session_report",
         "odin.validate_boot_receipt",
+        "odin.validate_cmux_delivery_proof",
         "odin.validate_delegation_packet",
+        "odin.validate_instruction_read_proof",
         "odin.validate_team_manifest"
       ]);
       expect(resources.resources.map((resource) => resource.uri).sort()).toEqual([
@@ -301,6 +304,33 @@ describe("ODIN MCP server", () => {
         {
           name: "odin.get_bootstrap_skill",
           arguments: {}
+        },
+        {
+          name: "odin.get_activation_gates",
+          arguments: {}
+        },
+        {
+          name: "odin.validate_cmux_delivery_proof",
+          arguments: {
+            proof: {
+              target_surface_locator: "workspace:1 pane:b surface:qa-1",
+              submitted: true,
+              verification_method: "cmux read-screen",
+              observed_processing_state: "DELIVERED_ACKED",
+              timestamp: "2026-01-01T00:00:00Z",
+              sender_role: "A/EXEC-PM"
+            }
+          }
+        },
+        {
+          name: "odin.validate_instruction_read_proof",
+          arguments: {
+            proof: {
+              role: "B/DEV-1",
+              generated_at: "2026-01-01T00:00:00Z",
+              files: [{ path: "protocol/SCP.md", bytes: 4175, lines: 87, sha256: "abc" }]
+            }
+          }
         }
       ];
       const version = parseTextResult(await client.callTool(toolCalls[2]));

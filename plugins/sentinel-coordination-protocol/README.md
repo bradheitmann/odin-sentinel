@@ -30,7 +30,7 @@ the direct npm install path below.
 ## What you get
 
 - **Skill content**: the full SCP governance contract (boot receipts, role topology, delegation, CMUX delivery proof, heartbeat cadence, adversarial QA, finish audit).
-- **MCP tools**: 23 `odin.*` tools including `compute_surface_layout`, `get_role_profile`, `validate_boot_receipt`, `compile_session_report`, and `get_bootstrap_skill`.
+- **MCP tools**: 26 `odin.*` tools including `compute_surface_layout`, `get_role_profile`, `validate_boot_receipt`, `compile_session_report`, and `get_bootstrap_skill`.
 - **MCP resources**: 9 protocol documents addressable via `odin://protocol/*` URIs.
 
 ## Use without Claude Code

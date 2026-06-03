@@ -46,6 +46,14 @@ export const teamManifestInputShape = {
   manifest: z.record(z.string(), z.unknown())
 } as const;
 
+export const cmuxDeliveryProofInputShape = {
+  proof: z.record(z.string(), z.unknown())
+} as const;
+
+export const instructionReadProofInputShape = {
+  proof: z.record(z.string(), z.unknown())
+} as const;
+
 export const closeoutModeSchema = z.enum(["PARK_FOR_CONTINUITY", "FULL_SESSION_SHUTDOWN"]);
 export type CloseoutMode = z.infer<typeof closeoutModeSchema>;
 
@@ -122,7 +130,14 @@ export const harnessProbeInputShape = {
       modelLoaded: z.boolean().optional(),
       visibleContent: z.boolean().optional(),
       reasoningContentOnly: z.boolean().optional(),
-      elapsedSeconds: z.number().int().min(0).optional()
+      elapsedSeconds: z.number().int().min(0).optional(),
+      mcpManagementAvailable: z.boolean().optional(),
+      mcpConfigured: z.boolean().optional(),
+      scpSkillInstalled: z.boolean().optional(),
+      fullProtocolTextInjected: z.boolean().optional(),
+      authStatus: z.enum(["AUTH_READY", "AUTH_PRESENT_UNVERIFIED", "AUTH_MISSING", "AUTH_PROVIDER_BLOCKED", "AUTH_LOGIN_REQUIRED", "AUTH_UNKNOWN"]).optional(),
+      autoLevel: z.enum(["none", "low", "medium", "high"]).optional(),
+      taskAutonomy: z.enum(["read_only", "mission", "high_autonomy"]).optional()
     })
   ).optional(),
   visibleOutputTimeoutSeconds: z.number().int().min(1).max(600).optional()
