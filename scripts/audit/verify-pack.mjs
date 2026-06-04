@@ -224,9 +224,9 @@ export function validatePluginSync({ pluginManifestText, pluginSkillText, plugin
   if (!server) {
     errors.push("Claude plugin manifest missing odin-sentinel MCP server");
   } else {
-    if (server.command !== "npx") errors.push("Claude plugin odin-sentinel server must use npx");
+    if (server.command !== "pnpm") errors.push("Claude plugin odin-sentinel server must use pnpm");
     const args = Array.isArray(server.args) ? server.args : [];
-    for (const requiredArg of ["-y", "-p", "@bradheitmann/odin-sentinel", "odin-sentinel-mcp"]) {
+    for (const requiredArg of ["dlx", "--package", `@bradheitmann/odin-sentinel@${currentVersion}`, "odin-sentinel-mcp"]) {
       if (!args.includes(requiredArg)) errors.push(`Claude plugin odin-sentinel args missing ${requiredArg}`);
     }
   }

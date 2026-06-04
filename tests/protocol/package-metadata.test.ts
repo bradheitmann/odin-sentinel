@@ -58,34 +58,34 @@ describe("public package metadata matches the live MCP surface", () => {
   });
 
   it("verify-pack cross-checks the plugin README against package.json instead of a hard-coded count", () => {
-    expect(verifyPack.extractToolCount("26 `odin.*` tools")).toBe(26);
-    expect(verifyPack.extractToolCount("Portable ...: 26 tools, 9 resources")).toBe(26);
+    expect(verifyPack.extractToolCount("27 `odin.*` tools")).toBe(27);
+    expect(verifyPack.extractToolCount("Portable ...: 27 tools, 9 resources")).toBe(27);
     expect(verifyPack.extractToolCount("no count here")).toBeNull();
 
     // The audit must no longer hard-code the obsolete count anywhere in its source.
     expect(/23\s+`?odin\.\*`?\s+tools/.test(repoText("scripts/audit/verify-pack.mjs"))).toBe(false);
 
     const validManifest = JSON.stringify({
-      version: "0.4.7",
-      mcpServers: { "odin-sentinel": { command: "npx", args: ["-y", "-p", "@bradheitmann/odin-sentinel", "odin-sentinel-mcp"] } }
+      version: "0.4.9",
+      mcpServers: { "odin-sentinel": { command: "pnpm", args: ["dlx", "--package", "@bradheitmann/odin-sentinel@0.4.9", "odin-sentinel-mcp"] } }
     });
-    const skill = "SCP_PUBLIC_VERSION: 0.4.7\nMIN_COMPATIBLE_CHILD_MCP: 0.4.5\n";
+    const skill = "SCP_PUBLIC_VERSION: 0.4.9\nMIN_COMPATIBLE_CHILD_MCP: 0.4.5\n";
 
     const mismatch = verifyPack.validatePluginSync({
       pluginManifestText: validManifest,
       pluginSkillText: skill,
       pluginReadmeText: "MCP tools: 99 `odin.*` tools",
-      currentVersion: "0.4.7",
-      expectedToolCount: 26
+      currentVersion: "0.4.9",
+      expectedToolCount: 27
     });
-    expect(mismatch.some((e: string) => /advertises 99 odin\.\* tools but package\.json describes 26/.test(e))).toBe(true);
+    expect(mismatch.some((e: string) => /advertises 99 odin\.\* tools but package\.json describes 27/.test(e))).toBe(true);
 
     const matched = verifyPack.validatePluginSync({
       pluginManifestText: validManifest,
       pluginSkillText: skill,
-      pluginReadmeText: "MCP tools: 26 `odin.*` tools",
-      currentVersion: "0.4.7",
-      expectedToolCount: 26
+      pluginReadmeText: "MCP tools: 27 `odin.*` tools",
+      currentVersion: "0.4.9",
+      expectedToolCount: 27
     });
     expect(matched.length).toBe(0);
 
@@ -93,8 +93,8 @@ describe("public package metadata matches the live MCP surface", () => {
       pluginManifestText: validManifest,
       pluginSkillText: skill,
       pluginReadmeText: "no tool count advertised",
-      currentVersion: "0.4.7",
-      expectedToolCount: 26
+      currentVersion: "0.4.9",
+      expectedToolCount: 27
     });
     expect(missingCount.some((e: string) => /must advertise its odin\.\* tool count/.test(e))).toBe(true);
   });

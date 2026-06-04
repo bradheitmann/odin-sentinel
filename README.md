@@ -39,7 +39,8 @@ For a starter team shape, read [docs/guides/recommended-starter-team.md](docs/gu
 Before launching persistent governed roles, confirm:
 
 - Node.js satisfies `package.json` (`>=22.13.0`).
-- `@bradheitmann/odin-sentinel` is installed or available through `npx`.
+- `@bradheitmann/odin-sentinel` is installed or available through a pinned
+  `pnpm dlx` or `npx` command.
 - The ODIN MCP server is configured in each selected harness.
 - The SCP native skill is installed where supported, or the full prompt/resource
   fallback is available.
@@ -54,24 +55,32 @@ not be launched until readiness passes or the PM records a waiver/substitution.
 
 ## Install
 
+Recommended zero-install path:
+
 ```bash
-npm i -g @bradheitmann/odin-sentinel
+pnpm dlx --package @bradheitmann/odin-sentinel@0.4.9 odin-sentinel-mcp
 ```
 
-Zero-install MCP host config can use:
+Supported npm global install:
 
 ```bash
-npx -y -p @bradheitmann/odin-sentinel odin-sentinel-mcp
+npm i -g @bradheitmann/odin-sentinel@0.4.9
+```
+
+Supported npx zero-install path:
+
+```bash
+npx -y -p @bradheitmann/odin-sentinel@0.4.9 odin-sentinel-mcp
 ```
 
 A stdio smoke test that does not require an MCP host:
 
 ```bash
 printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"probe","version":"0"}}}\n' \
-  | npx -y -p @bradheitmann/odin-sentinel odin-sentinel-mcp
+  | pnpm dlx --package @bradheitmann/odin-sentinel@0.4.9 odin-sentinel-mcp
 ```
 
-A successful response includes `"serverInfo":{"name":"odin-sentinel","version":"0.4.8"}`.
+A successful response includes `"serverInfo":{"name":"odin-sentinel","version":"0.4.9"}`.
 Minimum compatible child MCP version for governed-team docs is `0.4.5`.
 
 ## MCP Host Examples
@@ -79,15 +88,15 @@ Minimum compatible child MCP version for governed-team docs is `0.4.5`.
 Claude Code:
 
 ```bash
-claude mcp add odin-sentinel -- npx -y -p @bradheitmann/odin-sentinel odin-sentinel-mcp
+claude mcp add odin-sentinel -- pnpm dlx --package @bradheitmann/odin-sentinel@0.4.9 odin-sentinel-mcp
 ```
 
 Codex (`~/.codex/config.toml`):
 
 ```toml
 [mcp_servers.odin-sentinel]
-command = "npx"
-args = ["-y", "-p", "@bradheitmann/odin-sentinel", "odin-sentinel-mcp"]
+command = "pnpm"
+args = ["dlx", "--package", "@bradheitmann/odin-sentinel@0.4.9", "odin-sentinel-mcp"]
 ```
 
 Cursor / VS Code / Droid / Crush (`mcpServers` JSON):
@@ -96,8 +105,8 @@ Cursor / VS Code / Droid / Crush (`mcpServers` JSON):
 {
   "mcpServers": {
     "odin-sentinel": {
-      "command": "npx",
-      "args": ["-y", "-p", "@bradheitmann/odin-sentinel", "odin-sentinel-mcp"]
+      "command": "pnpm",
+      "args": ["dlx", "--package", "@bradheitmann/odin-sentinel@0.4.9", "odin-sentinel-mcp"]
     }
   }
 }
@@ -108,8 +117,8 @@ Zed (`~/.config/zed/settings.json`):
 ```json
 "odin-sentinel": {
   "source": "custom",
-  "command": "npx",
-  "args": ["-y", "-p", "@bradheitmann/odin-sentinel", "odin-sentinel-mcp"]
+  "command": "pnpm",
+  "args": ["dlx", "--package", "@bradheitmann/odin-sentinel@0.4.9", "odin-sentinel-mcp"]
 }
 ```
 
@@ -118,8 +127,8 @@ Goose (`~/.config/goose/config.yaml`):
 ```yaml
 odin-sentinel:
   type: stdio
-  cmd: npx
-  args: ["-y", "-p", "@bradheitmann/odin-sentinel", "odin-sentinel-mcp"]
+  cmd: pnpm
+  args: ["dlx", "--package", "@bradheitmann/odin-sentinel@0.4.9", "odin-sentinel-mcp"]
   enabled: true
 ```
 
@@ -130,7 +139,7 @@ OpenCode (`~/.config/opencode/opencode.json`):
   "mcp": {
     "odin-sentinel": {
       "type": "local",
-      "command": ["npx", "-y", "-p", "@bradheitmann/odin-sentinel", "odin-sentinel-mcp"],
+      "command": ["pnpm", "dlx", "--package", "@bradheitmann/odin-sentinel@0.4.9", "odin-sentinel-mcp"],
       "enabled": true
     }
   }
@@ -142,8 +151,14 @@ OpenHands (`~/.openhands/config.toml`):
 ```toml
 [mcp.stdio_servers.odin-sentinel]
 name = "odin-sentinel"
-command = "npx"
-args = ["-y", "-p", "@bradheitmann/odin-sentinel", "odin-sentinel-mcp"]
+command = "pnpm"
+args = ["dlx", "--package", "@bradheitmann/odin-sentinel@0.4.9", "odin-sentinel-mcp"]
+```
+
+If a host cannot run `pnpm`, use the equivalent pinned npx command:
+
+```bash
+npx -y -p @bradheitmann/odin-sentinel@0.4.9 odin-sentinel-mcp
 ```
 
 ## MCP, Skill, Plugin, Prompt Fallback

@@ -1,4 +1,4 @@
-version: 0.4.8
+version: 0.4.9
 delegation_contract:
   required_fields:
     - receipt_type

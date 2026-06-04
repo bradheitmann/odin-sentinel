@@ -6,7 +6,7 @@ public protocol semantics change, update them together.
 
 ## Current Public Versions
 
-- npm package/server: `0.4.8`
+- npm package/server: `0.4.9`
 - minimum compatible child MCP version: `0.4.5`
 
 Private local skill copies may differ for personal workflow reasons. Release
@@ -15,20 +15,32 @@ private-local divergence from repo-internal public artifact drift.
 
 ## Install Paths
 
-Global install:
+Recommended zero-install path:
 
 ```bash
-npm i -g @bradheitmann/odin-sentinel
+pnpm dlx --package @bradheitmann/odin-sentinel@0.4.9 odin-sentinel-mcp
 ```
 
-Zero-install MCP config:
+Supported npm global install:
+
+```bash
+npm i -g @bradheitmann/odin-sentinel@0.4.9
+```
+
+Supported npx zero-install path:
+
+```bash
+npx -y -p @bradheitmann/odin-sentinel@0.4.9 odin-sentinel-mcp
+```
+
+Recommended MCP config:
 
 ```json
 {
   "mcpServers": {
     "odin-sentinel": {
-      "command": "npx",
-      "args": ["-y", "-p", "@bradheitmann/odin-sentinel", "odin-sentinel-mcp"]
+      "command": "pnpm",
+      "args": ["dlx", "--package", "@bradheitmann/odin-sentinel@0.4.9", "odin-sentinel-mcp"]
     }
   }
 }
