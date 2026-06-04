@@ -116,31 +116,49 @@ export const activeWatchPacketInputShape = {
   manifest: z.record(z.string(), z.unknown()).optional()
 } as const;
 
+// Shared harness-probe observation schema. Reused by the harness probe matrix and the
+// onboarding plan so both validate observations against one taxonomy (no second readiness
+// shape). Zero-secret: `text` is sanitized downstream, never echoed verbatim.
+export const harnessProbeObservationSchema = z.object({
+  harness: z.string(),
+  text: z.string().optional(),
+  exitCode: z.number().int().optional(),
+  httpReachable: z.boolean().optional(),
+  modelLoaded: z.boolean().optional(),
+  visibleContent: z.boolean().optional(),
+  reasoningContentOnly: z.boolean().optional(),
+  elapsedSeconds: z.number().int().min(0).optional(),
+  mcpManagementAvailable: z.boolean().optional(),
+  mcpConfigured: z.boolean().optional(),
+  scpSkillInstalled: z.boolean().optional(),
+  fullProtocolTextInjected: z.boolean().optional(),
+  authStatus: z.enum(["AUTH_READY", "AUTH_PRESENT_UNVERIFIED", "AUTH_MISSING", "AUTH_PROVIDER_BLOCKED", "AUTH_LOGIN_REQUIRED", "AUTH_UNKNOWN"]).optional(),
+  autoLevel: z.enum(["none", "low", "medium", "high"]).optional(),
+  taskAutonomy: z.enum(["read_only", "mission", "high_autonomy"]).optional()
+});
+
 export const harnessProbeInputShape = {
   intendedHarnesses: z.array(z.string()).optional(),
   userProvisioningAnswer: z.enum(["yes", "no", "unknown"]).optional(),
   installedHarnesses: z.array(z.string()).optional(),
   providerStatuses: z.record(z.string(), z.boolean()).optional(),
-  observations: z.array(
-    z.object({
-      harness: z.string(),
-      text: z.string().optional(),
-      exitCode: z.number().int().optional(),
-      httpReachable: z.boolean().optional(),
-      modelLoaded: z.boolean().optional(),
-      visibleContent: z.boolean().optional(),
-      reasoningContentOnly: z.boolean().optional(),
-      elapsedSeconds: z.number().int().min(0).optional(),
-      mcpManagementAvailable: z.boolean().optional(),
-      mcpConfigured: z.boolean().optional(),
-      scpSkillInstalled: z.boolean().optional(),
-      fullProtocolTextInjected: z.boolean().optional(),
-      authStatus: z.enum(["AUTH_READY", "AUTH_PRESENT_UNVERIFIED", "AUTH_MISSING", "AUTH_PROVIDER_BLOCKED", "AUTH_LOGIN_REQUIRED", "AUTH_UNKNOWN"]).optional(),
-      autoLevel: z.enum(["none", "low", "medium", "high"]).optional(),
-      taskAutonomy: z.enum(["read_only", "mission", "high_autonomy"]).optional()
-    })
-  ).optional(),
+  observations: z.array(harnessProbeObservationSchema).optional(),
   visibleOutputTimeoutSeconds: z.number().int().min(1).max(600).optional()
+} as const;
+
+// Onboarding plan input. Reuses harness probe classification (intendedHarnesses,
+// installedHarnesses, userProvisioningAnswer, observations) and adds setup-mode steering:
+// whether a computer-use-capable harness is available, the user's preferred mode, the
+// install-ledger path to surface, and the platform. Zero-secret; no secret values accepted.
+export const onboardingPlanInputShape = {
+  intendedHarnesses: z.array(z.string()).optional(),
+  installedHarnesses: z.array(z.string()).optional(),
+  userProvisioningAnswer: z.enum(["yes", "no", "unknown"]).optional(),
+  observations: z.array(harnessProbeObservationSchema).optional(),
+  computerUseAvailable: z.boolean().optional(),
+  preferredSetupMode: z.enum(["guided", "assisted", "unset"]).optional(),
+  ledgerPath: z.string().optional(),
+  platform: z.enum(["macos", "linux", "windows", "unknown"]).optional()
 } as const;
 
 const diagnosticStatusSchema = z.enum(["verified", "missing", "blocked", "unknown", "not_applicable"]);

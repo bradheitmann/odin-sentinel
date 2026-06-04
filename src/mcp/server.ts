@@ -11,6 +11,7 @@ import {
   getCloseoutChecklist,
   getDelegationPacket,
   getHarnessProbeMatrix,
+  getOnboardingPlan,
   getRoleProfile,
   getRuntimeNotice,
   getStartupPacket,
@@ -44,6 +45,7 @@ import {
   delegationPacketInputShape,
   harnessProbeInputShape,
   instructionReadProofInputShape,
+  onboardingPlanInputShape,
   recordInputShape,
   readinessGateInputShape,
   reportRecordInputShape,
@@ -353,6 +355,17 @@ export function createServer(): McpServer {
       inputSchema: harnessProbeInputShape
     },
     (input) => jsonText(getHarnessProbeMatrix(input))
+  );
+
+  server.registerTool(
+    "odin.get_onboarding_plan",
+    {
+      title: "Get Harness-Aware Onboarding Plan",
+      description:
+        "Return a zero-secret onboarding plan that reuses harness readiness classification and presents two setup choices: guided manual setup (safe default) and assisted computer-use setup (offered only when computerUseAvailable is true). Includes readiness rows, classifications, recommended mode, guided steps, assisted-mode eligibility, install-ledger path, blocker summary, and next user action. MCP returns plans only; actual GUI/computer use is performed by an available computer-use-capable harness after the user chooses. Reports secret/provider readiness by status only and never accepts or prints secrets.",
+      inputSchema: onboardingPlanInputShape
+    },
+    (input) => jsonText(getOnboardingPlan(input))
   );
 
   server.registerTool(

@@ -5,6 +5,7 @@ export {
   getActivationGates,
   getCloseoutChecklist,
   getDelegationPacket,
+  getOnboardingPlan,
   getRoleProfile,
   getRuntimeNotice,
   getStartupPacket,

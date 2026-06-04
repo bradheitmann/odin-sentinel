@@ -46,6 +46,15 @@ discoverability improved compliance in observed runs.
 
 Use `odin.get_harness_probe_matrix` to produce this classification with zero-secret output.
 
+`odin.get_onboarding_plan` builds on the same probe classification (it does not introduce a
+second readiness taxonomy) and turns it into a setup plan: harness readiness rows, blocker
+summary, recommended setup mode, guided steps, assisted computer-use eligibility, the
+install-ledger path, and the next user action. Guided manual setup is the safe default;
+assisted computer-use setup is offered only when `computerUseAvailable` is true, and even
+then the MCP server returns a plan only — actual GUI/computer use is performed by an
+available computer-use-capable harness after the user chooses. The plan reports
+secret/provider readiness by status only and never accepts or prints secret values.
+
 ## CMUX Boundary
 
 CMUX is required for governed team mode because role slots must be visible,

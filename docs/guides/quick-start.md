@@ -104,6 +104,42 @@ For local inference, endpoint reachability is not enough. The selected model mus
 return visible content within the timeout and must not return only
 `reasoning_content`.
 
+## Onboarding Plan (Guided Or Assisted Setup)
+
+Use `odin.get_onboarding_plan` to turn harness discovery into a concrete, zero-secret setup
+plan. It reuses the same readiness classification as `odin.get_harness_probe_matrix` (no
+second taxonomy) and returns harness readiness rows, a blocker summary, the recommended
+setup mode, guided steps, assisted-mode eligibility, the install-ledger path, and the next
+user action.
+
+Two setup modes:
+
+- Guided manual setup is the safe default. You run each install, configure, and verify step
+  yourself and review every change. It works without any computer-use capability and covers
+  MCP config, native skill or full-prompt fallback context, hook deployment, and readiness
+  probes.
+- Assisted computer-use setup is offered only when `computerUseAvailable` is true. An
+  available computer-use-capable harness (for example Codex Desktop, Claude Desktop, or
+  Claude Code) can perform the guided steps on your behalf after you choose it.
+
+The MCP server returns plans only. It never controls the GUI or desktop itself; actual
+computer use is performed by an available computer-use-capable harness after you explicitly
+choose assisted setup.
+
+Readiness probes and no-secret behavior: the plan classifies auth, login, permission, MCP,
+and skill blockers per harness and reports secret/provider readiness by status only. Do not
+paste API keys, tokens, OAuth values, or provider secrets into chat — report only whether
+each harness is already provisioned through an account, environment, secret manager, or
+local config.
+
+Hook deployment: install the activation hooks with
+`node scripts/protocol/install-activation-hooks.mjs` so the full-instruction-read precheck
+runs before governed edits. The onboarding plan lists this as a guided step.
+
+The onboarding plan only reports where ODIN-owned artifacts will be tracked (the install
+ledger path). It does not write the install ledger or any harness config file; ledger-aware
+install behavior is a separate step.
+
 ## 7. CMUX Governed-Team Launch
 
 Governed team mode requires CMUX. Keep EXEC PM in the same CMUX workspace as the

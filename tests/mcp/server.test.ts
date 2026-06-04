@@ -50,6 +50,7 @@ describe("ODIN MCP server", () => {
         "odin.get_closeout_checklist",
         "odin.get_delegation_packet",
         "odin.get_harness_probe_matrix",
+        "odin.get_onboarding_plan",
         "odin.get_role_profile",
         "odin.get_runtime_notice",
         "odin.get_startup_packet",
@@ -227,6 +228,16 @@ describe("ODIN MCP server", () => {
           }
         },
         {
+          name: "odin.get_onboarding_plan",
+          arguments: {
+            intendedHarnesses: ["Codex"],
+            installedHarnesses: ["Codex"],
+            userProvisioningAnswer: "yes",
+            computerUseAvailable: false,
+            observations: [{ harness: "Codex", mcpConfigured: true, scpSkillInstalled: true, authStatus: "AUTH_READY", visibleContent: true }]
+          }
+        },
+        {
           name: "odin.get_closeout_checklist",
           arguments: {
             mode: "FULL_SESSION_SHUTDOWN"
@@ -379,6 +390,58 @@ describe("ODIN MCP server", () => {
       expect(layout.profile).toBe("human_cmux_quad");
       expect(layout.workspace?.execPmSameWorkspaceRequired).toBe(true);
       expect(layout.regions).toHaveLength(4);
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
+
+  it("returns a harness-aware onboarding plan and offers assisted setup only when computer use is available", async () => {
+    const { client, server } = await connectClient();
+
+    type OnboardingResult = {
+      recommendedMode: string;
+      zeroSecretOutput: boolean;
+      ledgerPath: string;
+      nextUserAction: string;
+      guidedSetupSteps: unknown[];
+      setupModes: { assisted: { eligible: boolean; candidateHarnesses: string[] } };
+    };
+
+    try {
+      const guided = parseTextResult(await client.callTool({
+        name: "odin.get_onboarding_plan",
+        arguments: {
+          intendedHarnesses: ["Codex"],
+          installedHarnesses: ["Codex"],
+          userProvisioningAnswer: "yes",
+          computerUseAvailable: false,
+          observations: [{ harness: "Codex", mcpConfigured: true, scpSkillInstalled: true, authStatus: "AUTH_READY", visibleContent: true }]
+        }
+      })) as OnboardingResult;
+
+      expect(guided.recommendedMode).toBe("guided");
+      expect(guided.setupModes.assisted.eligible).toBe(false);
+      expect(Array.isArray(guided.guidedSetupSteps)).toBe(true);
+      expect(guided.zeroSecretOutput).toBe(true);
+      expect(typeof guided.ledgerPath).toBe("string");
+      expect(typeof guided.nextUserAction).toBe("string");
+
+      const assisted = parseTextResult(await client.callTool({
+        name: "odin.get_onboarding_plan",
+        arguments: {
+          intendedHarnesses: ["Codex"],
+          installedHarnesses: ["Codex"],
+          userProvisioningAnswer: "yes",
+          computerUseAvailable: true,
+          preferredSetupMode: "assisted",
+          observations: [{ harness: "Codex", mcpConfigured: true, scpSkillInstalled: true, authStatus: "AUTH_READY", visibleContent: true }]
+        }
+      })) as OnboardingResult;
+
+      expect(assisted.recommendedMode).toBe("assisted");
+      expect(assisted.setupModes.assisted.eligible).toBe(true);
+      expect(assisted.setupModes.assisted.candidateHarnesses.length).toBeGreaterThan(0);
     } finally {
       await client.close();
       await server.close();

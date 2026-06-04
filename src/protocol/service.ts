@@ -216,6 +216,19 @@ export type HarnessProbeInput = {
   visibleOutputTimeoutSeconds?: number;
 };
 
+export type OnboardingSetupMode = "guided" | "assisted";
+
+export type OnboardingPlanInput = {
+  intendedHarnesses?: string[];
+  installedHarnesses?: string[];
+  userProvisioningAnswer?: "yes" | "no" | "unknown";
+  observations?: HarnessProbeInput["observations"];
+  computerUseAvailable?: boolean;
+  preferredSetupMode?: OnboardingSetupMode | "unset";
+  ledgerPath?: string;
+  platform?: "macos" | "linux" | "windows" | "unknown";
+};
+
 function roleKind(roleSlot: string): string {
   return normalizeRoleName(roleSlot);
 }
@@ -1215,6 +1228,165 @@ export function getHarnessProbeMatrix(input: HarnessProbeInput = {}): Record<str
   };
 }
 
+const ONBOARDING_ADVISORY_CLASSIFICATIONS = new Set(["USER_INPUT_REQUIRED"]);
+const DEFAULT_INSTALL_LEDGER_PATH = ".odin/install-ledger.json";
+const COMPUTER_USE_CANDIDATE_HARNESSES = ["Codex Desktop", "Claude Desktop", "Claude Code"];
+const ONBOARDING_NO_SECRETS_NOTICE =
+  "Do not paste API keys, tokens, OAuth values, or provider secrets into chat. Report only whether each harness is already provisioned (account, environment, secret manager, or local config). Secret and provider readiness is reported by status only.";
+
+function onboardingGuidedSteps(): string[] {
+  return [
+    "Confirm Node.js >= 22.13.0 and the installed @bradheitmann/odin-sentinel package version.",
+    "Install the MCP server globally (npm i -g @bradheitmann/odin-sentinel) or use the zero-install npx command inside each MCP config.",
+    "Add the odin-sentinel-mcp stdio command to each selected harness MCP config and restart the harness.",
+    "Provide SCP context: install the native sentinel-coordination-protocol skill where supported, otherwise inject full protocol text via odin.get_bootstrap_skill, or export a snapshot via odin.export_protocol_snapshot for non-MCP clients.",
+    "Deploy the activation hooks with `node scripts/protocol/install-activation-hooks.mjs` so the full-instruction-read precheck runs before governed edits.",
+    "Run the MCP smoke test and confirm serverInfo.name = odin-sentinel and a compatible version.",
+    "Probe harness readiness with odin.get_harness_probe_matrix (zero-secret) and clear any auth, login, permission, MCP, or skill blockers.",
+    "Confirm each harness is signed in or configured outside chat without pasting secrets.",
+    "Open CMUX, compute the surface layout, and launch governed role slots only after readiness passes or EXEC PM records a waiver or substitution."
+  ];
+}
+
+function onboardingAssistedSteps(): string[] {
+  return [
+    "Choose one available computer-use-capable harness (for example Codex Desktop, Claude Desktop, or Claude Code) to perform setup on your behalf.",
+    "Hand the guided setup steps to that harness as its task; it operates your desktop/GUI, while ODIN's MCP server only supplies this plan.",
+    "Supervise the assisted run: approve permission prompts yourself and never paste secrets into chat.",
+    "After install and configuration complete, re-run odin.get_harness_probe_matrix to confirm governed readiness before launching governed roles."
+  ];
+}
+
+/**
+ * Build a zero-secret, harness-aware onboarding plan. Reuses getHarnessProbeMatrix for
+ * readiness classification (no second taxonomy) and presents two setup choices: guided
+ * manual setup (the safe default) and assisted computer-use setup (offered only when a
+ * computer-use-capable harness is available). The MCP server returns this plan only; actual
+ * GUI/computer-use is performed by an available computer-use-capable harness after the user
+ * chooses assisted setup. This function does not install, write, or delete any harness config
+ * or ledger file.
+ */
+export function getOnboardingPlan(input: OnboardingPlanInput = {}): Record<string, unknown> {
+  const probe = getHarnessProbeMatrix({
+    intendedHarnesses: input.intendedHarnesses,
+    installedHarnesses: input.installedHarnesses,
+    userProvisioningAnswer: input.userProvisioningAnswer,
+    observations: input.observations
+  });
+  const probeRows = Array.isArray(probe.rows) ? (probe.rows as Array<Record<string, unknown>>) : [];
+
+  const readinessRows = probeRows.map((row) => {
+    const classifications = Array.isArray(row.classifications) ? (row.classifications as string[]) : [];
+    const blockers = classifications.filter((item) => !ONBOARDING_ADVISORY_CLASSIFICATIONS.has(item));
+    const readiness = asRecord(row.readiness);
+    return {
+      harness: row.harness,
+      installed: row.installed === true,
+      governedRoleReady: readiness.governed_role_ready === true,
+      classifications,
+      blockers,
+      readiness,
+      modelStatus: row.modelStatus,
+      nativeSkillInvocation: row.nativeSkillInvocation === true,
+      scpSkillGuidance: row.sentinelCoordinationProtocolSkill,
+      safeNextActions: Array.isArray(row.safeNextActions) ? row.safeNextActions : [],
+      sanitizedObservation: row.sanitizedObservation
+    };
+  });
+
+  const blockerSummary = readinessRows
+    .filter((row) => row.blockers.length > 0)
+    .map((row) => ({ harness: row.harness, blockers: row.blockers, governedRoleReady: row.governedRoleReady }));
+  const classifications = [...new Set(readinessRows.flatMap((row) => row.classifications))].sort();
+  const governedReadyHarnesses = readinessRows.filter((row) => row.governedRoleReady).map((row) => row.harness);
+
+  const computerUseAvailable = input.computerUseAvailable === true;
+  const preferred = input.preferredSetupMode ?? "unset";
+  // Assisted computer-use setup is offered only when a computer-use-capable harness is available.
+  const assistedEligible = computerUseAvailable;
+
+  let recommendedMode: OnboardingSetupMode;
+  let modeRationale: string;
+  if (preferred === "assisted" && assistedEligible) {
+    recommendedMode = "assisted";
+    modeRationale =
+      "Assisted computer-use setup is available and was preferred. A computer-use-capable harness can perform setup on your behalf after you choose it; ODIN's MCP server only returns this plan and never drives the GUI itself.";
+  } else if (preferred === "assisted" && !assistedEligible) {
+    recommendedMode = "guided";
+    modeRationale =
+      "Assisted computer-use setup was requested, but computerUseAvailable is false, so guided manual setup is the safe available path.";
+  } else if (preferred === "guided") {
+    recommendedMode = "guided";
+    modeRationale = "Guided manual setup was preferred; it is the safe, fully reviewable path.";
+  } else {
+    recommendedMode = "guided";
+    modeRationale = assistedEligible
+      ? "Guided manual setup is the safe default. Assisted computer-use setup is available if you prefer convenience; choose it explicitly to let an available computer-use harness perform setup for you."
+      : "Guided manual setup is the safe default and the only available path because no computer-use-capable harness was reported.";
+  }
+
+  const ledgerPath = stringFieldPresent(input.ledgerPath) ? (input.ledgerPath as string).trim() : DEFAULT_INSTALL_LEDGER_PATH;
+  const platform = input.platform ?? "unknown";
+  const userProvisioningAnswer = input.userProvisioningAnswer ?? "unknown";
+  const guidedSteps = onboardingGuidedSteps();
+
+  let nextUserAction: string;
+  if (userProvisioningAnswer !== "yes") {
+    nextUserAction =
+      "Confirm whether each intended harness is already provisioned (signed in or configured outside chat) without pasting secrets, then re-run onboarding.";
+  } else if (blockerSummary.length > 0) {
+    nextUserAction = `Resolve the harness blockers in blockerSummary (auth, login, permission, MCP, or skill) before launching governed roles, then proceed with ${recommendedMode} setup.`;
+  } else {
+    nextUserAction = `All probed harnesses are governed-ready. Proceed with ${recommendedMode} setup, then launch governed role slots in CMUX only after readiness passes.`;
+  }
+
+  return {
+    version: VERSION,
+    zeroSecretOutput: true,
+    noSecretsNotice: ONBOARDING_NO_SECRETS_NOTICE,
+    userProvisioningPrompt: probe.userPrompt,
+    userProvisioningAnswer,
+    supportedSecretProviders: probe.supportedProviders,
+    secretProviderStatuses: probe.secretProviderStatuses,
+    platform,
+    recommendedMode,
+    modeRationale,
+    setupModes: {
+      guided: {
+        title: "Guided manual setup (safe default)",
+        description:
+          "You run each install, configure, and verify step yourself and review every change. This path is the safest and works without any computer-use capability.",
+        steps: guidedSteps
+      },
+      assisted: {
+        title: "Assisted computer-use setup (convenience)",
+        eligible: assistedEligible,
+        available: computerUseAvailable,
+        requestedButUnavailable: preferred === "assisted" && !assistedEligible,
+        description:
+          "An available computer-use-capable harness performs the guided steps on your behalf after you choose it. ODIN's MCP server only returns this plan; it never controls the GUI or desktop itself.",
+        candidateHarnesses: assistedEligible ? [...COMPUTER_USE_CANDIDATE_HARNESSES] : [],
+        caveat:
+          "MCP returns plans only. Actual GUI or computer-use actions are performed solely by an available computer-use-capable harness after you explicitly choose assisted setup.",
+        steps: assistedEligible
+          ? onboardingAssistedSteps()
+          : ["Assisted setup is unavailable because no computer-use-capable harness was reported (computerUseAvailable is not true). Use guided setup."]
+      }
+    },
+    guidedSetupSteps: guidedSteps,
+    assistedSetupEligible: assistedEligible,
+    readinessRows,
+    classifications,
+    blockerSummary,
+    unresolvedBlockerCount: blockerSummary.length,
+    governedReadyHarnesses,
+    ledgerPath,
+    ledgerNote:
+      "This onboarding plan only reports where ODIN-owned artifacts will be tracked. It does not create, write, validate, or delete the install ledger or any harness config file; ledger-aware install behavior is a separate step.",
+    nextUserAction
+  };
+}
+
 export function getCloseoutChecklist(
   mode: CloseoutMode,
   repository: ProtocolRepository = getDefaultRepository()
@@ -1285,6 +1457,7 @@ export function createProtocolService(repository: ProtocolRepository = createFil
     evaluateReadinessGate,
     getActiveWatchPacket,
     getHarnessProbeMatrix,
+    getOnboardingPlan,
     getDelegationPacket,
     getActivationGates,
     validateCmuxDeliveryProof: (proof: Record<string, unknown>) => validateCmuxDeliveryProof(proof),
