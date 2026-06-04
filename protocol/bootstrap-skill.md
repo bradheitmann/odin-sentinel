@@ -1,5 +1,5 @@
 ---
-name: sentinel-coordination-protocol
+name: odin-scp
 description: "Operate and improve SCP governance for multi-agent teams: self-bootstrap and teardown of federated pods, generic role topology, TEAM PM / TEAM ODIN separation, minimal bootstrap receipts, terminal locator identity, control-plane non-implementation, delegation receipts, terminal/CMUX delivery proof and verdicts, heartbeat cadence, branch-visible claims, adversarial QA, finish audit, and safe skill dissemination. Use when introducing SCP v3.5; installing SCP skills/adapters for Codex, Claude Code, OpenCode, Droid, Crush, OpenHands, Goose, KiloCode, Cursor, Zed, Pi, or other local coding agents; assigning EXEC/TEAM/WORKER roles; or preventing premature activation from an uncommitted draft artifact."
 version: 3.6.1
 updated: 2026-05-11
@@ -7,7 +7,7 @@ updated: 2026-05-11
 
 # Sentinel Coordination Protocol
 
-SCP_PUBLIC_VERSION: 0.4.11
+SCP_PUBLIC_VERSION: 0.4.12
 MIN_COMPATIBLE_CHILD_MCP: 0.4.5
 
 Public install readiness: configure the ODIN MCP server, install native skill context where supported or use full prompt fallback, keep governed team roles in CMUX, verify auth/account readiness without printing secrets, smoke-test local inference if used, and validate role compatibility before launch. Private local skill copies may differ intentionally; public release checks compare repo-internal public artifacts only.
@@ -19,6 +19,8 @@ Use this skill for SCP policy introduction, repo landing, adoption-gate proof, c
 Master editable source:
 
 - the repository-distributed SCP protocol bundle, or an operator-declared canonical SCP skill source outside this public package.
+
+The active canonical SCP skill directory is the directory that contains this `SKILL.md` plus its `references/`, `agents/`, and `scripts/` support files.
 
 All installed copies are synchronized runtime snapshots, not independent policy forks. Any agent modifying SCP policy must edit the declared source first, then propagate the full skill/protocol bundle to the installed harness targets and verify matching hashes.
 
@@ -64,7 +66,7 @@ SCP is a standing control loop, not a one-time boot banner. Read or re-invoke th
 - before QA activation or QA verdict language,
 - before any claim, lifecycle mutation, commit, push, or finish report,
 - when a hook, validator, permission mode, quota limit, dirty state, or branch mismatch appears,
-- when `$sentinel-coordination-protocol --finish` or `$sentinel-coordination-protocol --session-closeout` is invoked.
+- when `$odin-scp --finish` or `$odin-scp --session-closeout` is invoked.
 
 If an agent cannot state its current SCP role, authority layer, `may_implement`, `may_qa_accept`, reports-to chain, and next receipt type, it must stop and re-emit `SCP_BOOT_RECEIPT`.
 
@@ -540,7 +542,7 @@ role_model_fallback_ladders:
   - model: Claude Opus
    harnesses: [claude]
    reasoning: high
-   condition: Brad_authorized_high_risk_exception_only
+   condition: operator_authorized_high_risk_exception_only
 
  QUEUE_TRIAGE:
   - model: Kimi K2.6
@@ -561,7 +563,7 @@ model_mix_policy:
  scarce_quota_pools:
   - chatgpt_codex
   - claude_code
- locally_disallowed_without_brad_reauth:
+ locally_disallowed_without_operator_reauth:
   - gemini
  hidden_subagents_allowed: false
  role_slot_closure_allowed: false
@@ -626,7 +628,7 @@ Some harnesses, especially Claude Code, may enter plan mode or pause for approva
 
 Teardown sequence:
 
-1. Broadcast `$sentinel-coordination-protocol --finish`.
+1. Broadcast `$odin-scp --finish`.
 2. Collect `[SCP-FINISH]`, snapshots, handoffs, dirty state, and blocker state.
 3. Snapshot official topology before cleanup, classify each surface as official role slot vs temporary/ad hoc, and list any proposed closures.
 4. Run post-run hygiene and cleanup QA.
@@ -1035,7 +1037,7 @@ Required fields:
 - `scope`
 - `duration_or_expiry`
 - `risk_if_not_added`
-- `brad_authorization_required: true`
+- `operator_authorization_required: true`
 
 ### `[SCP-EXCEPTION]`
 
@@ -1097,14 +1099,14 @@ Required fields:
 - `confidence_downgrade`
 - `corrective_actions`
 - `unresolved_risks`
-- `brad_decisions_needed`
+- `operator_decisions_needed`
 - `final_claim_allowed: true|false`
 
 Exceptions do not implicitly authorize implementation, QA acceptance, evidence writing, push, merge, cleanup, lifecycle mutation, closure, or finish claims unless those actions are explicitly named.
 
 ## Session Closeout Metrics And Improvement Lifecycle
 
-Session closeout is an explicit SCP lifecycle phase. It begins when objectives are achieved or intentionally paused, branch/repo state is clean or classified, QA/quality gates are complete or blocked with owner, next-session path is clear, and `EXEC PM` is ready to hand off. the user may also trigger closeout with `$sentinel-coordination-protocol --finish` or `$sentinel-coordination-protocol --session-closeout`.
+Session closeout is an explicit SCP lifecycle phase. It begins when objectives are achieved or intentionally paused, branch/repo state is clean or classified, QA/quality gates are complete or blocked with owner, next-session path is clear, and `EXEC PM` is ready to hand off. the user may also trigger closeout with `$odin-scp --finish` or `$odin-scp --session-closeout`.
 
 At bootstrap, `EXEC PM` must record a `SESSION_OBJECTIVES` contract before broad dispatch:
 
@@ -1174,7 +1176,7 @@ Skill edits are the last closeout action after session data, `EXEC_PM_SESSION_RE
 
 ### `[SCP-FINISH]`
 
-Emit when `$sentinel-coordination-protocol --finish` is invoked or relayed:
+Emit when `$odin-scp --finish` is invoked or relayed:
 
 - `final_state`
 - `pushed_commits`
@@ -1288,7 +1290,7 @@ Provider/token-pool metrics must record provider, token pool, raw tokens, token 
 
 ## Finish And Self-Improvement Loop
 
-`$sentinel-coordination-protocol --finish` starts controlled closeout, not product work.
+`$odin-scp --finish` starts controlled closeout, not product work.
 
 Close-out is not just cleanup. Close-out must prove the coordination process itself was followed, and must diagnose any agent that failed to deliver what it was told to deliver before declaring the run governed or complete.
 
@@ -1373,7 +1375,7 @@ Allowed pre-acceptance states:
 - `ROLE_SLOT_CLOSURE_VIOLATION`: role-named pane/surface was closed or deleted without explicit the user authorization.
 - `MODEL_MIX_VIOLATION`: active model/harness assignment violates the declared model mix policy.
 - `TOPOLOGY_EXPANSION_REQUESTED`: new role slot, pane, pod, floater, or specialized model/harness has been requested and awaits the user decision.
-- `TOPOLOGY_EXPANSION_BLOCKED_PENDING_BRAD`: topology expansion is blocked until the user explicitly authorizes it.
+- `TOPOLOGY_EXPANSION_BLOCKED_PENDING_OPERATOR`: topology expansion is blocked until the user explicitly authorizes it.
 
 If repo mechanics require moving a DEV slice to `done/` before independent QA, the handoff and ledger must say `DEV_COMPLETE_QA_PENDING`; it is not lifecycle closure.
 
@@ -1442,7 +1444,7 @@ Before implementation, QA acceptance, or ACTIVE_WATCH work, an activated role mu
 
 ## Harness Readiness Probes
 
-Installed is not provisioned. Probe harnesses before governed launch and record multi-dimensional readiness (`installed_binary`, `authenticated`, `mcp_configured`, `mcp_tool_hydration`, `governed_role_ready`) via `odin.get_harness_probe_matrix`. Classify permission, login, API-key/auth, and local-inference stalls before assigning roles. A harness lacking MCP, native SCP skill, or full injected protocol text is `NON_GOVERNED_ONE_SHOT_ONLY` and must not hold a persistent governed role. Skill-capable harnesses should install the sentinel-coordination-protocol skill before governed launch. Droid: read-only `droid exec` needs no write authority, but mission/high-autonomy requires `--auto high`, and `droid mcp` is required for governed readiness. Crush: no MCP management command (`MCP_UNAVAILABLE`) and auth-header failures (`unauthorized: Authentication parameter not received in Header`) are auth blockers.
+Installed is not provisioned. Probe harnesses before governed launch and record multi-dimensional readiness (`installed_binary`, `authenticated`, `mcp_configured`, `mcp_tool_hydration`, `governed_role_ready`) via `odin.get_harness_probe_matrix`. Classify permission, login, API-key/auth, and local-inference stalls before assigning roles. A harness lacking MCP, native SCP skill, or full injected protocol text is `NON_GOVERNED_ONE_SHOT_ONLY` and must not hold a persistent governed role. Skill-capable harnesses should install the odin-scp skill before governed launch. Droid: read-only `droid exec` needs no write authority, but mission/high-autonomy requires `--auto high`, and `droid mcp` is required for governed readiness. Crush: no MCP management command (`MCP_UNAVAILABLE`) and auth-header failures (`unauthorized: Authentication parameter not received in Header`) are auth blockers.
 
 ## Core Workflow
 
@@ -1505,5 +1507,12 @@ This recursion is why the same protocol governs both code work and organizationa
 - `references/harness-skill-targets.md`: local harness install matrix and fallback policy.
 - `references/boot-receipt-examples.md`: canonical `SCP_BOOT_RECEIPT` examples for `EXEC PM`, `TEAM ODIN`, `DEV WORKER`, and `QA WORKER`.
 - `references/team-bootstrap-runbook.md`: terminal/CMUX self-bootstrap, harness launch, pod setup, teardown, and hygiene runbook for one-pane-to-many-pod operation.
+
+MCP-only or non-native harnesses can load the same material from:
+
+- `odin://protocol/skill-references/canonical-introduction-prompt`
+- `odin://protocol/skill-references/harness-skill-targets`
+- `odin://protocol/skill-references/boot-receipt-examples`
+- `odin://protocol/skill-references/team-bootstrap-runbook`
 
 Load the prompt reference when the user asks for the official SCP introduction prompt or asks the `EXEC PM` pane to implement/disseminate SCP.

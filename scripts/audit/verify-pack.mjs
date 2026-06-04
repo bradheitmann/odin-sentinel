@@ -13,7 +13,11 @@ const requiredProtocolFiles = [
   "protocol/delegation.yaml",
   "protocol/receipts/boot-receipt.yaml",
   "protocol/receipts/team-manifest.yaml",
-  "protocol/bootstrap-skill.md"
+  "protocol/bootstrap-skill.md",
+  "protocol/skill-references/boot-receipt-examples.md",
+  "protocol/skill-references/canonical-introduction-prompt.md",
+  "protocol/skill-references/harness-skill-targets.md",
+  "protocol/skill-references/team-bootstrap-runbook.md"
 ];
 
 const requiredTemplateFiles = [
@@ -217,6 +221,9 @@ export function validatePluginSync({ pluginManifestText, pluginSkillText, plugin
     manifest = {};
   }
 
+  if (manifest.name !== "odin-scp") {
+    errors.push(`Claude plugin manifest name ${manifest.name ?? "<missing>"} must be odin-scp`);
+  }
   if (manifest.version !== currentVersion) {
     errors.push(`Claude plugin manifest version ${manifest.version ?? "<missing>"} must match package version ${currentVersion}`);
   }
@@ -282,9 +289,16 @@ function readPublicVersionFiles() {
     "docs/reference/public-surface-audit.md",
     "protocol/SCP.md",
     "protocol/bootstrap-skill.md",
-    "plugins/sentinel-coordination-protocol/.claude-plugin/plugin.json",
-    "plugins/sentinel-coordination-protocol/skills/sentinel-coordination-protocol/SKILL.md",
-    "plugins/sentinel-coordination-protocol/README.md"
+    "plugins/odin-scp/.claude-plugin/plugin.json",
+    "plugins/odin-scp/skills/odin-scp/SKILL.md",
+    "plugins/odin-scp/skills/odin-scp/CHANGELOG.md",
+    "plugins/odin-scp/skills/odin-scp/agents/openai.yaml",
+    "plugins/odin-scp/skills/odin-scp/references/boot-receipt-examples.md",
+    "plugins/odin-scp/skills/odin-scp/references/canonical-introduction-prompt.md",
+    "plugins/odin-scp/skills/odin-scp/references/harness-skill-targets.md",
+    "plugins/odin-scp/skills/odin-scp/references/team-bootstrap-runbook.md",
+    "plugins/odin-scp/skills/odin-scp/scripts/sync-installations.sh",
+    "plugins/odin-scp/README.md"
   ].map((file) => [file, readFileSync(file, "utf8")]));
 }
 
@@ -310,9 +324,9 @@ export function runVerifyPack({ pack, packageJson, publicVersionFiles, costPriva
       currentVersion: packageJson.version
     }),
     ...validatePluginSync({
-      pluginManifestText: publicVersionFiles["plugins/sentinel-coordination-protocol/.claude-plugin/plugin.json"],
-      pluginSkillText: publicVersionFiles["plugins/sentinel-coordination-protocol/skills/sentinel-coordination-protocol/SKILL.md"],
-      pluginReadmeText: publicVersionFiles["plugins/sentinel-coordination-protocol/README.md"],
+      pluginManifestText: publicVersionFiles["plugins/odin-scp/.claude-plugin/plugin.json"],
+      pluginSkillText: publicVersionFiles["plugins/odin-scp/skills/odin-scp/SKILL.md"],
+      pluginReadmeText: publicVersionFiles["plugins/odin-scp/README.md"],
       currentVersion: packageJson.version,
       expectedToolCount: extractToolCount(packageJson.description)
     }),

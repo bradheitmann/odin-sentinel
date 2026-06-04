@@ -15,7 +15,11 @@ export const REQUIRED_PROTOCOL_FILES = [
   "protocol/delegation.yaml",
   "protocol/receipts/boot-receipt.yaml",
   "protocol/receipts/team-manifest.yaml",
-  "protocol/bootstrap-skill.md"
+  "protocol/bootstrap-skill.md",
+  "protocol/skill-references/boot-receipt-examples.md",
+  "protocol/skill-references/canonical-introduction-prompt.md",
+  "protocol/skill-references/harness-skill-targets.md",
+  "protocol/skill-references/team-bootstrap-runbook.md"
 ];
 
 export type ProtocolData = {
@@ -28,6 +32,12 @@ export type ProtocolData = {
   bootReceipt: Record<string, unknown>;
   teamManifest: Record<string, unknown>;
   bootstrapSkill: string;
+  skillReferences: {
+    bootReceiptExamples: string;
+    canonicalIntroductionPrompt: string;
+    harnessSkillTargets: string;
+    teamBootstrapRunbook: string;
+  };
 };
 
 export type ProtocolRepository = {
@@ -132,7 +142,13 @@ export function createFileProtocolRepository(rootDir = findRootDir()): ProtocolR
         delegation: readYaml(protocolPath("delegation.yaml")),
         bootReceipt: readYaml(protocolPath("receipts", "boot-receipt.yaml")),
         teamManifest: readYaml(protocolPath("receipts", "team-manifest.yaml")),
-        bootstrapSkill: readFileSync(protocolPath("bootstrap-skill.md"), "utf8")
+        bootstrapSkill: readFileSync(protocolPath("bootstrap-skill.md"), "utf8"),
+        skillReferences: {
+          bootReceiptExamples: readFileSync(protocolPath("skill-references", "boot-receipt-examples.md"), "utf8"),
+          canonicalIntroductionPrompt: readFileSync(protocolPath("skill-references", "canonical-introduction-prompt.md"), "utf8"),
+          harnessSkillTargets: readFileSync(protocolPath("skill-references", "harness-skill-targets.md"), "utf8"),
+          teamBootstrapRunbook: readFileSync(protocolPath("skill-references", "team-bootstrap-runbook.md"), "utf8")
+        }
       });
 
       cache = { fingerprint, data };

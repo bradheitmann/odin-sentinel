@@ -73,6 +73,10 @@ describe("ODIN MCP server", () => {
         "odin://protocol/receipts/boot",
         "odin://protocol/receipts/team-manifest",
         "odin://protocol/roles",
+        "odin://protocol/skill-references/boot-receipt-examples",
+        "odin://protocol/skill-references/canonical-introduction-prompt",
+        "odin://protocol/skill-references/harness-skill-targets",
+        "odin://protocol/skill-references/team-bootstrap-runbook",
         "odin://protocol/topology"
       ]);
     } finally {
@@ -94,6 +98,10 @@ describe("ODIN MCP server", () => {
         "odin://protocol/receipts/boot",
         "odin://protocol/receipts/team-manifest",
         "odin://protocol/roles",
+        "odin://protocol/skill-references/boot-receipt-examples",
+        "odin://protocol/skill-references/canonical-introduction-prompt",
+        "odin://protocol/skill-references/harness-skill-targets",
+        "odin://protocol/skill-references/team-bootstrap-runbook",
         "odin://protocol/topology"
       ];
       const toolCalls = [

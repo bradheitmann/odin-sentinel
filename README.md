@@ -1,6 +1,6 @@
 # ODIN Sentinel
 
-**Portable MCP governance protocol for visible multi-agent teams: 27 tools, 9 resources, role topology, readiness gates, ODIN watchers, receipts, delegation, and closeout over stdio.**
+**Portable MCP governance protocol for visible multi-agent teams: 27 tools, 13 resources, role topology, readiness gates, ODIN watchers, receipts, delegation, and closeout over stdio.**
 
 ODIN Sentinel is a local stdio MCP server plus a portable coordination protocol
 for visible agent teams. It gives agents a shared roster, startup packet,
@@ -58,29 +58,29 @@ not be launched until readiness passes or the PM records a waiver/substitution.
 Recommended zero-install path:
 
 ```bash
-pnpm dlx --package @bradheitmann/odin-sentinel@0.4.11 odin-sentinel-mcp
+pnpm dlx --package @bradheitmann/odin-sentinel@0.4.12 odin-sentinel-mcp
 ```
 
 Supported npm global install:
 
 ```bash
-npm i -g @bradheitmann/odin-sentinel@0.4.11
+npm i -g @bradheitmann/odin-sentinel@0.4.12
 ```
 
 Supported npx zero-install path:
 
 ```bash
-npx -y -p @bradheitmann/odin-sentinel@0.4.11 odin-sentinel-mcp
+npx -y -p @bradheitmann/odin-sentinel@0.4.12 odin-sentinel-mcp
 ```
 
 A stdio smoke test that does not require an MCP host:
 
 ```bash
 printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"probe","version":"0"}}}\n' \
-  | pnpm dlx --package @bradheitmann/odin-sentinel@0.4.11 odin-sentinel-mcp
+  | pnpm dlx --package @bradheitmann/odin-sentinel@0.4.12 odin-sentinel-mcp
 ```
 
-A successful response includes `"serverInfo":{"name":"odin-sentinel","version":"0.4.11"}`.
+A successful response includes `"serverInfo":{"name":"odin-sentinel","version":"0.4.12"}`.
 Minimum compatible child MCP version for governed-team docs is `0.4.5`.
 
 ## MCP Host Examples
@@ -88,7 +88,7 @@ Minimum compatible child MCP version for governed-team docs is `0.4.5`.
 Claude Code:
 
 ```bash
-claude mcp add odin-sentinel -- pnpm dlx --package @bradheitmann/odin-sentinel@0.4.11 odin-sentinel-mcp
+claude mcp add odin-sentinel -- pnpm dlx --package @bradheitmann/odin-sentinel@0.4.12 odin-sentinel-mcp
 ```
 
 Codex (`~/.codex/config.toml`):
@@ -96,7 +96,7 @@ Codex (`~/.codex/config.toml`):
 ```toml
 [mcp_servers.odin-sentinel]
 command = "pnpm"
-args = ["dlx", "--package", "@bradheitmann/odin-sentinel@0.4.11", "odin-sentinel-mcp"]
+args = ["dlx", "--package", "@bradheitmann/odin-sentinel@0.4.12", "odin-sentinel-mcp"]
 ```
 
 Cursor / VS Code / Droid / Crush (`mcpServers` JSON):
@@ -106,7 +106,7 @@ Cursor / VS Code / Droid / Crush (`mcpServers` JSON):
   "mcpServers": {
     "odin-sentinel": {
       "command": "pnpm",
-      "args": ["dlx", "--package", "@bradheitmann/odin-sentinel@0.4.11", "odin-sentinel-mcp"]
+      "args": ["dlx", "--package", "@bradheitmann/odin-sentinel@0.4.12", "odin-sentinel-mcp"]
     }
   }
 }
@@ -118,7 +118,7 @@ Zed (`~/.config/zed/settings.json`):
 "odin-sentinel": {
   "source": "custom",
   "command": "pnpm",
-  "args": ["dlx", "--package", "@bradheitmann/odin-sentinel@0.4.11", "odin-sentinel-mcp"]
+  "args": ["dlx", "--package", "@bradheitmann/odin-sentinel@0.4.12", "odin-sentinel-mcp"]
 }
 ```
 
@@ -128,7 +128,7 @@ Goose (`~/.config/goose/config.yaml`):
 odin-sentinel:
   type: stdio
   cmd: pnpm
-  args: ["dlx", "--package", "@bradheitmann/odin-sentinel@0.4.11", "odin-sentinel-mcp"]
+  args: ["dlx", "--package", "@bradheitmann/odin-sentinel@0.4.12", "odin-sentinel-mcp"]
   enabled: true
 ```
 
@@ -139,7 +139,7 @@ OpenCode (`~/.config/opencode/opencode.json`):
   "mcp": {
     "odin-sentinel": {
       "type": "local",
-      "command": ["pnpm", "dlx", "--package", "@bradheitmann/odin-sentinel@0.4.11", "odin-sentinel-mcp"],
+      "command": ["pnpm", "dlx", "--package", "@bradheitmann/odin-sentinel@0.4.12", "odin-sentinel-mcp"],
       "enabled": true
     }
   }
@@ -152,13 +152,13 @@ OpenHands (`~/.openhands/config.toml`):
 [mcp.stdio_servers.odin-sentinel]
 name = "odin-sentinel"
 command = "pnpm"
-args = ["dlx", "--package", "@bradheitmann/odin-sentinel@0.4.11", "odin-sentinel-mcp"]
+args = ["dlx", "--package", "@bradheitmann/odin-sentinel@0.4.12", "odin-sentinel-mcp"]
 ```
 
 If a host cannot run `pnpm`, use the equivalent pinned npx command:
 
 ```bash
-npx -y -p @bradheitmann/odin-sentinel@0.4.11 odin-sentinel-mcp
+npx -y -p @bradheitmann/odin-sentinel@0.4.12 odin-sentinel-mcp
 ```
 
 ## MCP, Skill, Plugin, Prompt Fallback
@@ -193,7 +193,7 @@ using them for real work.
 Local operator planning folders may be useful private workspaces, but they are
 not shipped product internals and are not required for public users.
 
-## Provided MCP Resources (9)
+## Provided MCP Resources (13)
 
 - `odin://protocol/main`
 - `odin://protocol/roles`
@@ -204,6 +204,10 @@ not shipped product internals and are not required for public users.
 - `odin://protocol/receipts/boot`
 - `odin://protocol/receipts/team-manifest`
 - `odin://protocol/bootstrap-skill`
+- `odin://protocol/skill-references/boot-receipt-examples`
+- `odin://protocol/skill-references/canonical-introduction-prompt`
+- `odin://protocol/skill-references/harness-skill-targets`
+- `odin://protocol/skill-references/team-bootstrap-runbook`
 
 ## Provided MCP Tools (27)
 

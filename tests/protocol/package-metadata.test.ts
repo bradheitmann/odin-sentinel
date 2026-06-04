@@ -53,19 +53,20 @@ describe("public package metadata matches the live MCP surface", () => {
     expect(firstNumber(audit, /MCP tools:\s*(\d+)/)).toBe(tools);
     expect(firstNumber(audit, /MCP resources:\s*(\d+)/)).toBe(resources);
 
-    const pluginReadme = repoText("plugins/sentinel-coordination-protocol/README.md");
+    const pluginReadme = repoText("plugins/odin-scp/README.md");
     expect(firstNumber(pluginReadme, /(\d+)\s+`?odin\.\*`?\s+tools/)).toBe(tools);
   });
 
   it("verify-pack cross-checks the plugin README against package.json instead of a hard-coded count", () => {
     expect(verifyPack.extractToolCount("27 `odin.*` tools")).toBe(27);
-    expect(verifyPack.extractToolCount("Portable ...: 27 tools, 9 resources")).toBe(27);
+    expect(verifyPack.extractToolCount("Portable ...: 27 tools, 13 resources")).toBe(27);
     expect(verifyPack.extractToolCount("no count here")).toBeNull();
 
     // The audit must no longer hard-code the obsolete count anywhere in its source.
     expect(/23\s+`?odin\.\*`?\s+tools/.test(repoText("scripts/audit/verify-pack.mjs"))).toBe(false);
 
     const validManifest = JSON.stringify({
+      name: "odin-scp",
       version: "0.4.9",
       mcpServers: { "odin-sentinel": { command: "pnpm", args: ["dlx", "--package", "@bradheitmann/odin-sentinel@0.4.9", "odin-sentinel-mcp"] } }
     });

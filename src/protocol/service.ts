@@ -393,7 +393,7 @@ function governedReadinessNextAction(
   }
   const top = blockers[0] ?? "no verified governed-context uptake proof";
   if (top.startsWith("no verified governed-context")) {
-    if (requiredAssurance === "native_skill") return "Install the native sentinel-coordination-protocol skill, load it, then capture a governed-context uptake proof (verify with scripts/protocol/verify-governed-context.mjs).";
+    if (requiredAssurance === "native_skill") return "Install the native odin-scp skill, load it, then capture a governed-context uptake proof (verify with scripts/protocol/verify-governed-context.mjs).";
     if (requiredAssurance === "static_control_file") return "Install/validate the static control file, load it, then capture a governed-context uptake proof (verify with scripts/protocol/verify-governed-context.mjs).";
     return "Load the MCP bootstrap resource, then capture a governed-context uptake proof (verify with scripts/protocol/verify-governed-context.mjs).";
   }
@@ -495,7 +495,7 @@ function isGovernedRole(role: string): boolean {
 function scpContextSources(slot: ReadinessSlotInput): string[] {
   const sources = new Set<string>();
   if (slot.scpSkillAvailable === true || slot.protocolTextSource === "native_skill") {
-    sources.add("native sentinel-coordination-protocol skill");
+    sources.add("native odin-scp skill");
   }
   if (slot.fullProtocolTextInjected === true || slot.protocolTextSource === "injected_full_text") {
     sources.add("full injected SCP protocol text");
@@ -511,7 +511,7 @@ function scpContextSources(slot: ReadinessSlotInput): string[] {
 function proofDerivedContextSource(proof: unknown): string | null {
   const check = validateGovernedContextProof(proof);
   if (!check.valid) return null;
-  if (check.proofAssurance === "native_skill") return "native sentinel-coordination-protocol skill";
+  if (check.proofAssurance === "native_skill") return "native odin-scp skill";
   if (check.proofAssurance === "static_control_file") return "full injected SCP protocol text";
   if (check.proofAssurance === "mcp_bootstrap") return "odin-sentinel MCP bootstrap resource";
   return null;
@@ -603,6 +603,10 @@ export function getStartupPacket(
     "odin://protocol/delegation",
     "odin://protocol/receipts/boot",
     "odin://protocol/receipts/team-manifest",
+    "odin://protocol/skill-references/boot-receipt-examples",
+    "odin://protocol/skill-references/canonical-introduction-prompt",
+    "odin://protocol/skill-references/harness-skill-targets",
+    "odin://protocol/skill-references/team-bootstrap-runbook",
     ...(input.handoffPaths ?? DEFAULT_HANDOFF_PATHS)
   ];
 
@@ -661,7 +665,7 @@ export function getStartupPacket(
       `Expected layout profile: ${layoutProfile}. A/EXEC-PM stays in the same CMUX workspace as governed teams.`,
       "Load startup requirements from the odin-sentinel MCP resources and tools. Do not assume external local extensions exist.",
       "Before occupant launch, readiness must PASS or be explicitly WAIVED_BY_EXEC_PM / SUBSTITUTION_APPROVED_BY_EXEC_PM.",
-      "Valid SCP context source required for governed occupants: native sentinel-coordination-protocol skill, compatible odin-sentinel MCP, or full injected SCP protocol text.",
+      "Valid SCP context source required for governed occupants: native odin-scp skill, compatible odin-sentinel MCP, or full injected SCP protocol text.",
       "Boot receipt schema: use write_scope: [] for no current write assignment; do not use null.",
       "Activation gates: before implementation, QA acceptance, or ACTIVE_WATCH, emit a full-instruction-read proof (path, byte/line count, and sha256 per file) and verify it with scripts/protocol/verify-instruction-read.mjs.",
       "CMUX dispatch is not delivered until you submit with Enter and confirm processing on the target surface; input-bar text is not delivery.",
@@ -919,7 +923,7 @@ export function getActivationGates(): Record<string, unknown> {
         role: "B/DEV-1",
         harness: "Claude Code",
         source_type: "native_skill",
-        control_source: { path: "~/.claude/skills/sentinel-coordination-protocol/SKILL.md", marker: "SCP_PUBLIC_VERSION: 0.4.x", sha256: "<sha256-digest>" },
+        control_source: { path: "~/.claude/skills/odin-scp/SKILL.md", marker: "SCP_PUBLIC_VERSION: 0.4.x", sha256: "<sha256-digest>" },
         uptake_receipt: { method: "quoted_marker", evidence_marker: "SCP_PUBLIC_VERSION: 0.4.x", observed: true, observed_at: "2026-01-01T00:00:00Z" },
         generated_at: "2026-01-01T00:00:00Z"
       }
@@ -1616,9 +1620,9 @@ const ONBOARDING_NO_SECRETS_NOTICE =
 function onboardingGuidedSteps(): string[] {
   return [
     "Confirm Node.js >= 22.13.0 and the installed @bradheitmann/odin-sentinel package version.",
-    "Prefer the pinned pnpm command (pnpm dlx --package @bradheitmann/odin-sentinel@0.4.11 odin-sentinel-mcp); npm global install and npx are supported when pinned to the same release.",
+    "Prefer the pinned pnpm command (pnpm dlx --package @bradheitmann/odin-sentinel@0.4.12 odin-sentinel-mcp); npm global install and npx are supported when pinned to the same release.",
     "Add the odin-sentinel-mcp stdio command to each selected harness MCP config and restart the harness.",
-    "Provide SCP context: install the native sentinel-coordination-protocol skill where supported, otherwise inject full protocol text via odin.get_bootstrap_skill, or export a snapshot via odin.export_protocol_snapshot for non-MCP clients.",
+    "Provide SCP context: install the native odin-scp skill where supported, otherwise inject full protocol text via odin.get_bootstrap_skill, or export a snapshot via odin.export_protocol_snapshot for non-MCP clients.",
     "Deploy the activation hooks with `node scripts/protocol/install-activation-hooks.mjs` so the full-instruction-read precheck runs before governed edits.",
     "Run the MCP smoke test and confirm serverInfo.name = odin-sentinel and a compatible version.",
     "Probe harness readiness with odin.get_harness_probe_matrix (zero-secret) and clear any auth, login, permission, MCP, or skill blockers.",
@@ -1831,7 +1835,12 @@ export function exportProtocolSnapshot(repository: ProtocolRepository = getDefau
     "protocol/closeout.yaml": YAML.stringify(data.closeout),
     "protocol/delegation.yaml": YAML.stringify(data.delegation),
     "protocol/receipts/boot-receipt.yaml": YAML.stringify(data.bootReceipt),
-    "protocol/receipts/team-manifest.yaml": YAML.stringify(data.teamManifest)
+    "protocol/receipts/team-manifest.yaml": YAML.stringify(data.teamManifest),
+    "protocol/bootstrap-skill.md": data.bootstrapSkill,
+    "protocol/skill-references/boot-receipt-examples.md": data.skillReferences.bootReceiptExamples,
+    "protocol/skill-references/canonical-introduction-prompt.md": data.skillReferences.canonicalIntroductionPrompt,
+    "protocol/skill-references/harness-skill-targets.md": data.skillReferences.harnessSkillTargets,
+    "protocol/skill-references/team-bootstrap-runbook.md": data.skillReferences.teamBootstrapRunbook
   };
 }
 

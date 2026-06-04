@@ -33,7 +33,7 @@ from `odin.export_protocol_snapshot`.
 Installed is not provisioned. Probe each harness before assigning a governed role and record
 multi-dimensional readiness — `installed_binary`, `authenticated`, `mcp_configured`,
 `mcp_tool_hydration`, `governed_role_ready` — rather than one boolean. Skill-capable harnesses
-should install the `sentinel-coordination-protocol` skill before governed launch; native skill
+should install the `odin-scp` skill before governed launch; native skill
 discoverability improved compliance in observed runs.
 
 - Droid: `droid mcp` is required for governed readiness; read-only `droid exec` is allowed without

@@ -169,6 +169,38 @@ function registerProtocolResources(server: McpServer) {
         "Full SCP governance skill: self-bootstrap, role topology, EXEC/TEAM/WORKER assignment, boot receipts, delegation, delivery proof, heartbeat cadence, adversarial QA, finish audit. Read this resource at session start.",
       mimeType: "text/markdown",
       read: () => loadProtocolData().bootstrapSkill
+    },
+    {
+      name: "skill-reference-boot-receipt-examples",
+      uri: "odin://protocol/skill-references/boot-receipt-examples",
+      title: "SCP Boot Receipt Examples",
+      description: "Canonical SCP_MIN_BOOT_RECEIPT and SCP_BOOT_RECEIPT examples for visible role activation.",
+      mimeType: "text/markdown",
+      read: () => loadProtocolData().skillReferences.bootReceiptExamples
+    },
+    {
+      name: "skill-reference-canonical-introduction-prompt",
+      uri: "odin://protocol/skill-references/canonical-introduction-prompt",
+      title: "SCP Canonical Introduction Prompt",
+      description: "Official prompt for landing SCP with an EXEC PM pane before activation or dissemination.",
+      mimeType: "text/markdown",
+      read: () => loadProtocolData().skillReferences.canonicalIntroductionPrompt
+    },
+    {
+      name: "skill-reference-harness-skill-targets",
+      uri: "odin://protocol/skill-references/harness-skill-targets",
+      title: "SCP Harness Skill Targets",
+      description: "Harness native-skill and adapter target matrix plus fallback policy.",
+      mimeType: "text/markdown",
+      read: () => loadProtocolData().skillReferences.harnessSkillTargets
+    },
+    {
+      name: "skill-reference-team-bootstrap-runbook",
+      uri: "odin://protocol/skill-references/team-bootstrap-runbook",
+      title: "SCP Team Bootstrap Runbook",
+      description: "CMUX team bootstrap, harness launch, dispatch, teardown, and hygiene runbook.",
+      mimeType: "text/markdown",
+      read: () => loadProtocolData().skillReferences.teamBootstrapRunbook
     }
   ];
 

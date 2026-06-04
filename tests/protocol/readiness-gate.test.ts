@@ -477,7 +477,7 @@ describe("governed launch readiness gate", () => {
 
     const row = result.readinessMatrix[0];
     expect(row.classifications).not.toContain("NON_GOVERNED_ONE_SHOT_ONLY");
-    expect(row.scpContextSources).toContain("native sentinel-coordination-protocol skill");
+    expect(row.scpContextSources).toContain("native odin-scp skill");
     expect(row.governedReadiness).toBe("GOVERNED_READY");
     expect(row.status).toBe("PASS");
     expect(row.activationAllowed).toBe(true);

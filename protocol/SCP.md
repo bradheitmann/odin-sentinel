@@ -1,8 +1,8 @@
 # ODIN Sentinel Coordination Protocol
 
-Version: 0.4.11
+Version: 0.4.12
 
-SCP_PUBLIC_VERSION: 0.4.11
+SCP_PUBLIC_VERSION: 0.4.12
 MIN_COMPATIBLE_CHILD_MCP: 0.4.5
 
 ODIN Sentinel is a portable coordination layer for visible multi-agent teams.
@@ -74,7 +74,7 @@ inference credentials (`BLOCKED_BY_API_KEY` / `AUTH_PROVIDER_BLOCKED` / `BLOCKED
 inference stalls (`MODEL_STALLED` / `MODEL_REASONING_ONLY` / `STREAMING_PROTOCOL_MISMATCH`) before
 launch. A harness without MCP, native SCP skill, or full injected protocol text is
 `NON_GOVERNED_ONE_SHOT_ONLY` and must not hold a persistent governed role. Skill-capable harnesses
-should install the sentinel-coordination-protocol skill before governed launch. Probe via
+should install the odin-scp skill before governed launch. Probe via
 `odin.get_harness_probe_matrix` with zero-secret output. Droid exposes `droid mcp` and
 `--auto <low|medium|high>`: read-only `droid exec` is allowed without write authority, but mission
 or high-autonomy work requires `--auto high`. Crush has no MCP management command and its auth-header

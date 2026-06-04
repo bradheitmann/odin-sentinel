@@ -1,0 +1,4 @@
+interface:
+  display_name: "Sentinel Coordination Protocol"
+  short_description: "Bootstrap and govern SCP agent teams"
+  default_prompt: "Use the odin-scp skill to bootstrap, operate, tear down, introduce, land, validate, or disseminate SCP with generic roles, control-plane non-implementation, CMUX delivery proof, adversarial QA, and branch-visible evidence."

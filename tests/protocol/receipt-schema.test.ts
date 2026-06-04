@@ -74,7 +74,7 @@ describe("canonical receipt and manifest schemas", () => {
           role_slot: "A/EXEC-ODIN",
           harness: "Codex",
           readiness_status: "PASS",
-          scp_context_source: "native sentinel-coordination-protocol skill",
+          scp_context_source: "native odin-scp skill",
           scp_skill_available: true,
           mcp_available: true,
           mcp_version: "0.4.5",

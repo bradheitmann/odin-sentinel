@@ -57,7 +57,10 @@ const BUNDLED_DOC = new Set([
   "README.md",
   "docs/guides/quickstart-prompts.md",
   "protocol/bootstrap-" + "sk" + "ill.md",
-  "plugins/sentinel-coordination-protocol/" + "sk" + "ills/sentinel-coordination-protocol/SK" + "ILL.md"
+  "protocol/skill-references/harness-skill-targets.md",
+  "plugins/odin-scp/" + "sk" + "ills/odin-scp/SK" + "ILL.md",
+  "plugins/odin-scp/" + "sk" + "ills/odin-scp/references/harness-skill-targets.md",
+  "plugins/odin-scp/" + "sk" + "ills/odin-scp/scripts/sync-installations.sh"
 ]);
 
 const forbidden = [

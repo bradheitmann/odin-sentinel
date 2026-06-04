@@ -59,7 +59,13 @@ function minimalProtocolData(): ProtocolData {
     teamManifest: {
       required_fields: []
     },
-    bootstrapSkill: "# Test bootstrap skill"
+    bootstrapSkill: "# Test bootstrap skill",
+    skillReferences: {
+      bootReceiptExamples: "# Boot examples",
+      canonicalIntroductionPrompt: "# Canonical prompt",
+      harnessSkillTargets: "# Harness targets",
+      teamBootstrapRunbook: "# Team bootstrap"
+    }
   };
 }
 
@@ -73,6 +79,7 @@ describe("ODIN protocol helpers", () => {
     expect(packet.resourcesToRead).toContain("odin://protocol/main");
     expect(packet.resourcesToRead).toContain("odin://protocol/delegation");
     expect(packet.resourcesToRead).toContain("odin://protocol/receipts/boot");
+    expect(packet.resourcesToRead).toContain("odin://protocol/skill-references/team-bootstrap-runbook");
     expect(packet.resourcesToRead).toContain(".odin/handoffs/");
     expect(packet.startupPrompt).toContain("Bootstrap executive office plus 1 development pod");
     expect(packet.startupPrompt).not.toContain("$delegate");
@@ -268,7 +275,7 @@ describe("ODIN protocol helpers", () => {
       harness: "Codex",
       readiness_status: "PASS",
       layout_locator: { workspace: "workspace:1", pane: "pane:1", surface: "surface:1" },
-      scp_context_source: "native sentinel-coordination-protocol skill",
+      scp_context_source: "native odin-scp skill",
       scp_skill_available: true,
       mcp_available: true,
       mcp_version: "0.4.5",
@@ -525,5 +532,7 @@ describe("ODIN protocol helpers", () => {
 
     expect(snapshot).toHaveProperty("protocol/receipts/boot-receipt.yaml");
     expect(snapshot).toHaveProperty("protocol/receipts/team-manifest.yaml");
+    expect(snapshot).toHaveProperty("protocol/bootstrap-skill.md");
+    expect(snapshot).toHaveProperty("protocol/skill-references/team-bootstrap-runbook.md");
   });
 });

@@ -1,4 +1,4 @@
-version: 0.4.11
+version: 0.4.12
 policy:
   semantics: Recommended starter profiles, not bundled dependencies or availability guarantees.
   runtime_requirement: Users must install and configure their own harnesses. Launchers must verify local harness/model availability before dispatch and apply fallbacks when unavailable.
@@ -29,7 +29,7 @@ policy:
     - mcp_tool_hydration
     - governed_role_ready
   non_governed_one_shot_only: Harnesses without MCP access, native SCP skill, or full injected protocol text must be classified NON_GOVERNED_ONE_SHOT_ONLY and must not hold persistent governed roles.
-  scp_skill_install_recommendation: Skill-capable harnesses should install the sentinel-coordination-protocol skill before governed launch; native skill discoverability improved compliance in observed runs.
+  scp_skill_install_recommendation: Skill-capable harnesses should install the odin-scp skill before governed launch; native skill discoverability improved compliance in observed runs.
 harness_capabilities:
   Codex:
     can_hydrate_deferred_mcp_tools_at_boot: true

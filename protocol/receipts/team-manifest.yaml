@@ -45,6 +45,6 @@ watcher_assignments:
       - heartbeat_ledger
 minimum_compatible_mcp_version: 0.4.5
 scp_context_sources:
-  - native sentinel-coordination-protocol skill
+  - native odin-scp skill
   - odin-sentinel MCP at or above minimum version
   - full injected SCP protocol text

@@ -31,6 +31,10 @@ const expectedRequiredPackageFiles = [
   "protocol/receipts/boot-receipt.yaml",
   "protocol/receipts/team-manifest.yaml",
   "protocol/bootstrap-skill.md",
+  "protocol/skill-references/boot-receipt-examples.md",
+  "protocol/skill-references/canonical-introduction-prompt.md",
+  "protocol/skill-references/harness-skill-targets.md",
+  "protocol/skill-references/team-bootstrap-runbook.md",
   "templates/dev-slice-template.md",
   "templates/qa-slice-template.md",
   "templates/pm-role-template.md",
@@ -73,8 +77,8 @@ function runWith(overrides: Record<string, unknown> = {}) {
     "docs/reference/public-surface-audit.md": "0.4.9",
     "protocol/SCP.md": scpText,
     "protocol/bootstrap-skill.md": bootstrapText,
-    "plugins/sentinel-coordination-protocol/.claude-plugin/plugin.json": JSON.stringify({
-      name: "sentinel-coordination-protocol",
+    "plugins/odin-scp/.claude-plugin/plugin.json": JSON.stringify({
+      name: "odin-scp",
       version: "0.4.9",
       mcpServers: {
         "odin-sentinel": {
@@ -83,8 +87,15 @@ function runWith(overrides: Record<string, unknown> = {}) {
         }
       }
     }),
-    "plugins/sentinel-coordination-protocol/skills/sentinel-coordination-protocol/SKILL.md": scpText,
-    "plugins/sentinel-coordination-protocol/README.md": "MCP tools: 27 `odin.*` tools",
+    "plugins/odin-scp/skills/odin-scp/SKILL.md": scpText,
+    "plugins/odin-scp/skills/odin-scp/CHANGELOG.md": "safe changelog",
+    "plugins/odin-scp/skills/odin-scp/agents/openai.yaml": "safe adapter",
+    "plugins/odin-scp/skills/odin-scp/references/boot-receipt-examples.md": "safe boot examples",
+    "plugins/odin-scp/skills/odin-scp/references/canonical-introduction-prompt.md": "safe prompt",
+    "plugins/odin-scp/skills/odin-scp/references/harness-skill-targets.md": "safe harness targets",
+    "plugins/odin-scp/skills/odin-scp/references/team-bootstrap-runbook.md": "safe runbook",
+    "plugins/odin-scp/skills/odin-scp/scripts/sync-installations.sh": "safe sync script",
+    "plugins/odin-scp/README.md": "MCP tools: 27 `odin.*` tools",
     ...(overrides.publicVersionFiles as Record<string, string> | undefined)
   };
   const rest = { ...overrides };
@@ -160,12 +171,12 @@ describe("release sync audit helpers", () => {
   it("rejects Claude plugin manifest and skill drift", () => {
     expect(() => runWith({
       publicVersionFiles: {
-        "plugins/sentinel-coordination-protocol/.claude-plugin/plugin.json": JSON.stringify({
+        "plugins/odin-scp/.claude-plugin/plugin.json": JSON.stringify({
           version: "0.4.5",
           mcpServers: { "odin-sentinel": { command: "npx", args: ["-y"] } }
         }),
-        "plugins/sentinel-coordination-protocol/skills/sentinel-coordination-protocol/SKILL.md": "SCP_PUBLIC_VERSION: 0.4.5\n",
-        "plugins/sentinel-coordination-protocol/README.md": "MCP tools: 17 odin tools"
+        "plugins/odin-scp/skills/odin-scp/SKILL.md": "SCP_PUBLIC_VERSION: 0.4.5\n",
+        "plugins/odin-scp/README.md": "MCP tools: 17 odin tools"
       }
     })).toThrow(/Claude plugin manifest version 0\.4\.5 must match package version 0\.4\.9/);
   });
