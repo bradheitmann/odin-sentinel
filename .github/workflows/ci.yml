@@ -16,10 +16,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22.13.0'
-          cache: pnpm
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
+
+      - name: Restore pnpm cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.13.0'
+          cache: pnpm
 
       - name: Install
         run: pnpm install --frozen-lockfile
@@ -40,11 +45,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22.13.0'
-          cache: pnpm
-          cache-dependency-path: telemetry/pnpm-lock.yaml
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
+
+      - name: Restore telemetry pnpm cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.13.0'
+          cache: pnpm
+          cache-dependency-path: telemetry/pnpm-lock.yaml
 
       - name: Install telemetry worker
         working-directory: telemetry
