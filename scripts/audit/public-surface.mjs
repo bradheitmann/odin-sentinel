@@ -9,6 +9,7 @@ const PUBLIC_ROOTS = [
   "CLAUDE.md",
   "LICENSE",
   "package.json",
+  ".claude-plugin/",
   "docs/",
   "protocol/",
   "templates/",

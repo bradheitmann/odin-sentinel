@@ -7,6 +7,7 @@ const publicSurface = await import("../../scripts/audit/public-surface.mjs");
 
 const requiredPaths = verifyPack.requiredPackageFiles.map((path: string) => ({ path }));
 const expectedRequiredPackageFiles = [
+  ".claude-plugin/marketplace.json",
   "dist/src/bin/index.js",
   "dist/src/mcp/server.js",
   "dist/src/protocol/index.js",
@@ -35,6 +36,16 @@ const expectedRequiredPackageFiles = [
   "protocol/skill-references/canonical-introduction-prompt.md",
   "protocol/skill-references/harness-skill-targets.md",
   "protocol/skill-references/team-bootstrap-runbook.md",
+  "plugins/odin-scp/.claude-plugin/plugin.json",
+  "plugins/odin-scp/skills/odin-scp/SKILL.md",
+  "plugins/odin-scp/skills/odin-scp/CHANGELOG.md",
+  "plugins/odin-scp/skills/odin-scp/agents/openai.yaml",
+  "plugins/odin-scp/skills/odin-scp/references/boot-receipt-examples.md",
+  "plugins/odin-scp/skills/odin-scp/references/canonical-introduction-prompt.md",
+  "plugins/odin-scp/skills/odin-scp/references/harness-skill-targets.md",
+  "plugins/odin-scp/skills/odin-scp/references/team-bootstrap-runbook.md",
+  "plugins/odin-scp/skills/odin-scp/scripts/sync-installations.sh",
+  "plugins/odin-scp/README.md",
   "templates/dev-slice-template.md",
   "templates/qa-slice-template.md",
   "templates/pm-role-template.md",
@@ -55,7 +66,7 @@ const packageJson = {
   bugs: { url: "https://github.com/bradheitmann/odin-sentinel/issues" },
   license: "MIT",
   engines: { node: ">=22.13.0" },
-  files: ["dist", "docs", "protocol", "templates", "scripts", "AGENTS.md", "CLAUDE.md", "README.md", "LICENSE"],
+  files: [".claude-plugin", "dist", "docs", "plugins", "protocol", "templates", "scripts", "AGENTS.md", "CLAUDE.md", "README.md", "LICENSE"],
   dependencies: {
     "@modelcontextprotocol/sdk": "1.29.0",
     yaml: "2.8.4",
@@ -75,6 +86,15 @@ function runWith(overrides: Record<string, unknown> = {}) {
     "docs/reference/client-compatibility.md": "Node.js >=22.13.0",
     "docs/reference/distribution.md": "0.4.9",
     "docs/reference/public-surface-audit.md": "0.4.9",
+    ".claude-plugin/marketplace.json": JSON.stringify({
+      plugins: [
+        {
+          name: "odin-scp",
+          source: "./plugins/odin-scp",
+          version: "0.4.9"
+        }
+      ]
+    }),
     "protocol/SCP.md": scpText,
     "protocol/bootstrap-skill.md": bootstrapText,
     "plugins/odin-scp/.claude-plugin/plugin.json": JSON.stringify({
@@ -179,6 +199,24 @@ describe("release sync audit helpers", () => {
         "plugins/odin-scp/README.md": "MCP tools: 17 odin tools"
       }
     })).toThrow(/Claude plugin manifest version 0\.4\.5 must match package version 0\.4\.9/);
+  });
+
+  it("rejects Claude marketplace manifest drift", () => {
+    expect(verifyPack.validateMarketplaceSync({
+      marketplaceText: JSON.stringify({
+        plugins: [
+          {
+            name: "sentinel-coordination-protocol",
+            source: "./plugins/sentinel-coordination-protocol",
+            version: "0.4.8"
+          }
+        ]
+      }),
+      currentVersion: "0.4.9"
+    })).toEqual([
+      "Claude marketplace manifest must advertise odin-scp",
+      "Claude marketplace manifest must not advertise the legacy long-name plugin"
+    ]);
   });
 
   it("audits public files while ignoring private local operator spaces", () => {

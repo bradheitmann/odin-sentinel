@@ -25,8 +25,10 @@
     "odin-sentinel-mcp": "dist/src/bin/index.js"
   },
   "files": [
+    ".claude-plugin",
     "dist",
     "docs",
+    "plugins",
     "protocol",
     "templates",
     "scripts",

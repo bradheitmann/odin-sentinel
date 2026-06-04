@@ -30,7 +30,7 @@ role_slots:
       workspace: "<workspace-ref>"
       pane: "<pane-ref>"
       surface: "<surface-ref>"
-    scp_context_source: "native sentinel-coordination-protocol skill"
+    scp_context_source: "native odin-scp skill"
     mcp_available: true
     mcp_version: "0.4.5"
     scp_skill_available: true
@@ -43,7 +43,7 @@ role_slots:
       workspace: "<workspace-ref>"
       pane: "<pane-ref>"
       surface: "<surface-ref>"
-    scp_context_source: "native sentinel-coordination-protocol skill"
+    scp_context_source: "native odin-scp skill"
     mcp_available: true
     mcp_version: "0.4.5"
     scp_skill_available: true
@@ -58,7 +58,7 @@ role_slots:
       workspace: "<workspace-ref>"
       pane: "<pane-ref>"
       surface: "<surface-ref>"
-    scp_context_source: "native sentinel-coordination-protocol skill"
+    scp_context_source: "native odin-scp skill"
     mcp_available: true
     mcp_version: "0.4.5"
     scp_skill_available: true
@@ -73,7 +73,7 @@ role_slots:
       workspace: "<workspace-ref>"
       pane: "<pane-ref>"
       surface: "<surface-ref>"
-    scp_context_source: "native sentinel-coordination-protocol skill"
+    scp_context_source: "native odin-scp skill"
     mcp_available: true
     mcp_version: "0.4.5"
     scp_skill_available: true
@@ -121,7 +121,7 @@ user_defined_criteria:
 #       workspace: "workspace:1"
 #       pane: "pane:1"
 #       surface: "surface:1"
-#     scp_context_source: "native sentinel-coordination-protocol skill"
+#     scp_context_source: "native odin-scp skill"
 #     mcp_available: true
 #     mcp_version: "0.4.5"
 #     scp_skill_available: true
@@ -134,7 +134,7 @@ user_defined_criteria:
 #       workspace: "workspace:1"
 #       pane: "pane:2"
 #       surface: "surface:2"
-#     scp_context_source: "native sentinel-coordination-protocol skill"
+#     scp_context_source: "native odin-scp skill"
 #     mcp_available: true
 #     mcp_version: "0.4.5"
 #     scp_skill_available: true

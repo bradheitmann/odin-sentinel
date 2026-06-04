@@ -28,6 +28,7 @@ const requiredTemplateFiles = [
 ];
 
 export const requiredPackageFiles = [
+  ".claude-plugin/marketplace.json",
   "dist/src/bin/index.js",
   "dist/src/mcp/server.js",
   "dist/src/protocol/index.js",
@@ -44,6 +45,16 @@ export const requiredPackageFiles = [
   "docs/reference/distribution.md",
   "docs/reference/public-surface-audit.md",
   ...requiredProtocolFiles,
+  "plugins/odin-scp/.claude-plugin/plugin.json",
+  "plugins/odin-scp/skills/odin-scp/SKILL.md",
+  "plugins/odin-scp/skills/odin-scp/CHANGELOG.md",
+  "plugins/odin-scp/skills/odin-scp/agents/openai.yaml",
+  "plugins/odin-scp/skills/odin-scp/references/boot-receipt-examples.md",
+  "plugins/odin-scp/skills/odin-scp/references/canonical-introduction-prompt.md",
+  "plugins/odin-scp/skills/odin-scp/references/harness-skill-targets.md",
+  "plugins/odin-scp/skills/odin-scp/references/team-bootstrap-runbook.md",
+  "plugins/odin-scp/skills/odin-scp/scripts/sync-installations.sh",
+  "plugins/odin-scp/README.md",
   ...requiredTemplateFiles,
   "scripts/audit/public-surface.mjs",
   "scripts/audit/verify-pack.mjs",
@@ -93,7 +104,7 @@ export function validatePackageMetadata(packageJson) {
   if (!packageJson.license) errors.push("package.json missing license");
   if (!packageJson.engines?.node) errors.push("package.json missing engines.node");
   if (!Array.isArray(packageJson.files) || packageJson.files.length === 0) errors.push("package.json missing files allowlist");
-  for (const file of ["docs", "protocol", "templates", "AGENTS.md", "CLAUDE.md", "README.md", "LICENSE"]) {
+  for (const file of [".claude-plugin", "docs", "plugins", "protocol", "templates", "AGENTS.md", "CLAUDE.md", "README.md", "LICENSE"]) {
     if (!packageJson.files?.includes(file)) errors.push(`package.json files allowlist missing ${file}`);
   }
   if (packageJson.odin?.publicVersion !== packageJson.version) {
@@ -251,6 +262,39 @@ export function validatePluginSync({ pluginManifestText, pluginSkillText, plugin
   return errors;
 }
 
+export function validateMarketplaceSync({ marketplaceText, currentVersion }) {
+  const errors = [];
+  let marketplace;
+  try {
+    marketplace = JSON.parse(marketplaceText);
+  } catch {
+    errors.push("Claude marketplace manifest must be valid JSON");
+    marketplace = {};
+  }
+
+  const plugins = Array.isArray(marketplace.plugins) ? marketplace.plugins : [];
+  const odinScp = plugins.find((plugin) => plugin?.name === "odin-scp");
+  if (!odinScp) {
+    errors.push("Claude marketplace manifest must advertise odin-scp");
+  } else {
+    if (odinScp.source !== "./plugins/odin-scp") {
+      errors.push(`Claude marketplace odin-scp source ${odinScp.source ?? "<missing>"} must be ./plugins/odin-scp`);
+    }
+    if (odinScp.version !== currentVersion) {
+      errors.push(`Claude marketplace odin-scp version ${odinScp.version ?? "<missing>"} must match package version ${currentVersion}`);
+    }
+  }
+
+  const legacyName = `sentinel-${"coordination"}-${"protocol"}`;
+  const legacySource = `./plugins/${legacyName}`;
+  const staleLegacy = plugins.find((plugin) => plugin?.name === legacyName || plugin?.source === legacySource);
+  if (staleLegacy) {
+    errors.push("Claude marketplace manifest must not advertise the legacy long-name plugin");
+  }
+
+  return errors;
+}
+
 export function validatePackagedProtocolVersions(fileTextByPath, currentVersion) {
   const errors = [];
   for (const [file, text] of Object.entries(fileTextByPath)) {
@@ -287,6 +331,7 @@ function readPublicVersionFiles() {
     "docs/reference/client-compatibility.md",
     "docs/reference/distribution.md",
     "docs/reference/public-surface-audit.md",
+    ".claude-plugin/marketplace.json",
     "protocol/SCP.md",
     "protocol/bootstrap-skill.md",
     "plugins/odin-scp/.claude-plugin/plugin.json",
@@ -321,6 +366,10 @@ export function runVerifyPack({ pack, packageJson, publicVersionFiles, costPriva
     ...validatePublicProtocolSync({
       scpText: publicVersionFiles["protocol/SCP.md"],
       bootstrapText: publicVersionFiles["protocol/bootstrap-skill.md"],
+      currentVersion: packageJson.version
+    }),
+    ...validateMarketplaceSync({
+      marketplaceText: publicVersionFiles[".claude-plugin/marketplace.json"],
       currentVersion: packageJson.version
     }),
     ...validatePluginSync({
