@@ -1,8 +1,8 @@
 # ODIN Sentinel Coordination Protocol
 
-Version: 0.4.9
+Version: 0.4.10
 
-SCP_PUBLIC_VERSION: 0.4.9
+SCP_PUBLIC_VERSION: 0.4.10
 MIN_COMPATIBLE_CHILD_MCP: 0.4.5
 
 ODIN Sentinel is a portable coordination layer for visible multi-agent teams.

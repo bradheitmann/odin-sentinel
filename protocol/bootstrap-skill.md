@@ -7,7 +7,7 @@ updated: 2026-05-11
 
 # Sentinel Coordination Protocol
 
-SCP_PUBLIC_VERSION: 0.4.9
+SCP_PUBLIC_VERSION: 0.4.10
 MIN_COMPATIBLE_CHILD_MCP: 0.4.5
 
 Public install readiness: configure the ODIN MCP server, install native skill context where supported or use full prompt fallback, keep governed team roles in CMUX, verify auth/account readiness without printing secrets, smoke-test local inference if used, and validate role compatibility before launch. Private local skill copies may differ intentionally; public release checks compare repo-internal public artifacts only.

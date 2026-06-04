@@ -21,7 +21,7 @@ claude plugin install sentinel-coordination-protocol@odin-sentinel
 Restart Claude Code. The plugin will:
 
 - Install the `sentinel-coordination-protocol` skill (so `/sentinel-coordination-protocol` is available as a slash command).
-- Register the `odin-sentinel` MCP server, spawned via `pnpm dlx --package @bradheitmann/odin-sentinel@0.4.9 odin-sentinel-mcp`.
+- Register the `odin-sentinel` MCP server, spawned via `pnpm dlx --package @bradheitmann/odin-sentinel@0.4.10 odin-sentinel-mcp`.
 
 If install fails, treat it as setup state, not user failure. Check whether
 Claude Code is installed, signed in, and allowed to use plugins; otherwise use
@@ -40,19 +40,19 @@ If you're on another MCP-capable host (Cursor, Codex, Zed, Goose, Crush, OpenCod
 Recommended:
 
 ```bash
-pnpm dlx --package @bradheitmann/odin-sentinel@0.4.9 odin-sentinel-mcp
+pnpm dlx --package @bradheitmann/odin-sentinel@0.4.10 odin-sentinel-mcp
 ```
 
 Supported npm global install:
 
 ```bash
-npm i -g @bradheitmann/odin-sentinel@0.4.9
+npm i -g @bradheitmann/odin-sentinel@0.4.10
 ```
 
 Supported npx zero-install:
 
 ```bash
-npx -y -p @bradheitmann/odin-sentinel@0.4.9 odin-sentinel-mcp
+npx -y -p @bradheitmann/odin-sentinel@0.4.10 odin-sentinel-mcp
 ```
 
 Then point your host's MCP config at the `odin-sentinel-mcp` binary. The bundled SCP skill is exposed there too via the `odin.get_bootstrap_skill` tool and the `odin://protocol/bootstrap-skill` resource — same content, same governance contract.
