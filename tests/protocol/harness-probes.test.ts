@@ -135,11 +135,22 @@ describe("harness probe matrix", () => {
   });
 
   it("exposes multi-dimensional readiness and marks a fully provisioned harness governed-ready", () => {
+    // Governed readiness is fail-closed (SLICE-ODIN-GOVERNED-READINESS-DEV-001): MCP configured +
+    // skill on disk is NOT enough; a verified governed-context uptake proof is also required.
+    const codexProof = {
+      schema: "odin.governed_context_proof.v1",
+      role: "B/DEV-1",
+      harness: "Codex",
+      source_type: "native_skill",
+      control_source: { marker: "SCP_PUBLIC_VERSION: 0.4.9" },
+      uptake_receipt: { method: "quoted_marker", evidence_marker: "SCP_PUBLIC_VERSION: 0.4.9", observed: true, observed_at: "2026-06-04T05:00:00Z" },
+      generated_at: "2026-06-04T05:00:00Z"
+    };
     const row = rowFor(getHarnessProbeMatrix({
       intendedHarnesses: ["Codex"],
       installedHarnesses: ["Codex"],
       userProvisioningAnswer: "yes",
-      observations: [{ harness: "Codex", mcpConfigured: true, scpSkillInstalled: true, authStatus: "AUTH_READY", visibleContent: true }]
+      observations: [{ harness: "Codex", mcpConfigured: true, scpSkillInstalled: true, authStatus: "AUTH_READY", visibleContent: true, hooksAvailable: true, governedContextProof: codexProof }]
     }), "Codex");
     const readiness = row.readiness as Record<string, unknown>;
 
@@ -150,5 +161,33 @@ describe("harness probe matrix", () => {
     expect(readiness.authenticated).toBe(true);
     expect(readiness.mcp_tool_hydration).toBe("AT_BOOT");
     expect(readiness.governed_role_ready).toBe(true);
+    expect(row.governedReadiness).toBe("GOVERNED_READY");
+  });
+
+  it("does NOT mark a native-skill harness governed-ready on MCP + skill-on-disk without an uptake proof", () => {
+    // Fail-closed: presence is not authority. Hooks affirmed available so the only blocker is the
+    // missing governed-context uptake proof.
+    const row = rowFor(getHarnessProbeMatrix({
+      intendedHarnesses: ["Codex"],
+      installedHarnesses: ["Codex"],
+      userProvisioningAnswer: "yes",
+      observations: [{ harness: "Codex", mcpConfigured: true, scpSkillInstalled: true, authStatus: "AUTH_READY", visibleContent: true, hooksAvailable: true }]
+    }), "Codex");
+
+    expect((row.readiness as Record<string, unknown>).governed_role_ready).toBe(false);
+    expect(row.governedReadiness).toBe("FIXABLE_BLOCKED");
+  });
+
+  it("classifies realistic sign-in phrasing (sign-in / signin / not signed in) as login blockers", () => {
+    // SLICE-ODIN-ONBOARDING-HARDENING-DEV-001: login-blocker fidelity for common phrasings.
+    for (const text of ["Please sign-in to continue", "error: signin required before use", "you are not signed in"]) {
+      const row = rowFor(getHarnessProbeMatrix({
+        intendedHarnesses: ["KiloCode"],
+        installedHarnesses: ["KiloCode"],
+        observations: [{ harness: "KiloCode", text }]
+      }), "KiloCode");
+      expect(row.classifications).toContain("BLOCKED_BY_LOGIN");
+      expect((row.readiness as Record<string, unknown>).governed_role_ready).toBe(false);
+    }
   });
 });

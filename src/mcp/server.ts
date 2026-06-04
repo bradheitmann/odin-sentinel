@@ -319,7 +319,7 @@ export function createServer(): McpServer {
     {
       title: "Get Activation Gates",
       description:
-        "Return the SCP activation gates an agent must satisfy before acting: CMUX delivery proof (submit + verify; input-bar text is not delivery) and full-instruction-read proof (path + count + sha256 per file), including verifier/installer script paths and validation tool names."
+        "Return the SCP activation gates an agent must satisfy before acting: CMUX delivery proof (submit + verify; input-bar text is not delivery), full-instruction-read proof (path + count + sha256 per file), and governed-context proof (fail-closed: MCP configured or a skill on disk is NOT enough — protocol uptake must be verified at adequate assurance). Includes verifier/installer script paths and validation tool names."
     },
     () => jsonText(getActivationGates())
   );
@@ -329,7 +329,7 @@ export function createServer(): McpServer {
     {
       title: "Evaluate Governed Launch Readiness Gate",
       description:
-        "Return the governed launch readiness matrix before occupant launch. Output is zero-secret and classifies MCP, SCP skill, auth, permission, model, and role-compatibility blockers.",
+        "Return the governed launch readiness matrix before occupant launch. Output is zero-secret and classifies MCP, SCP skill, auth, permission, model, and role-compatibility blockers. Each slot also reports a fail-closed governedReadiness state (GOVERNED_READY, FIXABLE_BLOCKED, NON_GOVERNED_ONE_SHOT_ONLY, UNSUPPORTED): presence of MCP/skill is not authority, and PM/ODIN roles require the highest assurance the harness supports.",
       inputSchema: readinessGateInputShape
     },
     (input) => jsonText(evaluateReadinessGate(input))

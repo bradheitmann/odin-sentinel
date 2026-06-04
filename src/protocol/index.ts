@@ -1,5 +1,7 @@
 export {
+  GOVERNED_CONTEXT_PROOF_SCHEMA,
   VERSION,
+  classifyGovernedReadiness,
   createProtocolService,
   exportProtocolSnapshot,
   getActivationGates,
@@ -9,16 +11,23 @@ export {
   getRoleProfile,
   getRuntimeNotice,
   getStartupPacket,
+  harnessCategory,
   validateBootReceipt,
   validateCmuxDeliveryProof,
   validateDelegationPacket,
+  validateGovernedContextProof,
   validateInstructionReadProof,
   validateTeamManifest
 } from "./service.js";
 
 export type {
+  AssuranceLevel,
   CloseoutMode,
   DelegationPacketInput,
+  GovernedReadinessInput,
+  GovernedReadinessResult,
+  GovernedReadinessState,
+  HarnessCategory,
   ProtocolData,
   RuntimeNotice,
   StartupPacket,

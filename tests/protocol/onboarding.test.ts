@@ -101,21 +101,50 @@ describe("onboarding plan", () => {
   });
 
   it("classifies Codex/Claude Code consistently with getHarnessProbeMatrix and marks a fully provisioned harness governed-ready", () => {
+    // Fail-closed (SLICE-ODIN-GOVERNED-READINESS-DEV-001): governed-ready now requires a verified
+    // governed-context uptake proof AND affirmatively available hooks, not just MCP + skill on disk.
+    const proofFor = (harness: string) => ({
+      schema: "odin.governed_context_proof.v1",
+      role: "B/DEV-1",
+      harness,
+      source_type: "native_skill",
+      control_source: { marker: "SCP_PUBLIC_VERSION: 0.4.9" },
+      uptake_receipt: { method: "quoted_marker", evidence_marker: "SCP_PUBLIC_VERSION: 0.4.9", observed: true, observed_at: "2026-06-04T05:00:00Z" },
+      generated_at: "2026-06-04T05:00:00Z"
+    });
     const plan = getOnboardingPlan({
       intendedHarnesses: ["Codex", "Claude Code"],
       installedHarnesses: ["Codex", "Claude Code"],
       userProvisioningAnswer: "yes",
       observations: [
-        { harness: "Codex", mcpConfigured: true, scpSkillInstalled: true, authStatus: "AUTH_READY", visibleContent: true },
-        { harness: "Claude Code", mcpConfigured: true, scpSkillInstalled: true, authStatus: "AUTH_READY", visibleContent: true }
+        { harness: "Codex", mcpConfigured: true, scpSkillInstalled: true, authStatus: "AUTH_READY", visibleContent: true, hooksAvailable: true, governedContextProof: proofFor("Codex") },
+        { harness: "Claude Code", mcpConfigured: true, scpSkillInstalled: true, authStatus: "AUTH_READY", visibleContent: true, hooksAvailable: true, governedContextProof: proofFor("Claude Code") }
       ]
     });
 
     expect(rowFor(plan, "Codex").governedRoleReady).toBe(true);
+    expect(rowFor(plan, "Codex").governedReadiness).toBe("GOVERNED_READY");
     expect(rowFor(plan, "Claude Code").governedRoleReady).toBe(true);
     expect(rowFor(plan, "Codex").readiness.mcp_tool_hydration).toBe("AT_BOOT");
     expect(plan.governedReadyHarnesses).toEqual(expect.arrayContaining(["Codex", "Claude Code"]));
     expect(plan.unresolvedBlockerCount).toBe(0);
+  });
+
+  it("does NOT mark Codex/Claude Code governed-ready on MCP + skill-on-disk without an uptake proof", () => {
+    const plan = getOnboardingPlan({
+      intendedHarnesses: ["Codex", "Claude Code"],
+      installedHarnesses: ["Codex", "Claude Code"],
+      userProvisioningAnswer: "yes",
+      observations: [
+        { harness: "Codex", mcpConfigured: true, scpSkillInstalled: true, authStatus: "AUTH_READY", visibleContent: true, hooksAvailable: true },
+        { harness: "Claude Code", mcpConfigured: true, scpSkillInstalled: true, authStatus: "AUTH_READY", visibleContent: true, hooksAvailable: true }
+      ]
+    });
+
+    expect(rowFor(plan, "Codex").governedRoleReady).toBe(false);
+    expect(rowFor(plan, "Codex").governedReadiness).toBe("FIXABLE_BLOCKED");
+    expect(plan.governedReadyHarnesses).not.toContain("Codex");
+    expect(plan.governedReadyHarnesses).not.toContain("Claude Code");
   });
 
   it("reports secret/provider readiness by status only and never leaks secret values", () => {
@@ -140,5 +169,32 @@ describe("onboarding plan", () => {
 
     const overridden = getOnboardingPlan({ intendedHarnesses: ["Codex"], installedHarnesses: ["Codex"], ledgerPath: ".odin/custom-ledger.json" });
     expect(overridden.ledgerPath).toBe(".odin/custom-ledger.json");
+  });
+
+  it("accepts the assisted_computer_use alias as canonical assisted (direct service)", () => {
+    // SLICE-ODIN-ONBOARDING-HARDENING-DEV-001: prose alias normalizes to canonical assisted.
+    const plan = provisionedCodex({ computerUseAvailable: true, preferredSetupMode: "assisted_computer_use" as any });
+    expect(plan.recommendedMode).toBe("assisted");
+    expect(plan.setupModes.assisted.eligible).toBe(true);
+  });
+
+  it("does not let the assisted_computer_use alias bypass computerUseAvailable", () => {
+    const plan = provisionedCodex({ computerUseAvailable: false, preferredSetupMode: "assisted_computer_use" as any });
+    expect(plan.recommendedMode).toBe("guided");
+    expect(plan.setupModes.assisted.eligible).toBe(false);
+    expect(plan.setupModes.assisted.requestedButUnavailable).toBe(true);
+  });
+
+  it("surfaces realistic sign-in phrasing as a login blocker in the onboarding plan", () => {
+    const plan = getOnboardingPlan({
+      intendedHarnesses: ["KiloCode"],
+      installedHarnesses: ["KiloCode"],
+      observations: [{ harness: "KiloCode", text: "you are not signed in" }]
+    });
+    const row = rowFor(plan, "KiloCode");
+    expect(row.classifications).toContain("BLOCKED_BY_LOGIN");
+    expect(row.governedRoleReady).toBe(false);
+    const summary = plan.blockerSummary as Array<Record<string, any>>;
+    expect(summary.find((entry) => entry.harness === "KiloCode")?.blockers).toContain("BLOCKED_BY_LOGIN");
   });
 });

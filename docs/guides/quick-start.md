@@ -134,6 +134,10 @@ The MCP server returns plans only. It never controls the GUI or desktop itself; 
 computer use is performed by an available computer-use-capable harness after you explicitly
 choose assisted setup.
 
+The canonical `preferredSetupMode` values are `guided`, `assisted`, and `unset`. The prose
+spelling `assisted_computer_use` is accepted as a compatibility alias for `assisted` only — it
+still requires `computerUseAvailable: true`, so it never bypasses the computer-use gate.
+
 Readiness probes and no-secret behavior: the plan classifies auth, login, permission, MCP,
 and skill blockers per harness and reports secret/provider readiness by status only. Do not
 paste API keys, tokens, OAuth values, or provider secrets into chat — report only whether
@@ -147,6 +151,15 @@ runs before governed edits. The onboarding plan lists this as a guided step.
 The onboarding plan only reports where ODIN-owned artifacts will be tracked (the install
 ledger path). It does not write the install ledger or any harness config file; ledger-aware
 install behavior is a separate step.
+
+Governed readiness is fail-closed. MCP being configured, or an SCP skill existing on disk, is
+not authority — protocol uptake must be verified. Each harness reports a four-state
+`governedReadiness`: `GOVERNED_READY`, `FIXABLE_BLOCKED`, `NON_GOVERNED_ONE_SHOT_ONLY`, or
+`UNSUPPORTED`, each with one next safe action. A governed occupant cannot activate (and the team
+cannot reach `TEAM_ACTIVATION_ALLOWED`) until its `governedReadiness` is `GOVERNED_READY`.
+Capture a governed-context proof and verify it with
+`node scripts/protocol/verify-governed-context.mjs <proof.json>`; PM and ODIN roles require the
+highest assurance the harness supports.
 
 ## 7. CMUX Governed-Team Launch
 
@@ -181,6 +194,8 @@ occupants until readiness passes or EXEC PM records a waiver/substitution.
 | Stale MCP version | Use a pinned `@bradheitmann/odin-sentinel@0.4.9` command, restart host, and confirm `0.4.9`. |
 | Local inference stall | Require visible content within timeout; endpoint-only success is insufficient. |
 | Role refusal | Mark the role `NON_GOVERNED_ONE_SHOT_ONLY` unless MCP/skill/full protocol proof is established. |
+| Missing governed uptake proof | Treat as `FIXABLE_BLOCKED` (MCP/skill presence is not uptake): capture and verify a governed-context proof with `scripts/protocol/verify-governed-context.mjs`. |
+| Hooks/validators not confirmed | Treat as `FIXABLE_BLOCKED`: a governed occupant needs the activation hook + governed-context verifier affirmatively available (`scripts/protocol/install-activation-hooks.mjs`). |
 
 `NON_GOVERNED_ONE_SHOT_ONLY` means the agent may help with one bounded task, but
 is not suitable for a persistent governed role.

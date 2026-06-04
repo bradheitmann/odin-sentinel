@@ -448,6 +448,86 @@ describe("ODIN MCP server", () => {
     }
   });
 
+  it("accepts the assisted_computer_use preferredSetupMode alias through MCP schema validation", async () => {
+    const { client, server } = await connectClient();
+
+    try {
+      // SLICE-ODIN-ONBOARDING-HARDENING-DEV-001: the prose alias passes zod validation and maps
+      // to canonical assisted, without bypassing computerUseAvailable.
+      const aliasResult = await client.callTool({
+        name: "odin.get_onboarding_plan",
+        arguments: {
+          intendedHarnesses: ["Codex"],
+          installedHarnesses: ["Codex"],
+          userProvisioningAnswer: "yes",
+          computerUseAvailable: true,
+          preferredSetupMode: "assisted_computer_use",
+          observations: [{ harness: "Codex", mcpConfigured: true, scpSkillInstalled: true, authStatus: "AUTH_READY", visibleContent: true }]
+        }
+      });
+      expect(aliasResult.isError).toBeFalsy();
+      const aliasPlan = parseTextResult(aliasResult) as { recommendedMode: string; setupModes: { assisted: { eligible: boolean } } };
+      expect(aliasPlan.recommendedMode).toBe("assisted");
+      expect(aliasPlan.setupModes.assisted.eligible).toBe(true);
+
+      const guided = parseTextResult(await client.callTool({
+        name: "odin.get_onboarding_plan",
+        arguments: {
+          intendedHarnesses: ["Codex"],
+          installedHarnesses: ["Codex"],
+          userProvisioningAnswer: "yes",
+          computerUseAvailable: false,
+          preferredSetupMode: "assisted_computer_use"
+        }
+      })) as { recommendedMode: string; setupModes: { assisted: { eligible: boolean } } };
+      expect(guided.recommendedMode).toBe("guided");
+      expect(guided.setupModes.assisted.eligible).toBe(false);
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
+
+  it("surfaces fail-closed governed readiness and hard-blocks activation through MCP tools", async () => {
+    const { client, server } = await connectClient();
+
+    try {
+      const gates = parseTextResult(await client.callTool({ name: "odin.get_activation_gates", arguments: {} })) as Record<string, any>;
+      expect(gates.governedContextProof.verifierScript).toBe("scripts/protocol/verify-governed-context.mjs");
+
+      // A governed slot with full instruction/auth readiness but NO governed-context uptake proof
+      // must not reach team activation.
+      const blocked = parseTextResult(await client.callTool({
+        name: "odin.evaluate_readiness_gate",
+        arguments: {
+          execPmAuthorized: true,
+          cmuxAvailable: true,
+          slots: [{
+            roleSlot: "B/DEV-1",
+            harness: "Claude Code",
+            mcpAvailable: true,
+            mcpVersion: "0.4.9",
+            scpSkillAvailable: true,
+            protocolTextSource: "native_skill",
+            authStatus: "AUTH_READY",
+            firstRunPermissionStatus: "CLEAR",
+            modelStatus: "MODEL_READY",
+            roleCompatibility: "ACCEPTS_ROLE",
+            occupantState: "BOOTSTRAPPED_IDLE",
+            hooksAvailable: true
+          }]
+        }
+      })) as Record<string, any>;
+
+      expect(blocked.readinessMatrix[0].governedReadiness).toBe("FIXABLE_BLOCKED");
+      expect(blocked.readinessMatrix[0].activationAllowed).toBe(false);
+      expect(blocked.activationStatus).toBe("TEAM_ACTIVATION_BLOCKED");
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
+
   it("accepts AX diagnostics through the MCP session report schema", async () => {
     const { client, server } = await connectClient();
 

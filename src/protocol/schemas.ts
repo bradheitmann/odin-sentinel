@@ -103,7 +103,15 @@ export const readinessGateInputShape = {
       waiver: z.enum(["WAIVED_BY_EXEC_PM", "SUBSTITUTION_APPROVED_BY_EXEC_PM"]).optional(),
       fallbackHarness: z.string().optional(),
       occupantState: z.string().optional(),
-      required: z.boolean().optional()
+      required: z.boolean().optional(),
+      // Fail-closed governed-context inputs: an embedded governed-context proof and liveness
+      // signals. Presence is not authority; only a verified uptake proof can reach GOVERNED_READY.
+      governedContextProof: z.record(z.string(), z.unknown()).optional(),
+      hooksAvailable: z.boolean().optional(),
+      deliveryState: z.string().optional(),
+      livenessState: z.string().optional(),
+      permissionBlocked: z.boolean().optional(),
+      idleStalled: z.boolean().optional()
     })
   ).min(1)
 } as const;
@@ -134,7 +142,16 @@ export const harnessProbeObservationSchema = z.object({
   fullProtocolTextInjected: z.boolean().optional(),
   authStatus: z.enum(["AUTH_READY", "AUTH_PRESENT_UNVERIFIED", "AUTH_MISSING", "AUTH_PROVIDER_BLOCKED", "AUTH_LOGIN_REQUIRED", "AUTH_UNKNOWN"]).optional(),
   autoLevel: z.enum(["none", "low", "medium", "high"]).optional(),
-  taskAutonomy: z.enum(["read_only", "mission", "high_autonomy"]).optional()
+  taskAutonomy: z.enum(["read_only", "mission", "high_autonomy"]).optional(),
+  // Fail-closed governed-context inputs. The embedded governed-context proof is validated for
+  // uptake (a stable source marker actually observed); a bare boolean never qualifies.
+  requestedRole: z.string().optional(),
+  governedContextProof: z.record(z.string(), z.unknown()).optional(),
+  hooksAvailable: z.boolean().optional(),
+  deliveryState: z.string().optional(),
+  livenessState: z.string().optional(),
+  permissionBlocked: z.boolean().optional(),
+  idleStalled: z.boolean().optional()
 });
 
 export const harnessProbeInputShape = {
@@ -156,7 +173,7 @@ export const onboardingPlanInputShape = {
   userProvisioningAnswer: z.enum(["yes", "no", "unknown"]).optional(),
   observations: z.array(harnessProbeObservationSchema).optional(),
   computerUseAvailable: z.boolean().optional(),
-  preferredSetupMode: z.enum(["guided", "assisted", "unset"]).optional(),
+  preferredSetupMode: z.enum(["guided", "assisted", "assisted_computer_use", "unset"]).optional(),
   ledgerPath: z.string().optional(),
   platform: z.enum(["macos", "linux", "windows", "unknown"]).optional()
 } as const;

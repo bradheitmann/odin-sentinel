@@ -345,7 +345,10 @@ describe("governed launch readiness gate", () => {
     expect(result.readinessMatrix[0].classifications).toEqual(expect.arrayContaining(["SCP_SKILL_MISSING", "NON_GOVERNED_ONE_SHOT_ONLY"]));
   });
 
-  it("accepts MCP bootstrap resources as explicit full protocol context proof", () => {
+  it("treats an MCP bootstrap resource as launchable context but blocks governed activation without an uptake proof", () => {
+    // Updated for SLICE-ODIN-GOVERNED-READINESS-DEV-001 (A/EXEC-PM test-only amendment): an MCP
+    // resource is launchable SCP context, but fail-closed governed activation requires verified
+    // protocol uptake. MCP-resource presence alone no longer reaches TEAM_ACTIVATION_ALLOWED.
     const result = evaluateReadinessGate({
       execPmAuthorized: true,
       cmuxAvailable: true,
@@ -363,17 +366,51 @@ describe("governed launch readiness gate", () => {
         roleCompatibility: "ACCEPTS_ROLE",
         occupantState: "BOOTSTRAPPED_IDLE"
       }]
-    }) as { overallStatus: string; activationStatus: string; readinessMatrix: Array<{ status: string; launchAllowed: boolean; activationAllowed: boolean; classifications: string[]; notes: string[] }> };
+    }) as { overallStatus: string; activationStatus: string; readinessMatrix: Array<{ status: string; launchAllowed: boolean; activationAllowed: boolean; governedReadiness: string; classifications: string[]; notes: string[] }> };
 
     expect(result.overallStatus).toBe("PASS");
-    expect(result.activationStatus).toBe("TEAM_ACTIVATION_ALLOWED");
-    expect(result.readinessMatrix[0]).toMatchObject({
-      status: "PASS",
-      launchAllowed: true,
-      activationAllowed: true
-    });
+    expect(result.readinessMatrix[0].status).toBe("PASS");
+    expect(result.readinessMatrix[0].launchAllowed).toBe(true);
+    expect(result.activationStatus).toBe("TEAM_ACTIVATION_BLOCKED");
+    expect(result.readinessMatrix[0].activationAllowed).toBe(false);
+    expect(result.readinessMatrix[0].governedReadiness).toBe("FIXABLE_BLOCKED");
     expect(result.readinessMatrix[0].classifications).toContain("SCP_SKILL_MISSING");
     expect(result.readinessMatrix[0].classifications).not.toContain("NON_GOVERNED_ONE_SHOT_ONLY");
+  });
+
+  it("allows governed activation for an MCP-only harness with a verified governed-context uptake proof", () => {
+    const result = evaluateReadinessGate({
+      execPmAuthorized: true,
+      cmuxAvailable: true,
+      userProvisioningAnswer: "yes",
+      slots: [{
+        roleSlot: "B/DEV-1",
+        harness: "Droid",
+        mcpAvailable: true,
+        mcpVersion: "0.4.5",
+        scpSkillAvailable: false,
+        protocolTextSource: "mcp_resource",
+        authStatus: "AUTH_READY",
+        firstRunPermissionStatus: "CLEAR",
+        modelStatus: "MODEL_READY",
+        roleCompatibility: "ACCEPTS_ROLE",
+        occupantState: "BOOTSTRAPPED_IDLE",
+        hooksAvailable: true,
+        governedContextProof: {
+          schema: "odin.governed_context_proof.v1",
+          role: "B/DEV-1",
+          harness: "Droid",
+          source_type: "mcp_bootstrap",
+          control_source: { marker: "SCP_PUBLIC_VERSION: 0.4.9" },
+          uptake_receipt: { method: "quoted_marker", evidence_marker: "SCP_PUBLIC_VERSION: 0.4.9", observed: true, observed_at: "2026-06-04T05:00:00Z" },
+          generated_at: "2026-06-04T05:00:00Z"
+        }
+      }]
+    }) as { activationStatus: string; readinessMatrix: Array<{ activationAllowed: boolean; governedReadiness: string }> };
+
+    expect(result.readinessMatrix[0].governedReadiness).toBe("GOVERNED_READY");
+    expect(result.readinessMatrix[0].activationAllowed).toBe(true);
+    expect(result.activationStatus).toBe("TEAM_ACTIVATION_ALLOWED");
   });
 
   it("surfaces a role-compatibility smoke test and supported secret providers without secrets", () => {
@@ -406,5 +443,83 @@ describe("governed launch readiness gate", () => {
       expect.arrayContaining(["Doppler", "1Password CLI (op)", "environment variable names", "GitHub auth", "local provider config files"])
     );
     expect(JSON.stringify(result)).not.toMatch(/sk-[A-Za-z0-9]|bearer\s+[A-Za-z0-9]/i);
+  });
+
+  it("does not downgrade a proof-only governed slot lacking legacy context-source fields (hardening)", () => {
+    // QA LOW finding (SLICE-ODIN-GOVERNED-READINESS-HARDENING-DEV-001): a valid governed-context
+    // proof with no legacy protocolTextSource/scpSkillAvailable must SUPPLY the context source,
+    // not be downgraded to NON_GOVERNED_ONE_SHOT_ONLY via the legacy path. Fail-closed rules hold.
+    const result = evaluateReadinessGate({
+      execPmAuthorized: true,
+      cmuxAvailable: true,
+      userProvisioningAnswer: "yes",
+      slots: [{
+        roleSlot: "B/DEV-1",
+        harness: "Claude Code",
+        authStatus: "AUTH_READY",
+        firstRunPermissionStatus: "CLEAR",
+        modelStatus: "MODEL_READY",
+        roleCompatibility: "ACCEPTS_ROLE",
+        occupantState: "BOOTSTRAPPED_IDLE",
+        hooksAvailable: true,
+        deliveryState: "DELIVERED_ACKED",
+        governedContextProof: {
+          schema: "odin.governed_context_proof.v1",
+          role: "B/DEV-1",
+          harness: "Claude Code",
+          source_type: "native_skill",
+          control_source: { marker: "SCP_PUBLIC_VERSION: 0.4.9" },
+          uptake_receipt: { method: "quoted_marker", evidence_marker: "SCP_PUBLIC_VERSION: 0.4.9", observed: true, observed_at: "2026-06-04T05:00:00Z" },
+          generated_at: "2026-06-04T05:00:00Z"
+        }
+      }]
+    }) as { activationStatus: string; readinessMatrix: Array<{ status: string; activationAllowed: boolean; governedReadiness: string; scpContextSources: string[]; classifications: string[] }> };
+
+    const row = result.readinessMatrix[0];
+    expect(row.classifications).not.toContain("NON_GOVERNED_ONE_SHOT_ONLY");
+    expect(row.scpContextSources).toContain("native sentinel-coordination-protocol skill");
+    expect(row.governedReadiness).toBe("GOVERNED_READY");
+    expect(row.status).toBe("PASS");
+    expect(row.activationAllowed).toBe(true);
+    expect(result.activationStatus).toBe("TEAM_ACTIVATION_ALLOWED");
+  });
+
+  it("fails closed when a legacy context-source contradicts the governed-context proof (hardening)", () => {
+    // Legacy says MCP-resource; proof attests native-skill. Must fail closed as a conflict, never
+    // silently pick the more permissive source.
+    const result = evaluateReadinessGate({
+      execPmAuthorized: true,
+      cmuxAvailable: true,
+      userProvisioningAnswer: "yes",
+      slots: [{
+        roleSlot: "B/DEV-1",
+        harness: "Claude Code",
+        protocolTextSource: "mcp_resource",
+        authStatus: "AUTH_READY",
+        firstRunPermissionStatus: "CLEAR",
+        modelStatus: "MODEL_READY",
+        roleCompatibility: "ACCEPTS_ROLE",
+        occupantState: "BOOTSTRAPPED_IDLE",
+        hooksAvailable: true,
+        deliveryState: "DELIVERED_ACKED",
+        governedContextProof: {
+          schema: "odin.governed_context_proof.v1",
+          role: "B/DEV-1",
+          harness: "Claude Code",
+          source_type: "native_skill",
+          control_source: { marker: "SCP_PUBLIC_VERSION: 0.4.9" },
+          uptake_receipt: { method: "quoted_marker", evidence_marker: "SCP_PUBLIC_VERSION: 0.4.9", observed: true, observed_at: "2026-06-04T05:00:00Z" },
+          generated_at: "2026-06-04T05:00:00Z"
+        }
+      }]
+    }) as { activationStatus: string; readinessMatrix: Array<{ status: string; launchAllowed: boolean; activationAllowed: boolean; governedReadiness: string; classifications: string[] }> };
+
+    const row = result.readinessMatrix[0];
+    expect(row.classifications).toContain("CONTEXT_SOURCE_CONFLICT");
+    expect(row.status).toBe("FAIL");
+    expect(row.launchAllowed).toBe(false);
+    expect(row.activationAllowed).toBe(false);
+    expect(row.governedReadiness).toBe("FIXABLE_BLOCKED");
+    expect(result.activationStatus).toBe("TEAM_ACTIVATION_BLOCKED");
   });
 });

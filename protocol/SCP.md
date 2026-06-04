@@ -80,6 +80,23 @@ should install the sentinel-coordination-protocol skill before governed launch. 
 or high-autonomy work requires `--auto high`. Crush has no MCP management command and its auth-header
 failures are auth blockers, not readiness.
 
+## Governed Readiness Is Fail-Closed
+
+Presence is not authority. MCP being configured, or an SCP skill existing on disk, never makes a
+harness governed by itself — protocol **uptake** must be verified. Governed readiness is one of
+four states, shared by `odin.get_harness_probe_matrix`, `odin.evaluate_readiness_gate`, and
+`odin.get_onboarding_plan`: `GOVERNED_READY`, `FIXABLE_BLOCKED`, `NON_GOVERNED_ONE_SHOT_ONLY`,
+`UNSUPPORTED`. `GOVERNED_READY` requires a verified control layer plus a proven protocol-uptake
+receipt at an assurance adequate for the role, plus required hooks/validators, plus no unwaivable
+auth/liveness blocker. Native-skill harnesses require verified native-skill uptake (prompt
+injection is not persistent governed readiness for them); static-control-file harnesses require a
+validated static source plus uptake; MCP-only harnesses require a proven-loaded bootstrap resource
+plus uptake. PM and ODIN roles require the highest assurance the harness supports. A governed
+occupant is hard-blocked from activation until its `governedReadiness` is `GOVERNED_READY`. Prove
+uptake with `scripts/protocol/verify-governed-context.mjs` (a stable source marker, a disk checksum
+when a path is present, and a matching uptake receipt); a self-reported boolean is rejected. See
+`odin.get_activation_gates` for the governed-context proof contract.
+
 ## Closeout Defaults
 
 Closeout supports two modes:

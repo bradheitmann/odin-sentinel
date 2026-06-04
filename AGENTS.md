@@ -30,6 +30,10 @@ ODIN uses a simple PM/DEV/QA pattern for visible multi-agent work.
 - Do not assume MCP alone is enough for governed team mode. Confirm MCP,
   native skill or prompt fallback, CMUX layout, auth readiness, and model smoke
   tests before launch.
+- Governed readiness is fail-closed: MCP configured or a skill on disk is not authority.
+  `GOVERNED_READY` requires verified protocol uptake (prove with
+  `scripts/protocol/verify-governed-context.mjs`); otherwise the role is `FIXABLE_BLOCKED`,
+  `NON_GOVERNED_ONE_SHOT_ONLY`, or `UNSUPPORTED`, and a governed occupant must not activate.
 - Use CMUX for governed team mode. Without CMUX, ODIN can still provide protocol
   resources and validation tools, but the visible governed-team experience is not
   active.

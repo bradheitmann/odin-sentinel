@@ -128,6 +128,14 @@ describe("getActivationGates", () => {
     expect(gates.instructionReadProof.validateWith).toBe("odin.validate_instruction_read_proof");
     expect(JSON.stringify(gates)).toContain("input bar");
   });
+
+  it("exposes the fail-closed governed-context proof gate", () => {
+    const gates = getActivationGates() as Record<string, any>;
+    expect(gates.governedContextProof.verifierScript).toBe("scripts/protocol/verify-governed-context.mjs");
+    expect(gates.governedContextProof.fourStateModel.states.GOVERNED_READY).toBeDefined();
+    expect(gates.governedContextProof.rejects.join("\n")).toContain("self-reported boolean");
+    expect(gates.governedContextProof.surfacedBy).toContain("odin.get_harness_probe_matrix");
+  });
 });
 
 describe("getStartupPacket activation-gate exposure", () => {
@@ -224,6 +232,12 @@ describe("install-activation-hooks.mjs", () => {
   it("renders a precheck hook that calls the verifier and plans the gates", () => {
     expect(installer.renderHookScript()).toContain("verify-instruction-read.mjs");
     expect(installer.planInstall("hooks").mcp).toContain("odin.get_activation_gates");
+  });
+
+  it("exposes the governed-context verifier in the hook and plan (fail-closed gate)", () => {
+    expect(installer.renderHookScript()).toContain("verify-governed-context.mjs");
+    expect(installer.planInstall("hooks").governedContextVerifier).toBe("scripts/protocol/verify-governed-context.mjs");
+    expect(JSON.stringify(installer.planInstall("hooks").gates)).toContain("protocol uptake must be verified");
   });
 
   it("--help, --print-hook, and dry-run exit 0; install writes the hook; missing target errors", () => {

@@ -158,6 +158,12 @@ export type ReadinessSlotInput = {
   fallbackHarness?: string;
   occupantState?: string;
   required?: boolean;
+  governedContextProof?: unknown;
+  hooksAvailable?: boolean;
+  deliveryState?: string;
+  livenessState?: string;
+  permissionBlocked?: boolean;
+  idleStalled?: boolean;
 };
 
 export type ReadinessGateInput = {
@@ -180,6 +186,9 @@ export type ReadinessMatrixRow = {
   mcpVersion?: string;
   deferredMcpHydration: "AT_BOOT" | "AFTER_SECOND_TURN" | "UNPROVEN";
   nativeSkillInvocation: boolean;
+  governedReadiness: GovernedReadinessState;
+  governedReadinessNextAction: string;
+  governedActivationBlocked: boolean;
   notes: string[];
 };
 
@@ -212,6 +221,13 @@ export type HarnessProbeInput = {
     authStatus?: "AUTH_READY" | "AUTH_PRESENT_UNVERIFIED" | "AUTH_MISSING" | "AUTH_PROVIDER_BLOCKED" | "AUTH_LOGIN_REQUIRED" | "AUTH_UNKNOWN";
     autoLevel?: "none" | "low" | "medium" | "high";
     taskAutonomy?: "read_only" | "mission" | "high_autonomy";
+    requestedRole?: string;
+    governedContextProof?: unknown;
+    hooksAvailable?: boolean;
+    deliveryState?: string;
+    livenessState?: string;
+    permissionBlocked?: boolean;
+    idleStalled?: boolean;
   }>;
   visibleOutputTimeoutSeconds?: number;
 };
@@ -224,10 +240,244 @@ export type OnboardingPlanInput = {
   userProvisioningAnswer?: "yes" | "no" | "unknown";
   observations?: HarnessProbeInput["observations"];
   computerUseAvailable?: boolean;
-  preferredSetupMode?: OnboardingSetupMode | "unset";
+  preferredSetupMode?: OnboardingSetupMode | "assisted_computer_use" | "unset";
   ledgerPath?: string;
   platform?: "macos" | "linux" | "windows" | "unknown";
 };
+
+// --- Fail-closed governed readiness ---------------------------------------------------------
+// Presence is not authority. MCP being configured, or an SCP skill existing on disk, never
+// makes a harness GOVERNED_READY by itself. Governed authority requires a verified control
+// layer PLUS proven protocol uptake (a stable source marker actually observed) at an assurance
+// level adequate for the requested role. Missing/insufficient proof fails closed.
+
+export type GovernedReadinessState = "GOVERNED_READY" | "FIXABLE_BLOCKED" | "NON_GOVERNED_ONE_SHOT_ONLY" | "UNSUPPORTED";
+export type HarnessCategory = "native_skill" | "static_control_file" | "mcp_only" | "unsupported";
+export type AssuranceLevel = "native_skill" | "static_control_file" | "mcp_bootstrap" | "none";
+
+export const GOVERNED_CONTEXT_PROOF_SCHEMA = "odin.governed_context_proof.v1";
+const GOVERNED_CONTEXT_SOURCE_TYPES = ["native_skill", "static_control_file", "mcp_bootstrap"] as const;
+
+// User-clear four-state model surfaced by every governed-readiness surface (probe, gate, onboarding).
+const GOVERNED_READINESS_MODEL = {
+  states: {
+    GOVERNED_READY: "Verified control layer + proven protocol uptake at adequate assurance + required hooks/validators + no unwaivable blocker.",
+    FIXABLE_BLOCKED: "Supported harness missing skill/static/MCP control proof, uptake receipt, hook, auth, or liveness — fixable, not yet governed.",
+    NON_GOVERNED_ONE_SHOT_ONLY: "Bounded non-authoritative use only: no PM/ODIN/QA acceptance, closure, or team coordination.",
+    UNSUPPORTED: "Harness cannot enforce SCP governed context and must not hold a governed role."
+  },
+  rule: "MCP configured alone, or a skill file on disk alone, never yields GOVERNED_READY. PM/ODIN roles require the highest assurance the harness supports.",
+  verifier: "scripts/protocol/verify-governed-context.mjs"
+} as const;
+
+// Harness category registry: how each harness can carry an enforced SCP control layer. Unknown
+// harnesses default to mcp_only (still fail-closed: no proof ⇒ not governed-ready).
+const HARNESS_CATEGORY_REGISTRY: Record<string, HarnessCategory> = {
+  codex: "native_skill",
+  "claude code": "native_skill",
+  droid: "mcp_only",
+  goose: "mcp_only",
+  openhands: "mcp_only",
+  kilocode: "mcp_only",
+  cursor: "static_control_file",
+  zed: "static_control_file",
+  aider: "static_control_file",
+  crush: "static_control_file",
+  pi: "unsupported",
+  nanocoder: "unsupported"
+};
+
+export function harnessCategory(harness: string): HarnessCategory {
+  return HARNESS_CATEGORY_REGISTRY[harness.trim().toLowerCase()] ?? "mcp_only";
+}
+
+const ASSURANCE_RANK: Record<AssuranceLevel, number> = { none: 0, mcp_bootstrap: 1, static_control_file: 2, native_skill: 3 };
+
+function maxAssuranceForCategory(category: HarnessCategory): AssuranceLevel {
+  if (category === "native_skill") return "native_skill";
+  if (category === "static_control_file") return "static_control_file";
+  if (category === "mcp_only") return "mcp_bootstrap";
+  return "none";
+}
+
+function sourceTypeToAssurance(sourceType: unknown): AssuranceLevel {
+  if (sourceType === "native_skill") return "native_skill";
+  if (sourceType === "static_control_file") return "static_control_file";
+  if (sourceType === "mcp_bootstrap") return "mcp_bootstrap";
+  return "none";
+}
+
+function isHighAuthorityRole(role: string | undefined): boolean {
+  if (!role) return false;
+  const n = normalizeRoleName(role);
+  return n === "EXEC_PM" || n === "TEAM_PM" || n === "EXEC_ODIN" || n === "TEAM_ODIN";
+}
+
+/**
+ * Pure shape validation of a governed-context proof (no disk access). The authoritative on-disk
+ * checksum gate is scripts/protocol/verify-governed-context.mjs; this validates the structure,
+ * the stable source marker, the uptake-receipt marker linkage, and zero-secret content so the
+ * MCP-visible readiness surfaces can require proof. A self-reported boolean with no stable
+ * source marker can never validate here (slice MUST NOT).
+ */
+export function validateGovernedContextProof(proof: unknown): { valid: boolean; proofAssurance: AssuranceLevel | null; reasons: string[] } {
+  const reasons: string[] = [];
+  if (!proof || typeof proof !== "object" || Array.isArray(proof)) {
+    return { valid: false, proofAssurance: null, reasons: ["governed-context proof is not an object"] };
+  }
+  const record = asRecord(proof);
+  const serialized = JSON.stringify(record);
+  if (redactSecretLikeText(serialized) !== serialized) reasons.push("governed-context proof contains a secret-looking value");
+  if (record.schema !== GOVERNED_CONTEXT_PROOF_SCHEMA) reasons.push(`schema must be ${GOVERNED_CONTEXT_PROOF_SCHEMA}`);
+  for (const field of ["role", "harness", "source_type", "generated_at"]) {
+    if (typeof record[field] !== "string" || (record[field] as string).trim() === "") reasons.push(`missing ${field}`);
+  }
+  const sourceType = record.source_type;
+  if (typeof sourceType === "string" && !GOVERNED_CONTEXT_SOURCE_TYPES.includes(sourceType as (typeof GOVERNED_CONTEXT_SOURCE_TYPES)[number])) {
+    reasons.push("invalid source_type");
+  }
+  const controlSource = asRecord(record.control_source);
+  const marker = typeof controlSource.marker === "string" ? controlSource.marker.trim() : "";
+  if (marker === "") reasons.push("control_source.marker is required (a stable source marker, not a bare boolean)");
+  if (typeof controlSource.path === "string" && controlSource.path.trim() !== "" && (typeof controlSource.sha256 !== "string" || (controlSource.sha256 as string).trim() === "")) {
+    reasons.push("control_source.sha256 is required when control_source.path is present");
+  }
+  if (!record.uptake_receipt || typeof record.uptake_receipt !== "object" || Array.isArray(record.uptake_receipt)) {
+    reasons.push("missing uptake_receipt");
+  } else {
+    const uptake = asRecord(record.uptake_receipt);
+    if (uptake.observed !== true) reasons.push("uptake_receipt.observed must be true");
+    const evidence = typeof uptake.evidence_marker === "string" ? uptake.evidence_marker.trim() : "";
+    if (evidence === "") reasons.push("uptake_receipt.evidence_marker is required (self-asserted uptake without a stable marker is rejected)");
+    else if (marker !== "" && evidence !== marker) reasons.push("uptake_receipt.evidence_marker does not match control_source.marker");
+    if (typeof uptake.method !== "string" || (uptake.method as string).trim() === "") reasons.push("uptake_receipt.method is required");
+  }
+  return { valid: reasons.length === 0, proofAssurance: reasons.length === 0 ? sourceTypeToAssurance(sourceType) : null, reasons };
+}
+
+export type GovernedReadinessInput = {
+  harness: string;
+  installed?: boolean;
+  authenticated?: boolean | "unknown";
+  requestedRole?: string;
+  governedContextProof?: unknown;
+  hooksAvailable?: boolean;
+  deliveryState?: string;
+  livenessState?: string;
+  permissionBlocked?: boolean;
+  idleStalled?: boolean;
+  authBlockers?: string[];
+  otherBlockers?: string[];
+};
+
+export type GovernedReadinessResult = {
+  state: GovernedReadinessState;
+  category: HarnessCategory;
+  requiredAssurance: AssuranceLevel;
+  proofAssurance: AssuranceLevel | null;
+  uptakeVerified: boolean;
+  blockers: string[];
+  nextSafeAction: string;
+};
+
+const UNSAFE_DELIVERY_STATES = new Set(["INPUT_BAR_ONLY", "PANE_BLOCKED_ON_PERMISSION"]);
+const UNSAFE_LIVENESS_STATES = new Set(["NO_VISIBLE_PROCESSING", "IDLE_STALLED", "NO_ACK", "STALE_IDLE"]);
+
+function governedReadinessNextAction(
+  state: GovernedReadinessState,
+  requiredAssurance: AssuranceLevel,
+  blockers: string[]
+): string {
+  if (state === "NON_GOVERNED_ONE_SHOT_ONLY") {
+    return "This harness cannot reach the assurance this role requires; use it only for bounded one-shot work, or assign the role to a higher-assurance harness.";
+  }
+  const top = blockers[0] ?? "no verified governed-context uptake proof";
+  if (top.startsWith("no verified governed-context")) {
+    if (requiredAssurance === "native_skill") return "Install the native sentinel-coordination-protocol skill, load it, then capture a governed-context uptake proof (verify with scripts/protocol/verify-governed-context.mjs).";
+    if (requiredAssurance === "static_control_file") return "Install/validate the static control file, load it, then capture a governed-context uptake proof (verify with scripts/protocol/verify-governed-context.mjs).";
+    return "Load the MCP bootstrap resource, then capture a governed-context uptake proof (verify with scripts/protocol/verify-governed-context.mjs).";
+  }
+  if (top.startsWith("assurance ")) return "Provide a higher-assurance governed-context proof; a lower-assurance path does not qualify for this harness/role (PM and ODIN need the highest available).";
+  if (top.startsWith("authentication") || top.startsWith("auth blocked")) return "Sign in or provision the harness outside chat (never paste secrets), then re-probe.";
+  if (top.startsWith("delivery") || top.startsWith("liveness") || top.startsWith("blocked on a permission") || top.startsWith("stale idle")) return "Resolve the live blocker: submit with Enter and confirm processing, approve the permission prompt, or restart the stalled occupant; then re-probe.";
+  if (top.startsWith("required hooks/validators")) return "Deploy and confirm the activation hook + governed-context verifier (scripts/protocol/install-activation-hooks.mjs, scripts/protocol/verify-governed-context.mjs), then re-probe.";
+  return "Resolve the listed blocker, then re-run the governed-readiness probe.";
+}
+
+/**
+ * Single source of truth for the four-state governed-readiness taxonomy, reused by the harness
+ * probe matrix, the readiness gate, and onboarding so they never emit conflicting statuses.
+ */
+export function classifyGovernedReadiness(input: GovernedReadinessInput): GovernedReadinessResult {
+  const category = harnessCategory(input.harness);
+  const highAuthority = isHighAuthorityRole(input.requestedRole);
+  const proofCheck = validateGovernedContextProof(input.governedContextProof);
+  const uptakeVerified = proofCheck.valid;
+  const proofAssurance = proofCheck.proofAssurance;
+
+  const baseRequired = maxAssuranceForCategory(category);
+  // PM/ODIN must clear at least static_control_file assurance; MCP-only never silently qualifies.
+  const requiredAssurance: AssuranceLevel = highAuthority
+    ? (ASSURANCE_RANK[baseRequired] >= ASSURANCE_RANK.static_control_file ? baseRequired : "static_control_file")
+    : baseRequired;
+
+  if (category === "unsupported") {
+    return {
+      state: "UNSUPPORTED",
+      category,
+      requiredAssurance,
+      proofAssurance,
+      uptakeVerified: false,
+      blockers: ["harness cannot enforce an SCP governed-context control layer"],
+      nextSafeAction: "Use this harness only for bounded, non-governed one-shot help; do not assign it a governed role."
+    };
+  }
+
+  const blockers: string[] = [];
+  if (input.installed === false) blockers.push("not installed or not provisioned");
+  if (input.authenticated === false) blockers.push("authentication blocker (sign in or provision outside chat)");
+  if (Array.isArray(input.authBlockers) && input.authBlockers.length > 0) blockers.push(`auth blocked: ${input.authBlockers.join(", ")}`);
+  // Affirmative requirement: hooks/validators must be confirmed available. Unknown or omitted
+  // hook availability foreclosed an optional-failure path, so it blocks governed readiness.
+  if (input.hooksAvailable !== true) blockers.push("required hooks/validators not confirmed available (the governed-context verifier and activation hook must be affirmatively present)");
+  if (input.permissionBlocked === true) blockers.push("blocked on a permission prompt");
+  if (input.idleStalled === true) blockers.push("stale idle: no visible progress");
+  if (typeof input.deliveryState === "string" && UNSAFE_DELIVERY_STATES.has(input.deliveryState)) blockers.push("delivery not confirmed (input-bar-only or permission-blocked is not delivery)");
+  if (typeof input.livenessState === "string" && UNSAFE_LIVENESS_STATES.has(input.livenessState)) blockers.push("liveness not confirmed (no visible processing, missing ack, or stale idle)");
+  if (Array.isArray(input.otherBlockers)) for (const b of input.otherBlockers) blockers.push(b);
+
+  if (!uptakeVerified) {
+    blockers.push("no verified governed-context uptake proof (MCP config or a skill file on disk is not uptake)");
+  } else if (proofAssurance && ASSURANCE_RANK[proofAssurance] < ASSURANCE_RANK[requiredAssurance]) {
+    blockers.push(`assurance ${proofAssurance} is below the ${requiredAssurance} required for this harness/role`);
+  }
+
+  if (blockers.length === 0 && uptakeVerified) {
+    return {
+      state: "GOVERNED_READY",
+      category,
+      requiredAssurance,
+      proofAssurance,
+      uptakeVerified,
+      blockers: [],
+      nextSafeAction: "Governed authority verified. Launch the role; keep the governed-context proof fresh and re-verify on resume."
+    };
+  }
+
+  // Supported but blocked. If the harness can never reach the required assurance for this role,
+  // it is one-shot only for that role; otherwise the blockers are fixable.
+  const reachable = ASSURANCE_RANK[maxAssuranceForCategory(category)] >= ASSURANCE_RANK[requiredAssurance];
+  const state: GovernedReadinessState = reachable ? "FIXABLE_BLOCKED" : "NON_GOVERNED_ONE_SHOT_ONLY";
+  return {
+    state,
+    category,
+    requiredAssurance,
+    proofAssurance,
+    uptakeVerified,
+    blockers,
+    nextSafeAction: governedReadinessNextAction(state, requiredAssurance, blockers)
+  };
+}
 
 function roleKind(roleSlot: string): string {
   return normalizeRoleName(roleSlot);
@@ -256,6 +506,30 @@ function scpContextSources(slot: ReadinessSlotInput): string[] {
   return Array.from(sources);
 }
 
+// Map a VERIFIED governed-context proof's assurance to the equivalent legacy SCP context-source
+// label. Returns null when the proof does not validate (fail-closed: no valid proof, no source).
+function proofDerivedContextSource(proof: unknown): string | null {
+  const check = validateGovernedContextProof(proof);
+  if (!check.valid) return null;
+  if (check.proofAssurance === "native_skill") return "native sentinel-coordination-protocol skill";
+  if (check.proofAssurance === "static_control_file") return "full injected SCP protocol text";
+  if (check.proofAssurance === "mcp_bootstrap") return "odin-sentinel MCP bootstrap resource";
+  return null;
+}
+
+// Reconcile legacy context-source fields with a governed-context proof. A valid proof SUPPLIES the
+// context source when legacy fields are absent (so a proof-only governed slot is not downgraded
+// merely for missing stale fields), but it can never override a contradictory legacy declaration:
+// incongruent legacy/proof sources fail closed as a conflict — never the more permissive source.
+function resolveContextSources(slot: ReadinessSlotInput): { sources: string[]; conflict: boolean } {
+  const legacy = scpContextSources(slot);
+  const proofSource = proofDerivedContextSource(slot.governedContextProof);
+  if (proofSource === null) return { sources: legacy, conflict: false };
+  if (legacy.length === 0) return { sources: [proofSource], conflict: false };
+  if (legacy.includes(proofSource)) return { sources: legacy, conflict: false };
+  return { sources: legacy, conflict: true };
+}
+
 function defaultSafeOutcomes(): string[] {
   return [
     "choose a different harness",
@@ -273,7 +547,7 @@ function classifyProbeText(harness: string, text: string): string[] {
   const safeText = redactSecretLikeText(text).toLowerCase();
   const classes: string[] = [];
   if (/permission|allow|approve|deny|press y|waiting for confirmation/.test(safeText)) classes.push("BLOCKED_BY_PERMISSION");
-  if (/login|sign in|authenticate|kilo auth login|\/connect/.test(safeText)) classes.push("BLOCKED_BY_LOGIN");
+  if (/login|\bsign[\s-]?in\b|\bnot signed[\s-]?in\b|authenticate|kilo auth login|\/connect/.test(safeText)) classes.push("BLOCKED_BY_LOGIN");
   if (/api key|apikey|credential|inference credential|provider config|openhands/.test(safeText)) classes.push("BLOCKED_BY_API_KEY");
   if (/permission denied|eacces|operation not permitted/.test(safeText)) classes.push("BLOCKED_BY_PERMISSION");
   if (/roleplay|fiction|cannot accept role|not a real protocol/.test(safeText)) classes.push("ROLE_COMPATIBILITY_FAILED");
@@ -621,6 +895,34 @@ export function getActivationGates(): Record<string, unknown> {
         generated_at: "2026-01-01T00:00:00Z",
         files: [{ path: "protocol/SCP.md", bytes: 4175, lines: 87, sha256: "<sha256-digest>" }]
       }
+    },
+    governedContextProof: {
+      requirement:
+        "Governed authority is fail-closed: MCP being configured or an SCP skill existing on disk is NOT enough. Before a persistent governed role acts, prove the control layer was loaded and taken up — a stable source marker actually observed — at an assurance level adequate for the role.",
+      fourStateModel: GOVERNED_READINESS_MODEL,
+      requiredFields: ["schema", "role", "harness", "source_type", "control_source.marker", "uptake_receipt", "generated_at"],
+      sourceTypes: GOVERNED_CONTEXT_SOURCE_TYPES,
+      rejects: [
+        "self-reported boolean with no stable source marker",
+        "MCP configured alone / skill file on disk alone",
+        "checksum mismatch when control_source.path is present",
+        "missing or stale uptake receipt",
+        "secret-looking values"
+      ],
+      verifierScript: "scripts/protocol/verify-governed-context.mjs",
+      installerScript: "scripts/protocol/install-activation-hooks.mjs",
+      verifyCommand: "node scripts/protocol/verify-governed-context.mjs <proof.json>",
+      recordCommand: "node scripts/protocol/verify-governed-context.mjs --record --source <control-file> --marker <stable-marker> > proof.json",
+      surfacedBy: ["odin.get_harness_probe_matrix", "odin.evaluate_readiness_gate", "odin.get_onboarding_plan"],
+      example: {
+        schema: GOVERNED_CONTEXT_PROOF_SCHEMA,
+        role: "B/DEV-1",
+        harness: "Claude Code",
+        source_type: "native_skill",
+        control_source: { path: "~/.claude/skills/sentinel-coordination-protocol/SKILL.md", marker: "SCP_PUBLIC_VERSION: 0.4.x", sha256: "<sha256-digest>" },
+        uptake_receipt: { method: "quoted_marker", evidence_marker: "SCP_PUBLIC_VERSION: 0.4.x", observed: true, observed_at: "2026-01-01T00:00:00Z" },
+        generated_at: "2026-01-01T00:00:00Z"
+      }
     }
   };
 }
@@ -961,7 +1263,9 @@ export function evaluateReadinessGate(input: ReadinessGateInput): Record<string,
     const harness = slot.harness ?? "unknown";
     const classifications: string[] = [];
     const notes: string[] = [];
-    const sources = scpContextSources(slot);
+    // A valid governed-context proof can supply the legacy context-source when legacy fields are
+    // absent; a legacy/proof contradiction fails closed (CONTEXT_SOURCE_CONFLICT), never permissive.
+    const { sources, conflict: contextSourceConflict } = resolveContextSources(slot);
     let status: ReadinessStatus = "PASS";
 
     if (!execPmAuthorized) classifications.push("EXEC_PM_AUTHORIZATION_REQUIRED");
@@ -977,6 +1281,10 @@ export function evaluateReadinessGate(input: ReadinessGateInput): Record<string,
       if (slot.mcpAvailable === false) classifications.push("MCP_UNAVAILABLE");
       if (slot.scpSkillAvailable === false) classifications.push("SCP_SKILL_MISSING");
       if (sources.length === 0 && isGovernedRole(slot.roleSlot)) classifications.push("NON_GOVERNED_ONE_SHOT_ONLY");
+      if (contextSourceConflict) {
+        classifications.push("CONTEXT_SOURCE_CONFLICT");
+        notes.push("Legacy SCP context-source field contradicts the governed-context proof source; failing closed. Remove the stale legacy field or supply a congruent proof — do not rely on the more permissive source.");
+      }
       if (slot.firstRunPermissionStatus === "PROMPT_WAITING" || slot.firstRunPermissionStatus === "DENIED") classifications.push("BLOCKED_BY_PERMISSION");
       if (slot.authStatus === "AUTH_LOGIN_REQUIRED") classifications.push("BLOCKED_BY_LOGIN");
       if (slot.authStatus === "AUTH_MISSING") classifications.push("BLOCKED_BY_API_KEY");
@@ -1003,7 +1311,8 @@ export function evaluateReadinessGate(input: ReadinessGateInput): Record<string,
       "STREAMING_PROTOCOL_MISMATCH",
       "MODEL_UNREACHABLE",
       "ROLE_COMPATIBILITY_FAILED",
-      "UNSUITABLE_FOR_ODIN_ROLE"
+      "UNSUITABLE_FOR_ODIN_ROLE",
+      "CONTEXT_SOURCE_CONFLICT"
     ]);
     const hasUnwaivableLaunchBlocker = uniqueClassifications.some((item) => unwaivableLaunchBlockers.has(item));
     const approvedWaiver = execPmAuthorized && slot.waiver === "WAIVED_BY_EXEC_PM" && !hasUnwaivableLaunchBlocker;
@@ -1026,7 +1335,7 @@ export function evaluateReadinessGate(input: ReadinessGateInput): Record<string,
     const readyOccupant = ["BOOTSTRAPPED_IDLE", "ACTIVE_WATCH"].includes(occupantState) || vacantSlotExplicitlyOptional;
     const substitutionActivationReady = vacantSlotExplicitlyOptional;
     const launchAllowed = status === "PASS" || status === "WAIVED_BY_EXEC_PM" || status === "SUBSTITUTION_APPROVED_BY_EXEC_PM";
-    const activationAllowed =
+    const activationAllowedBase =
       status === "PASS"
         ? readyOccupant
         : status === "WAIVED_BY_EXEC_PM"
@@ -1035,24 +1344,58 @@ export function evaluateReadinessGate(input: ReadinessGateInput): Record<string,
             ? substitutionActivationReady
             : false;
 
+    // Fail-closed governed readiness for this slot, using the shared four-state taxonomy.
+    const slotAuthenticated: boolean | "unknown" =
+      slot.authStatus === "AUTH_READY"
+        ? true
+        : ["BLOCKED_BY_API_KEY", "AUTH_PROVIDER_BLOCKED", "BLOCKED_BY_LOGIN", "BLOCKED_BY_AUTH"].some((item) => uniqueClassifications.includes(item))
+          ? false
+          : "unknown";
+    const governed = classifyGovernedReadiness({
+      harness,
+      authenticated: slotAuthenticated,
+      requestedRole: slot.role ?? slot.roleSlot,
+      governedContextProof: slot.governedContextProof,
+      hooksAvailable: slot.hooksAvailable,
+      deliveryState: slot.deliveryState,
+      livenessState: slot.livenessState,
+      permissionBlocked: uniqueClassifications.includes("BLOCKED_BY_PERMISSION") || slot.permissionBlocked === true,
+      idleStalled: slot.idleStalled,
+      otherBlockers: failureClassifications
+    });
+
+    // Hard fail-closed gate: a governed-role occupant may not ACTIVATE (begin governed work)
+    // unless governedReadiness is GOVERNED_READY. Launch/provisioning may still proceed. This
+    // closes the legacy readyOccupant / failureClassifications path where an MCP-configured or
+    // skill-on-disk slot with no verified protocol uptake could reach TEAM_ACTIVATION_ALLOWED.
+    const governedOccupant = isGovernedRole(slot.roleSlot) && !vacantSlot;
+    const activationAllowed = governedOccupant ? activationAllowedBase && governed.state === "GOVERNED_READY" : activationAllowedBase;
+    if (governedOccupant && activationAllowedBase && governed.state !== "GOVERNED_READY") {
+      notes.push("Governed activation hard-blocked: occupant is not GOVERNED_READY (verified protocol uptake required). Launch/provisioning may proceed, but the occupant must not begin governed work until a governed-context proof verifies.");
+    }
+
     return {
       roleSlot: slot.roleSlot,
       harness,
       status,
       launchAllowed,
       activationAllowed,
+      governedActivationBlocked: governedOccupant && governed.state !== "GOVERNED_READY",
       classifications: uniqueClassifications,
       safeOutcomes: status === "PASS" ? [] : defaultSafeOutcomes(),
       scpContextSources: sources,
       mcpVersion: slot.mcpVersion,
       deferredMcpHydration: slot.canHydrateDeferredMcpToolsAtBoot === true ? "AT_BOOT" : slot.canHydrateDeferredMcpToolsAfterSecondTurn === true ? "AFTER_SECOND_TURN" : "UNPROVEN",
       nativeSkillInvocation: slot.nativeSkillInvocation === true,
+      governedReadiness: governed.state,
+      governedReadinessNextAction: governed.nextSafeAction,
       notes
     };
   });
 
   const overallStatus = hasSlots && rows.every((row) => row.launchAllowed) && cmuxAvailable && execPmAuthorized ? "PASS" : "FAIL";
   const activationStatus = hasSlots && rows.every((row) => row.activationAllowed) && cmuxAvailable && execPmAuthorized ? "TEAM_ACTIVATION_ALLOWED" : "TEAM_ACTIVATION_BLOCKED";
+  const governedReadinessStatus = hasSlots && rows.every((row) => row.governedReadiness === "GOVERNED_READY") ? "ALL_GOVERNED_READY" : "GOVERNED_READINESS_INCOMPLETE";
 
   return {
     version: VERSION,
@@ -1060,6 +1403,9 @@ export function evaluateReadinessGate(input: ReadinessGateInput): Record<string,
     phases: GOVERNED_LAUNCH_PHASES,
     overallStatus,
     activationStatus,
+    governedReadinessStatus,
+    governedActivationBlockedCount: rows.filter((row) => row.governedActivationBlocked).length,
+    governedReadinessModel: GOVERNED_READINESS_MODEL,
     execPmAuthorized,
     cmuxAvailable,
     userPrompt: "Are all intended harnesses provisioned with accounts, plans, API keys, or local inference credentials so they will not malfunction when spun up?",
@@ -1193,7 +1539,26 @@ export function getHarnessProbeMatrix(input: HarnessProbeInput = {}): Record<str
       "unknown";
     const advisoryClassifications = new Set(["USER_INPUT_REQUIRED", "NON_GOVERNED_ONE_SHOT_ONLY"]);
     const blockingClassifications = [...classifications].filter((item) => !advisoryClassifications.has(item));
-    const governedRoleReady = installedBinary && authenticated === true && hasGovernedContext && blockingClassifications.length === 0;
+
+    // Fail-closed governed readiness: presence (mcp_configured / skill on disk) is necessary
+    // context but never sufficient. GOVERNED_READY requires a verified governed-context uptake
+    // proof at adequate assurance, plus no blocking classification, auth, or liveness issue.
+    const authBlockerList = ["BLOCKED_BY_API_KEY", "AUTH_PROVIDER_BLOCKED", "BLOCKED_BY_LOGIN", "BLOCKED_BY_AUTH"].filter((item) => classifications.has(item));
+    const governed = classifyGovernedReadiness({
+      harness,
+      installed: installedBinary,
+      authenticated,
+      requestedRole: observation?.requestedRole,
+      governedContextProof: observation?.governedContextProof,
+      hooksAvailable: observation?.hooksAvailable,
+      deliveryState: observation?.deliveryState,
+      livenessState: observation?.livenessState,
+      permissionBlocked: classifications.has("BLOCKED_BY_PERMISSION") || observation?.permissionBlocked === true,
+      idleStalled: observation?.idleStalled,
+      authBlockers: authBlockerList,
+      otherBlockers: blockingClassifications.filter((item) => !authBlockerList.includes(item))
+    });
+    const governedRoleReady = governed.state === "GOVERNED_READY";
 
     return {
       harness,
@@ -1206,12 +1571,22 @@ export function getHarnessProbeMatrix(input: HarnessProbeInput = {}): Record<str
       nativeSkillInvocation: ["Codex", "Claude Code"].includes(harness),
       sentinelCoordinationProtocolSkill: "install before governed launch when the harness supports native skills",
       autoLevel: key === "droid" ? (observation?.autoLevel ?? "unknown") : observation?.autoLevel,
+      governedReadiness: governed.state,
+      governedContext: {
+        category: governed.category,
+        requiredAssurance: governed.requiredAssurance,
+        proofAssurance: governed.proofAssurance,
+        uptakeVerified: governed.uptakeVerified,
+        blockers: governed.blockers
+      },
+      nextSafeAction: governed.nextSafeAction,
       readiness: {
         installed_binary: installedBinary,
         authenticated,
         mcp_configured: mcpConfigured,
         mcp_management_available: mcpManagementAvailable ?? "unknown",
         mcp_tool_hydration: canHydrateAtBoot ? "AT_BOOT" : "AFTER_SECOND_TURN",
+        governed_context_uptake_verified: governed.uptakeVerified,
         governed_role_ready: governedRoleReady
       },
       safeNextActions: classifications.size === 0 ? [] : defaultSafeOutcomes(),
@@ -1224,6 +1599,10 @@ export function getHarnessProbeMatrix(input: HarnessProbeInput = {}): Record<str
     userPrompt: "Are all intended harnesses provisioned with accounts, plans, API keys, or local inference credentials so they will not malfunction when spun up?",
     secretProviderStatuses: providerStatuses,
     supportedProviders: ["Doppler", "1Password CLI (op)", "environment variable names", "direnv", "mise", "dotenv-style file presence", "GitHub auth", "local provider config files"],
+    governedReadinessModel: GOVERNED_READINESS_MODEL,
+    governedContextNote:
+      "Presence is not authority. MCP being configured or an SCP skill existing on disk does not make a harness GOVERNED_READY; protocol uptake must be verified. Each row's governedReadiness is one of GOVERNED_READY, FIXABLE_BLOCKED, NON_GOVERNED_ONE_SHOT_ONLY, or UNSUPPORTED.",
+    governedContextVerifier: "scripts/protocol/verify-governed-context.mjs",
     rows
   };
 }
@@ -1279,10 +1658,14 @@ export function getOnboardingPlan(input: OnboardingPlanInput = {}): Record<strin
     const classifications = Array.isArray(row.classifications) ? (row.classifications as string[]) : [];
     const blockers = classifications.filter((item) => !ONBOARDING_ADVISORY_CLASSIFICATIONS.has(item));
     const readiness = asRecord(row.readiness);
+    const governedReadiness = typeof row.governedReadiness === "string" ? row.governedReadiness : "FIXABLE_BLOCKED";
     return {
       harness: row.harness,
       installed: row.installed === true,
-      governedRoleReady: readiness.governed_role_ready === true,
+      governedReadiness,
+      governedRoleReady: governedReadiness === "GOVERNED_READY",
+      governedContext: row.governedContext,
+      governedNextSafeAction: row.nextSafeAction,
       classifications,
       blockers,
       readiness,
@@ -1296,12 +1679,17 @@ export function getOnboardingPlan(input: OnboardingPlanInput = {}): Record<strin
 
   const blockerSummary = readinessRows
     .filter((row) => row.blockers.length > 0)
-    .map((row) => ({ harness: row.harness, blockers: row.blockers, governedRoleReady: row.governedRoleReady }));
+    .map((row) => ({ harness: row.harness, blockers: row.blockers, governedReadiness: row.governedReadiness, governedRoleReady: row.governedRoleReady }));
   const classifications = [...new Set(readinessRows.flatMap((row) => row.classifications))].sort();
   const governedReadyHarnesses = readinessRows.filter((row) => row.governedRoleReady).map((row) => row.harness);
+  const governedReadinessByHarness = readinessRows.map((row) => ({ harness: row.harness, governedReadiness: row.governedReadiness, nextSafeAction: row.governedNextSafeAction }));
 
   const computerUseAvailable = input.computerUseAvailable === true;
-  const preferred = input.preferredSetupMode ?? "unset";
+  // Accept the prose alias "assisted_computer_use" as canonical "assisted". The alias is a
+  // compatibility spelling only; it never bypasses computerUseAvailable (assistedEligible below
+  // still gates assisted on it), so an alias request with computer use off stays guided.
+  const preferredRaw = input.preferredSetupMode ?? "unset";
+  const preferred = preferredRaw === "assisted_computer_use" ? "assisted" : preferredRaw;
   // Assisted computer-use setup is offered only when a computer-use-capable harness is available.
   const assistedEligible = computerUseAvailable;
 
@@ -1380,6 +1768,8 @@ export function getOnboardingPlan(input: OnboardingPlanInput = {}): Record<strin
     blockerSummary,
     unresolvedBlockerCount: blockerSummary.length,
     governedReadyHarnesses,
+    governedReadinessByHarness,
+    governedReadinessModel: GOVERNED_READINESS_MODEL,
     ledgerPath,
     ledgerNote:
       "This onboarding plan only reports where ODIN-owned artifacts will be tracked. It does not create, write, validate, or delete the install ledger or any harness config file; ledger-aware install behavior is a separate step.",
@@ -1458,10 +1848,13 @@ export function createProtocolService(repository: ProtocolRepository = createFil
     getActiveWatchPacket,
     getHarnessProbeMatrix,
     getOnboardingPlan,
+    classifyGovernedReadiness,
+    harnessCategory,
     getDelegationPacket,
     getActivationGates,
     validateCmuxDeliveryProof: (proof: Record<string, unknown>) => validateCmuxDeliveryProof(proof),
     validateInstructionReadProof: (proof: Record<string, unknown>) => validateInstructionReadProof(proof),
+    validateGovernedContextProof: (proof: unknown) => validateGovernedContextProof(proof),
     validateDelegationPacket: (packet: Record<string, unknown>) => validateDelegationPacket(packet, repository),
     validateBootReceipt: (receipt: Record<string, unknown>) => validateBootReceipt(receipt, repository),
     validateTeamManifest: (manifest: Record<string, unknown>) => validateTeamManifest(manifest, repository),
