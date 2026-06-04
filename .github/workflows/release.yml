@@ -19,6 +19,7 @@ jobs:
 
       - name: Activate pinned pnpm
         run: |
+          npm install -g corepack@0.34.7
           corepack enable
           corepack prepare "$(node -p "require('./package.json').packageManager")" --activate
           pnpm --version
@@ -51,6 +52,7 @@ jobs:
 
       - name: Activate pinned pnpm
         run: |
+          npm install -g corepack@0.34.7
           corepack enable
           corepack prepare "$(node -p "require('./package.json').packageManager")" --activate
           pnpm --version
