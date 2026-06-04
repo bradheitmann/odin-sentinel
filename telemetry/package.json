@@ -9,6 +9,7 @@
     "dev": "wrangler dev",
     "db:create": "wrangler d1 create odin-sentinel-telemetry",
     "db:migrate": "wrangler d1 execute odin-sentinel-telemetry --remote --file schema.sql",
+    "db:migrate:allowlist-columns": "wrangler d1 execute odin-sentinel-telemetry --remote --file migrations/0002_session_report_allowlist_columns.sql",
     "db:migrate:local": "wrangler d1 execute odin-sentinel-telemetry --local --file schema.sql"
   },
   "devDependencies": {

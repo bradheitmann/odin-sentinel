@@ -43,6 +43,17 @@ pnpm run db:migrate                    # applies schema.sql to remote D1
 pnpm run deploy                        # prints the Worker URL
 ```
 
+`schema.sql` is the bootstrap schema for new databases. Existing databases that
+pre-date the allowlisted telemetry columns need the one-time upgrade migration:
+
+```bash
+pnpm run db:migrate:allowlist-columns
+```
+
+Run that migration only if the remote `session_reports` table is missing one or
+more of these columns: `violation_classes`, `blocker_classifications`,
+`role_slot_count`, `drift_warning_count`, or `degraded_layout`.
+
 Take the deployed URL and configure clients:
 
 ```bash

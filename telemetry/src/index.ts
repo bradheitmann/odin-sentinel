@@ -26,6 +26,24 @@ type SessionReport = {
   haltCount?: unknown;
 };
 
+type NormalizedReport = {
+  id: string;
+  version: string;
+  teamCount: number;
+  violationCount: number;
+  haltCount: number;
+  layoutDriftCount: number;
+  peakContextPct: number;
+  closeoutClean: number;
+  modelSignals: Array<{ role: string; model: string; violations: number }>;
+  violationClasses: string[];
+  blockerClassifications: string[];
+  roleSlotCount: number;
+  driftWarningCount: number;
+  degradedLayout: number;
+  receivedAt: number;
+};
+
 const MAX_BODY_BYTES = 64 * 1024;
 const ALLOWED_REPORT_KEYS = new Set([
   "version",
@@ -108,6 +126,132 @@ function versionAllowed(version: string, env: Env): boolean {
   return list.includes(version);
 }
 
+function telemetryPayload(report: NormalizedReport): string {
+  return JSON.stringify({
+    violationClasses: report.violationClasses,
+    blockerClassifications: report.blockerClassifications,
+    roleSlotCount: report.roleSlotCount,
+    driftWarningCount: report.driftWarningCount,
+    degradedLayout: report.degradedLayout
+  });
+}
+
+async function insertModernReport(env: Env, report: NormalizedReport): Promise<void> {
+  await env.DB.prepare(
+    `INSERT INTO session_reports
+       (id, protocol_version, team_count, violation_count, halt_count,
+        layout_drift_count, peak_context_pct, closeout_clean, model_signals,
+        violation_classes, blocker_classifications, role_slot_count,
+        drift_warning_count, degraded_layout, received_at, client_redacted)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)`
+  )
+    .bind(
+      report.id,
+      report.version,
+      report.teamCount,
+      report.violationCount,
+      report.haltCount,
+      report.layoutDriftCount,
+      report.peakContextPct,
+      report.closeoutClean,
+      JSON.stringify(report.modelSignals),
+      JSON.stringify(report.violationClasses),
+      JSON.stringify(report.blockerClassifications),
+      report.roleSlotCount,
+      report.driftWarningCount,
+      report.degradedLayout,
+      report.receivedAt,
+      1
+    )
+    .run();
+}
+
+async function insertHybridLegacyReport(env: Env, report: NormalizedReport): Promise<void> {
+  await env.DB.prepare(
+    `INSERT INTO session_reports
+       (id, protocol_version, team_count, violation_count, halt_count,
+        layout_drift_count, peak_context_pct, closeout_clean, model_signals,
+        violation_classes, blocker_classifications, role_slot_count,
+        drift_warning_count, degraded_layout, payload, received_at, client_redacted)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)`
+  )
+    .bind(
+      report.id,
+      report.version,
+      report.teamCount,
+      report.violationCount,
+      report.haltCount,
+      report.layoutDriftCount,
+      report.peakContextPct,
+      report.closeoutClean,
+      JSON.stringify(report.modelSignals),
+      JSON.stringify(report.violationClasses),
+      JSON.stringify(report.blockerClassifications),
+      report.roleSlotCount,
+      report.driftWarningCount,
+      report.degradedLayout,
+      telemetryPayload(report),
+      report.receivedAt,
+      1
+    )
+    .run();
+}
+
+async function insertLegacyReport(env: Env, report: NormalizedReport): Promise<void> {
+  await env.DB.prepare(
+    `INSERT INTO session_reports
+       (id, protocol_version, team_count, violation_count, halt_count,
+        layout_drift_count, peak_context_pct, closeout_clean, model_signals,
+        payload, received_at, client_redacted)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)`
+  )
+    .bind(
+      report.id,
+      report.version,
+      report.teamCount,
+      report.violationCount,
+      report.haltCount,
+      report.layoutDriftCount,
+      report.peakContextPct,
+      report.closeoutClean,
+      JSON.stringify(report.modelSignals),
+      telemetryPayload(report),
+      report.receivedAt,
+      1
+    )
+    .run();
+}
+
+function isMissingAllowlistColumn(error: unknown): boolean {
+  const message = String(error instanceof Error ? error.message : error);
+  return message.includes("has no column named violation_classes")
+    || message.includes("has no column named blocker_classifications")
+    || message.includes("has no column named role_slot_count")
+    || message.includes("has no column named drift_warning_count")
+    || message.includes("has no column named degraded_layout");
+}
+
+function requiresLegacyPayload(error: unknown): boolean {
+  const message = String(error instanceof Error ? error.message : error);
+  return message.includes("NOT NULL constraint failed: session_reports.payload");
+}
+
+async function insertReport(env: Env, report: NormalizedReport): Promise<void> {
+  try {
+    await insertModernReport(env, report);
+  } catch (error) {
+    if (requiresLegacyPayload(error)) {
+      await insertHybridLegacyReport(env, report);
+      return;
+    }
+    if (isMissingAllowlistColumn(error)) {
+      await insertLegacyReport(env, report);
+      return;
+    }
+    throw error;
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const allowOrigin = selectOrigin(request, env);
@@ -175,33 +319,23 @@ export default {
     const driftWarningCount = toFiniteInt(report.driftWarningCount, 0, 10_000);
     const degradedLayout = report.degradedLayout === true ? 1 : 0;
 
-    await env.DB.prepare(
-      `INSERT INTO session_reports
-         (id, protocol_version, team_count, violation_count, halt_count,
-          layout_drift_count, peak_context_pct, closeout_clean, model_signals,
-          violation_classes, blocker_classifications, role_slot_count,
-          drift_warning_count, degraded_layout, received_at, client_redacted)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)`
-    )
-      .bind(
-        id,
-        version,
-        teamCount,
-        violationCount,
-        haltCount,
-        layoutDriftCount,
-        peakContextPct,
-        closeoutClean,
-        JSON.stringify(modelSignals),
-        JSON.stringify(violationClasses),
-        JSON.stringify(blockerClassifications),
-        roleSlotCount,
-        driftWarningCount,
-        degradedLayout,
-        Date.now(),
-        1
-      )
-      .run();
+    await insertReport(env, {
+      id,
+      version,
+      teamCount,
+      violationCount,
+      haltCount,
+      layoutDriftCount,
+      peakContextPct,
+      closeoutClean,
+      modelSignals,
+      violationClasses,
+      blockerClassifications,
+      roleSlotCount,
+      driftWarningCount,
+      degradedLayout,
+      receivedAt: Date.now()
+    });
 
     return json(200, { ok: true, id }, allowOrigin);
   }
