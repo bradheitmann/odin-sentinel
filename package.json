@@ -1,6 +1,6 @@
 {
   "name": "@bradheitmann/odin-sentinel",
-  "version": "0.4.7",
+  "version": "0.4.8",
   "publishConfig": {
     "access": "public"
   },
@@ -21,8 +21,8 @@
   },
   "packageManager": "pnpm@11.0.3",
   "bin": {
-    "odin-sentinel": "./dist/src/bin/index.js",
-    "odin-sentinel-mcp": "./dist/src/bin/index.js"
+    "odin-sentinel": "dist/src/bin/index.js",
+    "odin-sentinel-mcp": "dist/src/bin/index.js"
   },
   "files": [
     "dist",
@@ -81,7 +81,7 @@
     "url": "https://github.com/bradheitmann/odin-sentinel/issues"
   },
   "odin": {
-    "publicVersion": "0.4.7",
+    "publicVersion": "0.4.8",
     "minimumCompatibleChildMcpVersion": "0.4.5"
   }
 }

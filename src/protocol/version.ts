@@ -35,6 +35,6 @@ function readPackageVersion(): string {
 }
 
 export const VERSION = readPackageVersion();
-export const PROTOCOL_SCHEMA_VERSION = "0.4.7";
+export const PROTOCOL_SCHEMA_VERSION = "0.4.8";
 export const MINIMUM_COMPATIBLE_MCP_VERSION = "0.4.5";
-export const PUBLIC_LATEST_VERSION = "0.4.7";
+export const PUBLIC_LATEST_VERSION = "0.4.8";

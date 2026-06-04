@@ -71,7 +71,7 @@ printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion
   | npx -y -p @bradheitmann/odin-sentinel odin-sentinel-mcp
 ```
 
-A successful response includes `"serverInfo":{"name":"odin-sentinel","version":"0.4.7"}`.
+A successful response includes `"serverInfo":{"name":"odin-sentinel","version":"0.4.8"}`.
 Minimum compatible child MCP version for governed-team docs is `0.4.5`.
 
 ## MCP Host Examples
