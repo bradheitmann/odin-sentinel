@@ -12,7 +12,6 @@ Use the `odin-scp` skill if available. Also read local project authority files w
 - CLAUDE.md
 - config/constitutional/constitutional-agent.md
 - project-local governance or constitution files declared by the repository
-- docs/handoffs/
 - .odin/handoffs/
 - .odin/audit/
 
@@ -41,7 +40,6 @@ Phase 0 - live preflight:
    - git rev-parse HEAD
    - git rev-parse @{u}, if upstream exists
 2. Discover handoffs and audit state:
-   - docs/handoffs/
    - .odin/handoffs/
    - .odin/audit/
 3. If no handoff exists, treat the repo as a fresh SCP bootstrap.

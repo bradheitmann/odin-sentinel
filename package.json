@@ -1,6 +1,6 @@
 {
   "name": "@bradheitmann/odin-sentinel",
-  "version": "0.4.12",
+  "version": "0.4.13",
   "publishConfig": {
     "access": "public"
   },
@@ -43,6 +43,7 @@
     "dev": "tsx src/bin/index.ts",
     "audit:public": "node scripts/audit/public-surface.mjs",
     "prepack": "pnpm run build",
+    "prepublishOnly": "pnpm run validate",
     "test:package": "node scripts/audit/verify-pack.mjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
@@ -83,7 +84,7 @@
     "url": "https://github.com/bradheitmann/odin-sentinel/issues"
   },
   "odin": {
-    "publicVersion": "0.4.12",
+    "publicVersion": "0.4.13",
     "minimumCompatibleChildMcpVersion": "0.4.5"
   }
 }

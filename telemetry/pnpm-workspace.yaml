@@ -2,3 +2,6 @@ allowBuilds:
   esbuild: true
   sharp: true
   workerd: true
+
+overrides:
+  ws: 8.20.1

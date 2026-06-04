@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -18,6 +18,7 @@ const PUBLIC_ROOTS = [
 ];
 
 const EXCLUDED_PREFIXES = [".git/", "dist/", "node_modules/", "project/" + "planning" + "/", "." + "edge-" + "agentic" + "/local/", "tests/"];
+export const FORBIDDEN_PUBLIC_PREFIXES = ["docs/handoffs/"];
 
 function walk(dir) {
   return readdirSync(dir).flatMap((entry) => {
@@ -47,11 +48,19 @@ function filesToAudit() {
     return `${tracked}\n${untracked}`
       .split("\n")
       .filter(Boolean)
+      .filter((file) => existsSync(file))
       .filter((file) => file !== "pnpm-lock.yaml")
       .filter(isPublicAuditFile);
   } catch {
     return walk(".").filter(isPublicAuditFile);
   }
+}
+
+function forbiddenPublicPathFindings() {
+  return FORBIDDEN_PUBLIC_PREFIXES.flatMap((prefix) => {
+    if (!existsSync(prefix)) return [];
+    return walk(prefix).map((file) => `${file}: internal handoff files must not exist under public docs`);
+  });
 }
 
 const BUNDLED_DOC = new Set([
@@ -78,13 +87,20 @@ const forbidden = [
       "i"
     )
   },
-  { name: "secret-looking assignment", pattern: /(api[_-]?key|secret|token|password)\s*[:=]\s*["'][^"']+["']/i }
+  { name: "secret-looking quoted assignment", pattern: /(api[_-]?key|secret|token|password)\s*[:=]\s*["'][^"']+["']/i },
+  { name: "secret-looking unquoted assignment", pattern: /(api[_-]?key|secret|token|password)\s*[:=]\s*[A-Za-z0-9._~+/=-]{16,}/i },
+  { name: "bearer token literal", pattern: /\bBearer\s+[A-Za-z0-9._~+/=-]{20,}/i },
+  { name: "URI credential literal", pattern: /[a-z][a-z0-9+.-]*:\/\/[^/\s:@]+:[^/\s:@]+@/i }
 ];
 
 export function auditPublicSurface(fileTextByPath) {
   const findings = [];
   for (const [file, text] of Object.entries(fileTextByPath)) {
     if (!isPublicAuditFile(file)) continue;
+    if (FORBIDDEN_PUBLIC_PREFIXES.some((prefix) => file.startsWith(prefix))) {
+      findings.push(`${file}: internal handoff files must not exist under public docs`);
+      continue;
+    }
     for (const rule of forbidden) {
       if (rule.exemptFiles?.has(file)) continue;
       if (rule.pattern.test(text)) findings.push(`${file}: ${rule.name}`);
@@ -95,6 +111,15 @@ export function auditPublicSurface(fileTextByPath) {
 
 export function main() {
   const publicFiles = filesToAudit();
+  const forbiddenPublicFiles = publicFiles.filter((file) => FORBIDDEN_PUBLIC_PREFIXES.some((prefix) => file.startsWith(prefix)));
+  const forbiddenPathFindings = forbiddenPublicPathFindings();
+  if (forbiddenPublicFiles.length > 0) {
+    throw new Error(`Public surface audit failed: internal handoff files are public:\n${forbiddenPublicFiles.join("\n")}`);
+  }
+  if (forbiddenPathFindings.length > 0) {
+    throw new Error(`Public surface audit failed:\n${forbiddenPathFindings.join("\n")}`);
+  }
+
   const findings = auditPublicSurface(Object.fromEntries(publicFiles.map((file) => [file, readFileSync(file, "utf8")])));
 
   if (findings.length > 0) {

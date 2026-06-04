@@ -22,7 +22,6 @@ import { MINIMUM_COMPATIBLE_MCP_VERSION, PROTOCOL_SCHEMA_VERSION, PUBLIC_LATEST_
 
 const DEFAULT_ROLE_SLOT = "A/EXEC-PM";
 const DEFAULT_HANDOFF_PATHS = [
-  "docs/handoffs/",
   ".odin/handoffs/",
   ".odin/audit/"
 ];
@@ -1620,7 +1619,7 @@ const ONBOARDING_NO_SECRETS_NOTICE =
 function onboardingGuidedSteps(): string[] {
   return [
     "Confirm Node.js >= 22.13.0 and the installed @bradheitmann/odin-sentinel package version.",
-    "Prefer the pinned pnpm command (pnpm dlx --package @bradheitmann/odin-sentinel@0.4.12 odin-sentinel-mcp); npm global install and npx are supported when pinned to the same release.",
+    "Prefer the pinned pnpm command (pnpm dlx --package @bradheitmann/odin-sentinel@0.4.13 odin-sentinel-mcp); npm global install and npx are supported when pinned to the same release.",
     "Add the odin-sentinel-mcp stdio command to each selected harness MCP config and restart the harness.",
     "Provide SCP context: install the native odin-scp skill where supported, otherwise inject full protocol text via odin.get_bootstrap_skill, or export a snapshot via odin.export_protocol_snapshot for non-MCP clients.",
     "Deploy the activation hooks with `node scripts/protocol/install-activation-hooks.mjs` so the full-instruction-read precheck runs before governed edits.",

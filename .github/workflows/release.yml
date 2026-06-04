@@ -1,9 +1,9 @@
-name: CI
+name: Release validation
 
 on:
   push:
-    branches: [main]
-  pull_request:
+    tags:
+      - 'v*'
 
 jobs:
   validate:
@@ -24,10 +24,10 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      - name: Validate
+      - name: Validate package release surface
         run: pnpm run validate
 
-      - name: Audit dependencies
+      - name: Audit package dependencies
         run: pnpm audit
 
   telemetry-validate:

@@ -52,6 +52,9 @@ const expectedRequiredPackageFiles = [
   "templates/team-manifest-template.yaml",
   "scripts/audit/public-surface.mjs",
   "scripts/audit/verify-pack.mjs",
+  "scripts/protocol/install-activation-hooks.mjs",
+  "scripts/protocol/verify-governed-context.mjs",
+  "scripts/protocol/verify-instruction-read.mjs",
   "AGENTS.md",
   "CLAUDE.md",
   "README.md",
@@ -65,6 +68,7 @@ const packageJson = {
   homepage: "https://github.com/bradheitmann/odin-sentinel#readme",
   bugs: { url: "https://github.com/bradheitmann/odin-sentinel/issues" },
   license: "MIT",
+  scripts: { prepublishOnly: "pnpm run validate" },
   engines: { node: ">=22.13.0" },
   files: [".claude-plugin", "dist", "docs", "plugins", "protocol", "templates", "scripts", "AGENTS.md", "CLAUDE.md", "README.md", "LICENSE"],
   dependencies: {
@@ -86,6 +90,7 @@ function runWith(overrides: Record<string, unknown> = {}) {
     "docs/reference/client-compatibility.md": "Node.js >=22.13.0",
     "docs/reference/distribution.md": "0.4.9",
     "docs/reference/public-surface-audit.md": "0.4.9",
+    "src/protocol/version.ts": 'export const PROTOCOL_SCHEMA_VERSION = "0.4.9";\nexport const MINIMUM_COMPATIBLE_MCP_VERSION = "0.4.5";\nexport const PUBLIC_LATEST_VERSION = "0.4.9";',
     ".claude-plugin/marketplace.json": JSON.stringify({
       plugins: [
         {
@@ -125,7 +130,10 @@ function runWith(overrides: Record<string, unknown> = {}) {
     pack: { files: requiredPaths, filename: "odin-sentinel-0.4.9.tgz" },
     packageJson,
     publicVersionFiles,
-    packFileTextByPath: Object.fromEntries(requiredPaths.map((entry: { path: string }) => [entry.path, "safe packaged text"])),
+    packFileTextByPath: {
+      ...Object.fromEntries(requiredPaths.map((entry: { path: string }) => [entry.path, "safe packaged text"])),
+      "dist/src/protocol/version.js": 'export const PROTOCOL_SCHEMA_VERSION = "0.4.9";\nexport const MINIMUM_COMPATIBLE_MCP_VERSION = "0.4.5";\nexport const PUBLIC_LATEST_VERSION = "0.4.9";'
+    },
     costPrivacyText: "Optional telemetry tools are user-invoked and not automatic.",
     ...rest
   });
@@ -141,9 +149,10 @@ describe("release sync audit helpers", () => {
   });
 
   it("rejects private planning and local evidence paths in package contents", () => {
-    const files = [...requiredPaths.map((entry: { path: string }) => entry.path), "project/planning/slices/private.md", ".edge-agentic/local/evidence/log.txt"];
+    const files = [...requiredPaths.map((entry: { path: string }) => entry.path), "docs/handoffs/private.md", "project/planning/slices/private.md", ".edge-agentic/local/evidence/log.txt"];
     expect(verifyPack.validatePackFileList(files)).toEqual([
-      "Package includes private local paths: project/planning/slices/private.md, .edge-agentic/local/evidence/log.txt"
+      "Package includes private local paths: docs/handoffs/private.md, project/planning/slices/private.md, .edge-agentic/local/evidence/log.txt",
+      "Package includes unexpected files: docs/handoffs/private.md, project/planning/slices/private.md, .edge-agentic/local/evidence/log.txt"
     ]);
   });
 
@@ -151,12 +160,26 @@ describe("release sync audit helpers", () => {
     expect(verifyPack.validatePackFileContents({
       "dist/src/protocol/service.js": "evidence_path: '.edge-agentic/local/evidence/session'",
       "protocol/bootstrap-skill.md": "raw evidence belongs under .odin/local/audit/session",
-      "protocol/SCP.md": "internal package path project/planning/org/private"
+      "protocol/SCP.md": "internal package path project/planning/org/private",
+      "README.md": "read docs/handoffs/private.md before launch"
     })).toEqual([
       "dist/src/protocol/service.js: local evidence path",
       "protocol/bootstrap-skill.md: local ODIN audit path",
-      "protocol/SCP.md: private planning path"
+      "protocol/SCP.md: private planning path",
+      "README.md: internal handoff path reference"
     ]);
+  });
+
+  it("rejects unexpected files under otherwise packaged public directories", () => {
+    const files = [...requiredPaths.map((entry: { path: string }) => entry.path), "docs/reference/private-handoff.md", "plugins/odin-scp/internal-notes.md", "scripts/protocol/random-stale-helper.mjs"];
+    expect(verifyPack.validatePackFileList(files)).toContain(
+      "Package includes unexpected files: docs/reference/private-handoff.md, plugins/odin-scp/internal-notes.md, scripts/protocol/random-stale-helper.mjs"
+    );
+  });
+
+  it("rejects generated dist files that do not map to source files", () => {
+    const files = [...requiredPaths.map((entry: { path: string }) => entry.path), "dist/src/internal/handoff.js"];
+    expect(verifyPack.validatePackFileList(files)).toContain("Package includes unexpected files: dist/src/internal/handoff.js");
   });
 
   it("rejects stale versions in packaged protocol resources", () => {
@@ -180,8 +203,19 @@ describe("release sync audit helpers", () => {
     ]);
   });
 
+  it("rejects runtime version constant drift", () => {
+    expect(verifyPack.validateRuntimeVersionConstants(
+      'export const PROTOCOL_SCHEMA_VERSION = "0.4.8";\nexport const MINIMUM_COMPATIBLE_MCP_VERSION = "0.4.5";\nexport const PUBLIC_LATEST_VERSION = "0.4.9";',
+      "0.4.9"
+    )).toEqual(["src/protocol/version.ts: PROTOCOL_SCHEMA_VERSION must be 0.4.9"]);
+  });
+
   it("requires public package metadata for consumers", () => {
     expect(verifyPack.validatePackageMetadata({ version: "0.4.9", files: [] })).toContain("package.json missing repository.url");
+  });
+
+  it("requires publish to run the complete validation suite", () => {
+    expect(verifyPack.validatePackageMetadata({ ...packageJson, scripts: { prepublishOnly: "pnpm run build" } })).toContain("package.json prepublishOnly must run pnpm run validate");
   });
 
   it("rejects floating runtime dependencies", () => {
@@ -199,6 +233,43 @@ describe("release sync audit helpers", () => {
         "plugins/odin-scp/README.md": "MCP tools: 17 odin tools"
       }
     })).toThrow(/Claude plugin manifest version 0\.4\.5 must match package version 0\.4\.9/);
+  });
+
+  it("rejects Claude plugin MCP arg reordering or extras", () => {
+    expect(verifyPack.validatePluginSync({
+      pluginManifestText: JSON.stringify({
+        name: "odin-scp",
+        version: "0.4.9",
+        mcpServers: {
+          "odin-sentinel": {
+            command: "pnpm",
+            args: ["dlx", "@bradheitmann/odin-sentinel@0.4.9", "--package", "odin-sentinel-mcp"]
+          }
+        }
+      }),
+      pluginSkillText: scpText,
+      pluginReadmeText: "MCP tools: 27 `odin.*` tools",
+      currentVersion: "0.4.9",
+      expectedToolCount: 27
+    })).toContain('Claude plugin odin-sentinel args must exactly equal ["dlx","--package","@bradheitmann/odin-sentinel@0.4.9","odin-sentinel-mcp"]');
+  });
+
+  it("rejects unpinned package references in install commands", () => {
+    expect(verifyPack.findUnpinnedInstallReferences({
+      "README.md": "pnpm dlx --package @bradheitmann/odin-sentinel odin-sentinel-mcp\nnpx -y -p @bradheitmann/odin-sentinel@latest odin-sentinel-mcp",
+      "docs/reference/distribution.md": "Use @bradheitmann/odin-sentinel@0.4.9 in prose without a command marker"
+    }, "0.4.9")).toEqual([
+      "README.md:1: install command must pin @bradheitmann/odin-sentinel@0.4.9",
+      "README.md:2: install command must pin @bradheitmann/odin-sentinel@0.4.9"
+    ]);
+  });
+
+  it("rejects split-line unpinned package references in install config", () => {
+    expect(verifyPack.findUnpinnedInstallReferences({
+      "README.md": '"args": [\n  "dlx",\n  "--package",\n  "@bradheitmann/odin-sentinel",\n  "odin-sentinel-mcp"\n]'
+    }, "0.4.9")).toEqual([
+      "README.md:4: install command must pin @bradheitmann/odin-sentinel@0.4.9"
+    ]);
   });
 
   it("rejects Claude marketplace manifest drift", () => {
@@ -226,6 +297,12 @@ describe("release sync audit helpers", () => {
       ".edge-agentic/local/evidence/log.txt": "/Users/example/private should be ignored here"
     });
     expect(findings).toEqual([]);
+  });
+
+  it("flags internal handoff files under public docs even if their contents look safe", () => {
+    expect(publicSurface.auditPublicSurface({ "docs/handoffs/private.md": "safe text" })).toEqual([
+      "docs/handoffs/private.md: internal handoff files must not exist under public docs"
+    ]);
   });
 
   it("flags private markers in public files", () => {

@@ -4,18 +4,25 @@
   "private": true,
   "description": "Optional Cloudflare Worker that receives opt-in ODIN Sentinel session reports.",
   "type": "module",
+  "packageManager": "pnpm@11.0.3",
+  "engines": {
+    "node": ">=22.13.0",
+    "pnpm": ">=11.0.0"
+  },
   "scripts": {
     "deploy": "wrangler deploy",
     "deploy:configured": "wrangler deploy --config wrangler.deploy.toml",
     "dev": "wrangler dev",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "validate": "pnpm run typecheck",
     "db:create": "wrangler d1 create odin-sentinel-telemetry",
     "db:migrate": "wrangler d1 execute odin-sentinel-telemetry --remote --file schema.sql",
     "db:migrate:allowlist-columns": "wrangler d1 execute odin-sentinel-telemetry --remote --file migrations/0002_session_report_allowlist_columns.sql",
     "db:migrate:local": "wrangler d1 execute odin-sentinel-telemetry --local --file schema.sql"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20240329.0",
-    "typescript": "^5.9.3",
-    "wrangler": "^4.90.0"
+    "@cloudflare/workers-types": "4.20260511.1",
+    "typescript": "5.9.3",
+    "wrangler": "4.90.0"
   }
 }

@@ -195,7 +195,7 @@ describe("ODIN MCP server", () => {
               development_pods: ["B"],
               odin_mesh: {},
               model_profile: {},
-              handoff_sources: ["docs/handoffs/"],
+              handoff_sources: [".odin/handoffs/"],
               startup_objectives: ["bootstrap"]
             }
           }

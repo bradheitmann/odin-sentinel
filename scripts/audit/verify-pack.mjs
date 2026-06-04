@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 export const MINIMUM_COMPATIBLE_CHILD_MCP_VERSION = "0.4.5";
@@ -58,6 +59,9 @@ export const requiredPackageFiles = [
   ...requiredTemplateFiles,
   "scripts/audit/public-surface.mjs",
   "scripts/audit/verify-pack.mjs",
+  "scripts/protocol/install-activation-hooks.mjs",
+  "scripts/protocol/verify-governed-context.mjs",
+  "scripts/protocol/verify-instruction-read.mjs",
   "AGENTS.md",
   "CLAUDE.md",
   "README.md",
@@ -82,14 +86,20 @@ const protocolResourceVersionLockedFiles = new Set([
   "protocol/topology.yaml"
 ]);
 
-const forbiddenPackagePrefixes = ["project/" + "planning" + "/", "." + "edge-" + "agentic" + "/local/"];
+const forbiddenPackagePrefixes = ["docs/handoffs/", "project/" + "planning" + "/", "." + "edge-" + "agentic" + "/local/"];
+const AUDIT_SCRIPT_EXEMPTIONS = new Set(["scripts/audit/public-surface.mjs", "scripts/audit/verify-pack.mjs"]);
+const INTERNAL_HANDOFF_REFERENCE_EXEMPTIONS = new Set([...AUDIT_SCRIPT_EXEMPTIONS, "docs/reference/distribution.md"]);
 const forbiddenPackagedContentRules = [
   { name: "local evidence path", pattern: new RegExp(`\\.${"edge-" + "agentic"}/local`, "i") },
   { name: "local ODIN audit path", pattern: /\.odin\/local\//i },
   { name: "private planning path", pattern: new RegExp(`project/${"planning"}/`, "i") },
+  { name: "internal handoff path reference", pattern: /docs\/handoffs\//i, exemptFiles: INTERNAL_HANDOFF_REFERENCE_EXEMPTIONS },
   { name: "macOS home path", pattern: new RegExp(`/${"Users"}/[A-Za-z0-9._-]+/`) },
   { name: "Linux home path", pattern: /\/home\/[A-Za-z0-9._-]+\// },
-  { name: "secret-looking assignment", pattern: /(api[_-]?key|secret|token|password)\s*[:=]\s*["'][^"']+["']/i }
+  { name: "secret-looking quoted assignment", pattern: /(api[_-]?key|secret|token|password)\s*[:=]\s*["'][^"']+["']/i },
+  { name: "secret-looking unquoted assignment", pattern: /(api[_-]?key|secret|token|password)\s*[:=]\s*[A-Za-z0-9._~+/=-]{16,}/i },
+  { name: "bearer token literal", pattern: /\bBearer\s+[A-Za-z0-9._~+/=-]{20,}/i },
+  { name: "URI credential literal", pattern: /[a-z][a-z0-9+.-]*:\/\/[^/\s:@]+:[^/\s:@]+@/i }
 ];
 
 function asPathSet(paths) {
@@ -104,6 +114,9 @@ export function validatePackageMetadata(packageJson) {
   if (!packageJson.license) errors.push("package.json missing license");
   if (!packageJson.engines?.node) errors.push("package.json missing engines.node");
   if (!Array.isArray(packageJson.files) || packageJson.files.length === 0) errors.push("package.json missing files allowlist");
+  if (packageJson.scripts?.prepublishOnly !== "pnpm run validate") {
+    errors.push("package.json prepublishOnly must run pnpm run validate");
+  }
   for (const file of [".claude-plugin", "docs", "plugins", "protocol", "templates", "AGENTS.md", "CLAUDE.md", "README.md", "LICENSE"]) {
     if (!packageJson.files?.includes(file)) errors.push(`package.json files allowlist missing ${file}`);
   }
@@ -121,6 +134,30 @@ export function validatePackageMetadata(packageJson) {
   return errors;
 }
 
+function walkFiles(dir) {
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir).flatMap((entry) => {
+    const path = join(dir, entry);
+    return statSync(path).isDirectory() ? walkFiles(path) : [path];
+  });
+}
+
+function expectedGeneratedDistFiles() {
+  const expected = new Set();
+  for (const file of walkFiles("src")) {
+    if (!file.endsWith(".ts") || file.endsWith(".d.ts")) continue;
+    const jsFile = file.replace(/^src\//, "dist/src/").replace(/\.ts$/, ".js");
+    expected.add(jsFile);
+    expected.add(`${jsFile}.map`);
+    expected.add(jsFile.replace(/\.js$/, ".d.ts"));
+  }
+  return expected;
+}
+
+function allowedGeneratedDistFiles() {
+  return new Set([...requiredPackageFiles.filter((file) => file.startsWith("dist/")), ...expectedGeneratedDistFiles()]);
+}
+
 export function validatePackFileList(pathsInput) {
   const paths = asPathSet(pathsInput);
   const errors = [];
@@ -133,6 +170,10 @@ export function validatePackFileList(pathsInput) {
   const privatePaths = Array.from(paths).filter((file) => forbiddenPackagePrefixes.some((prefix) => file.startsWith(prefix)));
   if (privatePaths.length > 0) errors.push(`Package includes private local paths: ${privatePaths.join(", ")}`);
 
+  const allowed = new Set([...requiredPackageFiles, ...allowedGeneratedDistFiles()]);
+  const unexpected = Array.from(paths).filter((file) => !allowed.has(file));
+  if (unexpected.length > 0) errors.push(`Package includes unexpected files: ${unexpected.join(", ")}`);
+
   return errors;
 }
 
@@ -140,6 +181,7 @@ export function validatePackFileContents(fileTextByPath) {
   const findings = [];
   for (const [file, text] of Object.entries(fileTextByPath)) {
     for (const rule of forbiddenPackagedContentRules) {
+      if (rule.exemptFiles?.has(file)) continue;
       if (rule.pattern.test(text)) findings.push(`${file}: ${rule.name}`);
     }
   }
@@ -201,6 +243,56 @@ export function findStaleVersionReferences(fileTextByPath, currentVersion, minim
   return findings;
 }
 
+export function findUnpinnedInstallReferences(fileTextByPath, currentVersion) {
+  const findings = [];
+  const packageName = "@bradheitmann/odin-sentinel";
+  const pinned = `${packageName}@${currentVersion}`;
+  const commandMarkers = [
+    "pnpm",
+    "npx",
+    "npm",
+    "claude mcp",
+    "--package",
+    "installurl",
+    "\"args\"",
+    "args =",
+    "command"
+  ];
+
+  for (const [file, text] of Object.entries(fileTextByPath)) {
+    if (AUDIT_SCRIPT_EXEMPTIONS.has(file)) continue;
+    const lines = text.split("\n");
+    for (const [index, line] of lines.entries()) {
+      if (!line.includes(packageName)) continue;
+      const windowText = lines.slice(Math.max(0, index - 2), Math.min(lines.length, index + 3)).join(" ");
+      const lowerWindow = windowText.toLowerCase();
+      if (!commandMarkers.some((marker) => lowerWindow.includes(marker))) continue;
+      if (windowText.includes(pinned)) continue;
+      findings.push(`${file}:${index + 1}: install command must pin ${pinned}`);
+    }
+  }
+
+  return findings;
+}
+
+export function validateRuntimeVersionConstants(versionText, currentVersion, minimumCompatibleVersion = MINIMUM_COMPATIBLE_CHILD_MCP_VERSION, file = "src/protocol/version.ts") {
+  const errors = [];
+  const required = [
+    [`PROTOCOL_SCHEMA_VERSION`, currentVersion],
+    [`PUBLIC_LATEST_VERSION`, currentVersion],
+    [`MINIMUM_COMPATIBLE_MCP_VERSION`, minimumCompatibleVersion]
+  ];
+
+  for (const [constant, expected] of required) {
+    const pattern = new RegExp(`\\b${constant}\\s*=\\s*["']${expected.replaceAll(".", "\\.")}["']`);
+    if (!pattern.test(versionText)) {
+      errors.push(`${file}: ${constant} must be ${expected}`);
+    }
+  }
+
+  return errors;
+}
+
 export function validatePublicProtocolSync({ scpText, bootstrapText, currentVersion, minimumCompatibleVersion = MINIMUM_COMPATIBLE_CHILD_MCP_VERSION }) {
   const errors = [];
   const requiredMarkers = [
@@ -244,8 +336,12 @@ export function validatePluginSync({ pluginManifestText, pluginSkillText, plugin
   } else {
     if (server.command !== "pnpm") errors.push("Claude plugin odin-sentinel server must use pnpm");
     const args = Array.isArray(server.args) ? server.args : [];
-    for (const requiredArg of ["dlx", "--package", `@bradheitmann/odin-sentinel@${currentVersion}`, "odin-sentinel-mcp"]) {
+    const expectedArgs = ["dlx", "--package", `@bradheitmann/odin-sentinel@${currentVersion}`, "odin-sentinel-mcp"];
+    for (const requiredArg of expectedArgs) {
       if (!args.includes(requiredArg)) errors.push(`Claude plugin odin-sentinel args missing ${requiredArg}`);
+    }
+    if (JSON.stringify(args) !== JSON.stringify(expectedArgs)) {
+      errors.push(`Claude plugin odin-sentinel args must exactly equal ${JSON.stringify(expectedArgs)}`);
     }
   }
 
@@ -331,6 +427,7 @@ function readPublicVersionFiles() {
     "docs/reference/client-compatibility.md",
     "docs/reference/distribution.md",
     "docs/reference/public-surface-audit.md",
+    "src/protocol/version.ts",
     ".claude-plugin/marketplace.json",
     "protocol/SCP.md",
     "protocol/bootstrap-skill.md",
@@ -363,6 +460,9 @@ export function runVerifyPack({ pack, packageJson, publicVersionFiles, costPriva
     ...validatePackFileContents(packFileTexts),
     ...validatePackagedProtocolVersions(packFileTexts, packageJson.version),
     ...findStaleVersionReferences(publicVersionFiles, packageJson.version),
+    ...findUnpinnedInstallReferences(packFileTexts, packageJson.version),
+    ...validateRuntimeVersionConstants(publicVersionFiles["src/protocol/version.ts"], packageJson.version),
+    ...validateRuntimeVersionConstants(packFileTexts["dist/src/protocol/version.js"] ?? "", packageJson.version, MINIMUM_COMPATIBLE_CHILD_MCP_VERSION, "dist/src/protocol/version.js"),
     ...validatePublicProtocolSync({
       scpText: publicVersionFiles["protocol/SCP.md"],
       bootstrapText: publicVersionFiles["protocol/bootstrap-skill.md"],

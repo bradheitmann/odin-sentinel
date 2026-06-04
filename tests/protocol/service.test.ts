@@ -218,7 +218,7 @@ describe("ODIN protocol helpers", () => {
       development_pods: ["B"],
       odin_mesh: {},
       model_profile: {},
-      handoff_sources: ["docs/handoffs/"],
+      handoff_sources: [".odin/handoffs/"],
       startup_objectives: ["bootstrap"]
     });
 
@@ -233,7 +233,7 @@ describe("ODIN protocol helpers", () => {
       development_pods: ["B"],
       odin_mesh: {},
       model_profile: {},
-      handoff_sources: ["docs/handoffs/"],
+      handoff_sources: [".odin/handoffs/"],
       startup_objectives: ["bootstrap"],
       role_slots: [
         {
@@ -267,7 +267,7 @@ describe("ODIN protocol helpers", () => {
       development_pods: ["B"],
       odin_mesh: {},
       model_profile: {},
-      handoff_sources: ["docs/handoffs/"],
+      handoff_sources: [".odin/handoffs/"],
       startup_objectives: ["bootstrap"]
     };
     const validSlot = {
@@ -420,7 +420,7 @@ describe("ODIN protocol helpers", () => {
       development_pods: ["B"],
       odin_mesh: {},
       model_profile: {},
-      handoff_sources: ["docs/handoffs/"],
+      handoff_sources: [".odin/handoffs/"],
       startup_objectives: ["bootstrap"]
     });
 
