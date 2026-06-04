@@ -39,8 +39,16 @@ cd telemetry
 npm install -g pnpm                    # if you don't already have pnpm
 pnpm install
 pnpm run db:create                     # prints a database_id for local/deploy config
+cp wrangler.toml wrangler.deploy.toml  # keep account-specific IDs out of git
 pnpm run db:migrate                    # applies schema.sql to remote D1
 pnpm run deploy                        # prints the Worker URL
+```
+
+If you keep the checked-in `wrangler.toml` placeholder unchanged, put the real
+`database_id` in the gitignored `wrangler.deploy.toml` file and deploy with:
+
+```bash
+pnpm run deploy:configured
 ```
 
 `schema.sql` is the bootstrap schema for new databases. Existing databases that

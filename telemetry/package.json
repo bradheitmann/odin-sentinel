@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "deploy": "wrangler deploy",
+    "deploy:configured": "wrangler deploy --config wrangler.deploy.toml",
     "dev": "wrangler dev",
     "db:create": "wrangler d1 create odin-sentinel-telemetry",
     "db:migrate": "wrangler d1 execute odin-sentinel-telemetry --remote --file schema.sql",
