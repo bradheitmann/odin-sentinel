@@ -1,6 +1,7 @@
 name = "odin-sentinel-telemetry"
 main = "src/index.ts"
 compatibility_date = "2025-01-01"
+workers_dev = false
 
 # Keep this placeholder in git. Copy this file into local/deploy-specific
 # configuration and replace database_id there after running `pnpm run db:create`.

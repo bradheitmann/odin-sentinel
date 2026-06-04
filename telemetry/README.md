@@ -41,7 +41,7 @@ pnpm install
 pnpm run db:create                     # prints a database_id for local/deploy config
 cp wrangler.toml wrangler.deploy.toml  # keep account-specific IDs out of git
 pnpm run db:migrate                    # applies schema.sql to remote D1
-pnpm run deploy                        # prints the Worker URL
+pnpm run deploy                        # uploads the Worker
 ```
 
 If you keep the checked-in `wrangler.toml` placeholder unchanged, put the real
@@ -50,6 +50,12 @@ If you keep the checked-in `wrangler.toml` placeholder unchanged, put the real
 ```bash
 pnpm run deploy:configured
 ```
+
+The checked-in config sets `workers_dev = false` so deployments do not expose an
+account-identifying `*.workers.dev` endpoint by default. To collect telemetry
+from public users, attach a neutral custom route/domain you control and use that
+as the endpoint. Do not publish a personal or account-identifying workers.dev
+subdomain as a public telemetry destination.
 
 `schema.sql` is the bootstrap schema for new databases. Existing databases that
 pre-date the allowlisted telemetry columns need the one-time upgrade migration:
@@ -62,10 +68,10 @@ Run that migration only if the remote `session_reports` table is missing one or
 more of these columns: `violation_classes`, `blocker_classifications`,
 `role_slot_count`, `drift_warning_count`, or `degraded_layout`.
 
-Take the deployed URL and configure clients:
+Take the neutral deployed URL and configure clients:
 
 ```bash
-export ODIN_TELEMETRY_ENDPOINT="https://odin-sentinel-telemetry.<account>.workers.dev/report"
+export ODIN_TELEMETRY_ENDPOINT="https://telemetry.example.com/report"
 ```
 
 That's the only switch that activates telemetry for a client. With it unset,
