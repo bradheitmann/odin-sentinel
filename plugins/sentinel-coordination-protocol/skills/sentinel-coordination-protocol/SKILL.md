@@ -7,10 +7,12 @@ updated: 2026-05-11
 
 # Sentinel Coordination Protocol
 
-Use this skill for SCP policy introduction, repo landing, adoption-gate proof, controlled dissemination, active multi-agent control loops, and automated team lifecycle management. SCP is a governance layer for multi-team agent operation; it complements other coordination layers and `AGENTS.md` files where present. It sits above them after activation.
-
-SCP_PUBLIC_VERSION: 0.4.10
+SCP_PUBLIC_VERSION: 0.4.11
 MIN_COMPATIBLE_CHILD_MCP: 0.4.5
+
+Public install readiness: configure the ODIN MCP server, install native skill context where supported or use full prompt fallback, keep governed team roles in CMUX, verify auth/account readiness without printing secrets, smoke-test local inference if used, and validate role compatibility before launch. Private local skill copies may differ intentionally; public release checks compare repo-internal public artifacts only.
+
+Use this skill for SCP policy introduction, repo landing, adoption-gate proof, controlled dissemination, active multi-agent control loops, and automated team lifecycle management. SCP is a governance layer for multi-team agent operation; it complements other coordination layers and `AGENTS.md` files where present. It sits above them after activation.
 
 ## Source Of Truth
 
@@ -18,7 +20,7 @@ Master editable source:
 
 - the repository-distributed SCP protocol bundle, or an operator-declared canonical SCP skill source outside this public package.
 
-All other installed copies are synchronized runtime snapshots, not independent policy forks. Any agent modifying SCP policy must edit the declared source first, then propagate the full skill/protocol bundle to the installed harness targets and verify matching hashes.
+All installed copies are synchronized runtime snapshots, not independent policy forks. Any agent modifying SCP policy must edit the declared source first, then propagate the full skill/protocol bundle to the installed harness targets and verify matching hashes.
 
 Use the operator-declared sync procedure after edits. Do not hand-edit generated runtime copies except as a temporary emergency patch that is immediately backported to the declared source and resynced.
 
@@ -1425,6 +1427,22 @@ git diff --cached --name-status
 ```
 
 If a closure/evidence hook fails after a lifecycle move or verdict attempt, mark `TAINTED_CLOSURE_ATTEMPT`. Default action is quarantine and fresh route reassignment. Do not repair evidence, commit, push, or close from that route unless `EXEC PM` explicitly reactivates it and labels reconstructed evidence as lower-trust.
+
+## Activation Gates
+
+Two activation gates harden SCP against repeatable failures: unsubmitted CMUX text and partial instruction reads.
+
+### CMUX Delivery Proof
+
+A CMUX dispatch is not delivered until the sender submits with Enter and verifies processing on the target surface. This restates `[SCP-CMUX-DELIVERY]` as a checkable proof object with fields `target_surface_locator`, `submitted`, `verification_method`, `observed_processing_state` (one of `DELIVERED_ACKED`, `DELIVERED_NO_ACK`, `INPUT_BAR_ONLY`, `PANE_BLOCKED_ON_PERMISSION`, `PANE_STILL_THINKING`), `timestamp`, and `sender_role`. A `submitted: false` proof or an `INPUT_BAR_ONLY` state fails. Validate with `odin.validate_cmux_delivery_proof`.
+
+### Full-Instruction-Read Proof
+
+Before implementation, QA acceptance, or ACTIVE_WATCH work, an activated role must emit a full-instruction-read proof: for each required instruction file, its path, byte or line count, and a SHA-256 digest. `head`, first-screen-only reads, and partial `sed` ranges are insufficient unless paired with full file counts and digests proving complete coverage. Generate and verify proofs with `scripts/protocol/verify-instruction-read.mjs` (`--record` to generate, default mode to verify against local files), install the precheck hook with `scripts/protocol/install-activation-hooks.mjs`, and read the consolidated requirements from `odin.get_activation_gates`. Validate proof shape with `odin.validate_instruction_read_proof`.
+
+## Harness Readiness Probes
+
+Installed is not provisioned. Probe harnesses before governed launch and record multi-dimensional readiness (`installed_binary`, `authenticated`, `mcp_configured`, `mcp_tool_hydration`, `governed_role_ready`) via `odin.get_harness_probe_matrix`. Classify permission, login, API-key/auth, and local-inference stalls before assigning roles. A harness lacking MCP, native SCP skill, or full injected protocol text is `NON_GOVERNED_ONE_SHOT_ONLY` and must not hold a persistent governed role. Skill-capable harnesses should install the sentinel-coordination-protocol skill before governed launch. Droid: read-only `droid exec` needs no write authority, but mission/high-autonomy requires `--auto high`, and `droid mcp` is required for governed readiness. Crush: no MCP management command (`MCP_UNAVAILABLE`) and auth-header failures (`unauthorized: Authentication parameter not received in Header`) are auth blockers.
 
 ## Core Workflow
 

@@ -32,19 +32,19 @@ step. You are still in control.
 Recommended zero-install path:
 
 ```bash
-pnpm dlx --package @bradheitmann/odin-sentinel@0.4.10 odin-sentinel-mcp
+pnpm dlx --package @bradheitmann/odin-sentinel@0.4.11 odin-sentinel-mcp
 ```
 
 Supported npm global install:
 
 ```bash
-npm i -g @bradheitmann/odin-sentinel@0.4.10
+npm i -g @bradheitmann/odin-sentinel@0.4.11
 ```
 
 Supported npx zero-install path:
 
 ```bash
-npx -y -p @bradheitmann/odin-sentinel@0.4.10 odin-sentinel-mcp
+npx -y -p @bradheitmann/odin-sentinel@0.4.11 odin-sentinel-mcp
 ```
 
 ## 3. Configure MCP
@@ -57,7 +57,7 @@ harness after editing config.
   "mcpServers": {
     "odin-sentinel": {
       "command": "pnpm",
-      "args": ["dlx", "--package", "@bradheitmann/odin-sentinel@0.4.10", "odin-sentinel-mcp"]
+      "args": ["dlx", "--package", "@bradheitmann/odin-sentinel@0.4.11", "odin-sentinel-mcp"]
     }
   }
 }
@@ -90,10 +90,10 @@ Zero-install smoke test:
 
 ```bash
 printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"probe","version":"0"}}}\n' \
-  | pnpm dlx --package @bradheitmann/odin-sentinel@0.4.10 odin-sentinel-mcp
+  | pnpm dlx --package @bradheitmann/odin-sentinel@0.4.11 odin-sentinel-mcp
 ```
 
-Expect `serverInfo.name = odin-sentinel` and `serverInfo.version = 0.4.10`.
+Expect `serverInfo.name = odin-sentinel` and `serverInfo.version = 0.4.11`.
 Minimum compatible child MCP version: `0.4.5`.
 
 ## 6. Auth And Provider Readiness
@@ -191,7 +191,7 @@ occupants until readiness passes or EXEC PM records a waiver/substitution.
 | Skill missing | Install the native skill where supported or use `odin.get_bootstrap_skill` as full prompt fallback. |
 | Auth/login required | Ask the user to provision the provider; verify status without printing secrets. |
 | Permission prompt | Stop and route to PM/user; do not bypass silently. |
-| Stale MCP version | Use a pinned `@bradheitmann/odin-sentinel@0.4.10` command, restart host, and confirm `0.4.10`. |
+| Stale MCP version | Use a pinned `@bradheitmann/odin-sentinel@0.4.11` command, restart host, and confirm `0.4.11`. |
 | Local inference stall | Require visible content within timeout; endpoint-only success is insufficient. |
 | Role refusal | Mark the role `NON_GOVERNED_ONE_SHOT_ONLY` unless MCP/skill/full protocol proof is established. |
 | Missing governed uptake proof | Treat as `FIXABLE_BLOCKED` (MCP/skill presence is not uptake): capture and verify a governed-context proof with `scripts/protocol/verify-governed-context.mjs`. |
