@@ -109,3 +109,19 @@ Telemetry is opt-in at every layer: install of the npm package does
 nothing; the user must deploy this Worker themselves; the client must
 set `ODIN_TELEMETRY_ENDPOINT`; and EXEC PM must explicitly call
 `odin.submit_session_report` with user-approved content at session close.
+
+## Security audit exceptions
+
+`pnpm-workspace.yaml` ignores two esbuild advisories that are
+unreachable in this workspace (esbuild arrives only as wrangler's
+bundled build tool, pinned exactly by wrangler upstream):
+
+- `GHSA-gv7w-rqvm-qjhr` (high) — missing binary integrity verification
+  when esbuild is installed through **Deno**. This workspace runs
+  wrangler on Node only.
+- `GHSA-g7r4-m6w7-qqqr` (low) — arbitrary file read in the esbuild
+  **dev server on Windows**. The dev server is never started here;
+  `wrangler dev` is local-only development on macOS/Linux.
+
+Remove both entries when wrangler ships esbuild >= 0.28.1
+(check with `pnpm view wrangler@latest dependencies.esbuild`).

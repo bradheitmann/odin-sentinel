@@ -5,3 +5,11 @@ allowBuilds:
 
 overrides:
   ws: 8.20.1
+
+# Both esbuild advisories are unreachable here: esbuild is wrangler's
+# bundled build tool (Node-only; the high is Deno-specific, the low is
+# the dev server on Windows). Remove when wrangler ships esbuild >=0.28.1.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-gv7w-rqvm-qjhr
+    - GHSA-g7r4-m6w7-qqqr
