@@ -24,7 +24,12 @@ export const REQUIRED_PROTOCOL_FILES = [
   "protocol/role-cards/team-pm.md",
   "protocol/role-cards/dev-worker.md",
   "protocol/role-cards/qa-worker.md",
-  "protocol/role-cards/exec-asst.md"
+  "protocol/role-cards/exec-asst.md",
+  "protocol/mission-frontrun/orchestrator-contract.md",
+  "protocol/mission-frontrun/worker-contract.md",
+  "protocol/mission-frontrun/scrutiny-validator-contract.md",
+  "protocol/mission-frontrun/scrutiny-feature-reviewer-contract.md",
+  "protocol/mission-frontrun/droids-scrutiny-feature-reviewer.md"
 ];
 
 export type ProtocolData = {
@@ -49,6 +54,13 @@ export type ProtocolData = {
     devWorker: string;
     qaWorker: string;
     execAsst: string;
+  };
+  missionFrontrun: {
+    orchestratorContract: string;
+    workerContract: string;
+    scrutinyValidatorContract: string;
+    scrutinyFeatureReviewerContract: string;
+    droidsScrutinyFeatureReviewer: string;
   };
 };
 
@@ -167,6 +179,13 @@ export function createFileProtocolRepository(rootDir = findRootDir()): ProtocolR
           devWorker: readFileSync(protocolPath("role-cards", "dev-worker.md"), "utf8"),
           qaWorker: readFileSync(protocolPath("role-cards", "qa-worker.md"), "utf8"),
           execAsst: readFileSync(protocolPath("role-cards", "exec-asst.md"), "utf8")
+        },
+        missionFrontrun: {
+          orchestratorContract: readFileSync(protocolPath("mission-frontrun", "orchestrator-contract.md"), "utf8"),
+          workerContract: readFileSync(protocolPath("mission-frontrun", "worker-contract.md"), "utf8"),
+          scrutinyValidatorContract: readFileSync(protocolPath("mission-frontrun", "scrutiny-validator-contract.md"), "utf8"),
+          scrutinyFeatureReviewerContract: readFileSync(protocolPath("mission-frontrun", "scrutiny-feature-reviewer-contract.md"), "utf8"),
+          droidsScrutinyFeatureReviewer: readFileSync(protocolPath("mission-frontrun", "droids-scrutiny-feature-reviewer.md"), "utf8")
         }
       });
 

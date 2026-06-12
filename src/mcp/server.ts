@@ -11,6 +11,7 @@ import {
   getCloseoutChecklist,
   getDelegationPacket,
   getHarnessProbeMatrix,
+  getMissionFrontrunPack,
   getOnboardingPlan,
   getRoleCard,
   getRoleProfile,
@@ -46,6 +47,7 @@ import {
   delegationPacketInputShape,
   harnessProbeInputShape,
   instructionReadProofInputShape,
+  missionFrontrunInputShape,
   onboardingPlanInputShape,
   recordInputShape,
   readinessGateInputShape,
@@ -557,6 +559,17 @@ export function createServer(): McpServer {
       inputSchema: submitSessionReportInputSchema
     },
     async (input) => jsonText(await submitSessionReport(input.report as Record<string, unknown>, { userConsentConfirmed: input.userConsentConfirmed === true }))
+  );
+
+  server.registerTool(
+    "odin.get_mission_frontrun_pack",
+    {
+      title: "Get Factory Mission Front-Runner Contract Pack",
+      description:
+        "Assemble a Factory Mission governance contract pack using the PROVEN --append-system-prompt-file seam (live-verified 2026-06-12). Returns four role contracts (orchestrator, worker, scrutiny-validator, scrutiny-feature-reviewer), the .factory/droids/scrutiny-feature-reviewer.md file content, a launch command template, a boot_contract_receipt template with all six required fields (role, session_id, contract_path, byte_count, sha256, timestamp), and a notes block distinguishing PROVEN vs UNPROVEN seams. All placeholder tokens ({{WRITE_SCOPE}}, {{TASK_ID}}, {{REPO_PATH}}, {{MISSION_NAME}}) are substituted from input.",
+      inputSchema: missionFrontrunInputShape
+    },
+    (input) => jsonText(getMissionFrontrunPack(input))
   );
 
   return server;

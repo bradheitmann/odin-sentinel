@@ -474,6 +474,42 @@ Use Missions as one Dev capacity type when:
 | Cheap repetitive | 1 low-cost Droid | 1 stronger QA | Cost-optimized |
 | Large decomposable | 1 Factory Mission | External independent QA | Self-contained burst |
 
+### Factory Mission Front-Running
+
+Factory Mission spawns four hidden child roles — orchestrator, worker,
+scrutiny-validator, scrutiny-feature-reviewer — that are not bound to ODIN
+governance by default. Use the `odin.get_mission_frontrun_pack` tool to
+assemble a contract pack that binds all four roles before launch.
+
+**PROVEN seam (live-verified 2026-06-12):** `--append-system-prompt-file`
+front-runs all four Factory Mission hidden roles before Factory's weaker
+defaults activate. Always launch through this seam:
+
+```
+droid exec --mission --auto <level> \
+  --append-system-prompt-file <path/to/orchestrator-contract.md> \
+  -f <mission-prompt.md>
+```
+
+**UNPROVEN seam:** mission-local validator skill shadowing
+(`skills/scrutiny-validator/SKILL.md`). In the 2026-06-12 probe the validator
+loaded `builtin:scrutiny-validator`, not the mission-local file. Do not rely
+on this seam for governance until a follow-up isolation probe confirms it.
+
+**Boot contract receipt requirement:** Every hidden child role must emit a
+`BOOT_CONTRACT_RECEIPT` as its first output, with all six fields: `role`,
+`session_id`, `contract_path`, `byte_count`, `sha256`, `timestamp`. A missing
+receipt is a launch blocker, not an advisory.
+
+**Verified-artifacts-only rule:** Final mission status must be assembled from
+verified artifacts (worker commits, validator synthesis, reviewer sign-off) —
+not from Mission final prose. Reusing Mission narrative as delivery proof is
+a governance violation.
+
+Use `odin.get_mission_frontrun_pack` to generate the contract pack with
+placeholders substituted for `mission_name`, `repo_path`, `write_scope`, and
+`task_id`.
+
 ### Substrate Capability Tiers
 
 Protocol obligations reference capability tiers rather than specific harness names. Any substrate meeting the required tier may satisfy the obligation. CMUX is the reference substrate and remains the canonical choice for governed teams; cmux-specific rules are not deleted by this table.

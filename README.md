@@ -1,6 +1,6 @@
 # ODIN Sentinel
 
-**Portable MCP governance protocol for visible multi-agent teams: 28 tools, 18 resources, role topology, readiness gates, ODIN watchers, receipts, delegation, and closeout over stdio.**
+**Portable MCP governance protocol for visible multi-agent teams: 29 tools, 18 resources, role topology, readiness gates, ODIN watchers, receipts, delegation, and closeout over stdio.**
 
 ODIN Sentinel is a local stdio MCP server plus a portable coordination protocol
 for visible agent teams. It gives agents a shared roster, startup packet,
@@ -214,7 +214,7 @@ not shipped product internals and are not required for public users.
 - `odin://protocol/role-cards/qa-worker`
 - `odin://protocol/role-cards/exec-asst`
 
-## Provided MCP Tools (28)
+## Provided MCP Tools (29)
 
 - `odin.get_version`
 - `odin.get_startup_packet`
@@ -244,6 +244,7 @@ not shipped product internals and are not required for public users.
 - `odin.preview_telemetry_redaction`
 - `odin.submit_session_report`
 - `odin.get_telemetry_config`
+- `odin.get_mission_frontrun_pack`
 
 ## Development
 

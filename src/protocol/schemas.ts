@@ -491,3 +491,45 @@ export interface RoleCard {
 export const roleCardInputShape = {
   role_id: z.string().describe("Role ID: exec-pm | team-pm | dev-worker | qa-worker | exec-asst")
 } as const;
+
+// MissionFrontrunPack: input schema for odin.get_mission_frontrun_pack.
+// Assembles a governance contract pack for Factory Mission front-running via the
+// --append-system-prompt-file seam (PROVEN, live-verified 2026-06-12).
+export const missionFrontrunInputShape = {
+  mission_name: z.string().describe("Human-readable mission name for logging and receipt headers."),
+  repo_path: z.string().describe("Absolute path to the target repository root."),
+  write_scope: z.array(z.string()).describe("Files the mission worker is allowed to modify. Use [] for no current assignment."),
+  task_id: z.string().describe("Task or slice ID binding this mission to ODIN planning (e.g., SLICE-SCPPERF-E010-DEV-001).")
+} as const;
+
+export const missionFrontrunInputSchema = z.object(missionFrontrunInputShape);
+export type MissionFrontrunInput = z.infer<typeof missionFrontrunInputSchema>;
+
+// MissionFrontrunPack: structured return type for getMissionFrontrunPack().
+export interface MissionFrontrunPack {
+  mission_name: string;
+  repo_path: string;
+  task_id: string;
+  write_scope: string[];
+  contracts: {
+    orchestrator: string;
+    worker: string;
+    scrutiny_validator: string;
+    scrutiny_feature_reviewer: string;
+    droids_scrutiny_feature_reviewer: string;
+  };
+  launch_command_template: string;
+  boot_contract_receipt_template: {
+    role: string;
+    session_id: string;
+    contract_path: string;
+    byte_count: string;
+    sha256: string;
+    timestamp: string;
+  };
+  notes: {
+    proven_seam: string;
+    unproven_seam: string;
+    tool: string;
+  };
+}

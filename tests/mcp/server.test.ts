@@ -50,6 +50,7 @@ describe("ODIN MCP server", () => {
         "odin.get_closeout_checklist",
         "odin.get_delegation_packet",
         "odin.get_harness_probe_matrix",
+        "odin.get_mission_frontrun_pack",
         "odin.get_onboarding_plan",
         "odin.get_role_card",
         "odin.get_role_profile",

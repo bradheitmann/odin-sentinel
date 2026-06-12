@@ -23,7 +23,12 @@ const requiredProtocolFiles = [
   "protocol/role-cards/team-pm.md",
   "protocol/role-cards/dev-worker.md",
   "protocol/role-cards/qa-worker.md",
-  "protocol/role-cards/exec-asst.md"
+  "protocol/role-cards/exec-asst.md",
+  "protocol/mission-frontrun/orchestrator-contract.md",
+  "protocol/mission-frontrun/worker-contract.md",
+  "protocol/mission-frontrun/scrutiny-validator-contract.md",
+  "protocol/mission-frontrun/scrutiny-feature-reviewer-contract.md",
+  "protocol/mission-frontrun/droids-scrutiny-feature-reviewer.md"
 ];
 
 const requiredTemplateFiles = [

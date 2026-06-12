@@ -5,7 +5,7 @@ import {
   type ProtocolData,
   type ProtocolRepository
 } from "./repository.js";
-import type { CloseoutMode, DelegationPacketInput, RoleCard, StartupPacketInput } from "./schemas.js";
+import type { CloseoutMode, DelegationPacketInput, MissionFrontrunInput, MissionFrontrunPack, RoleCard, StartupPacketInput } from "./schemas.js";
 import {
   asRecord,
   buildValidationResult,
@@ -28,7 +28,7 @@ const DEFAULT_HANDOFF_PATHS = [
 ];
 
 export type { ProtocolData, ValidationResult };
-export type { CloseoutMode, DelegationPacketInput, RoleCard, StartupPacketInput };
+export type { CloseoutMode, DelegationPacketInput, MissionFrontrunInput, MissionFrontrunPack, RoleCard, StartupPacketInput };
 export { VERSION };
 
 export type StartupPacket = {
@@ -1872,6 +1872,72 @@ export function exportProtocolSnapshot(repository: ProtocolRepository = getDefau
   };
 }
 
+/**
+ * Assemble a Factory Mission front-running contract pack. Substitutes mustache-style
+ * placeholders ({{WRITE_SCOPE}}, {{TASK_ID}}, {{REPO_PATH}}, {{MISSION_NAME}}) from input
+ * into each of the five template files, returns the launch command template, the
+ * boot_contract_receipt template object, and a notes block distinguishing the PROVEN
+ * --append-system-prompt-file seam from the UNPROVEN mission-local validator skill seam.
+ *
+ * Launch through the seam:
+ *   droid exec --mission --auto <level> \
+ *     --model <model> --reasoning-effort <effort> \
+ *     --append-system-prompt-file <orchestrator-contract-path> \
+ *     -f <mission-prompt-file>
+ */
+export function getMissionFrontrunPack(
+  input: MissionFrontrunInput,
+  repository: ProtocolRepository = getDefaultRepository()
+): MissionFrontrunPack {
+  const data = loadProtocolData(repository);
+  const writeScopeStr = input.write_scope.length > 0 ? input.write_scope.join(", ") : "[]";
+
+  function substitute(template: string): string {
+    return template
+      .replace(/\{\{WRITE_SCOPE\}\}/g, writeScopeStr)
+      .replace(/\{\{TASK_ID\}\}/g, input.task_id)
+      .replace(/\{\{REPO_PATH\}\}/g, input.repo_path)
+      .replace(/\{\{MISSION_NAME\}\}/g, input.mission_name);
+  }
+
+  return {
+    mission_name: input.mission_name,
+    repo_path: input.repo_path,
+    task_id: input.task_id,
+    write_scope: input.write_scope,
+    contracts: {
+      orchestrator: substitute(data.missionFrontrun.orchestratorContract),
+      worker: substitute(data.missionFrontrun.workerContract),
+      scrutiny_validator: substitute(data.missionFrontrun.scrutinyValidatorContract),
+      scrutiny_feature_reviewer: substitute(data.missionFrontrun.scrutinyFeatureReviewerContract),
+      droids_scrutiny_feature_reviewer: substitute(data.missionFrontrun.droidsScrutinyFeatureReviewer)
+    },
+    launch_command_template: [
+      "# Write the orchestrator contract to the appended system prompt file before launch.",
+      "# Then launch the mission through the PROVEN seam:",
+      "droid exec --mission --auto <level> \\",
+      "  --model <model-id> --reasoning-effort <low|medium|high> \\",
+      "  --worker-model <worker-model-id> --worker-reasoning-effort <low|medium|high> \\",
+      "  --validator-model <validator-model-id> --validator-reasoning-effort <low|medium|high> \\",
+      "  --append-system-prompt-file <path/to/orchestrator-contract.md> \\",
+      "  -f <path/to/mission-prompt.md>"
+    ].join("\n"),
+    boot_contract_receipt_template: {
+      role: "<factory/orchestrator|factory/worker|factory/scrutiny-validator|factory/scrutiny-feature-reviewer>",
+      session_id: "<session-id assigned by Factory>",
+      contract_path: "<path to this contract file as loaded>",
+      byte_count: "<byte count of this contract file as loaded>",
+      sha256: "<sha256 of this contract file as loaded>",
+      timestamp: "<ISO-8601 UTC timestamp>"
+    },
+    notes: {
+      proven_seam: "PROVEN (live-verified 2026-06-12): --append-system-prompt-file front-runs all four Factory Mission hidden roles (orchestrator, worker, scrutiny-validator, scrutiny-feature-reviewer) before Factory's weaker defaults activate. Launch through this seam using odin.get_mission_frontrun_pack contracts.",
+      unproven_seam: "UNPROVEN: mission-local validator skill shadowing (skills/scrutiny-validator/SKILL.md). In the 2026-06-12 probe the validator loaded builtin:scrutiny-validator, not the mission-local file. Do not rely on this seam for governance until a follow-up isolation probe confirms it.",
+      tool: "odin.get_mission_frontrun_pack"
+    }
+  };
+}
+
 export function createProtocolService(repository: ProtocolRepository = createFileProtocolRepository()) {
   return {
     protocolPath: (...segments: string[]) => repository.path(...segments),
@@ -1898,6 +1964,7 @@ export function createProtocolService(repository: ProtocolRepository = createFil
     getCloseoutChecklist: (mode: CloseoutMode) => getCloseoutChecklist(mode, repository),
     getRoleCard: (role_id: string) => getRoleCard(role_id, repository),
     getRuntimeNotice,
-    exportProtocolSnapshot: () => exportProtocolSnapshot(repository)
+    exportProtocolSnapshot: () => exportProtocolSnapshot(repository),
+    getMissionFrontrunPack: (input: MissionFrontrunInput) => getMissionFrontrunPack(input, repository)
   };
 }

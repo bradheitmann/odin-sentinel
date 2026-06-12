@@ -72,6 +72,13 @@ function minimalProtocolData(): ProtocolData {
       devWorker: "# DEV WORKER card",
       qaWorker: "# QA WORKER card",
       execAsst: "# EXEC-ASST card"
+    },
+    missionFrontrun: {
+      orchestratorContract: "# Orchestrator contract {{TASK_ID}} {{REPO_PATH}} {{WRITE_SCOPE}} {{MISSION_NAME}}",
+      workerContract: "# Worker contract {{TASK_ID}} {{REPO_PATH}} {{WRITE_SCOPE}} {{MISSION_NAME}}",
+      scrutinyValidatorContract: "# Scrutiny validator contract {{TASK_ID}} {{REPO_PATH}} {{WRITE_SCOPE}} {{MISSION_NAME}}",
+      scrutinyFeatureReviewerContract: "# Scrutiny feature reviewer contract {{TASK_ID}} {{REPO_PATH}} {{WRITE_SCOPE}} {{MISSION_NAME}}",
+      droidsScrutinyFeatureReviewer: "# Droids scrutiny feature reviewer {{TASK_ID}} {{REPO_PATH}} {{WRITE_SCOPE}} {{MISSION_NAME}}"
     }
   };
 }
