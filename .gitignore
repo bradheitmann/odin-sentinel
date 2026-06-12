@@ -40,3 +40,6 @@ doppler.yaml
 
 # Task list persistence (machine-specific)
 .envrc
+
+# Intelligence intake (local-only; never publish process notes on the public repo)
+intelligence/
