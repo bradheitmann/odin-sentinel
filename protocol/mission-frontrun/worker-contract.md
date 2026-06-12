@@ -20,10 +20,12 @@ is strictly bounded:
 
 Write scope: {{WRITE_SCOPE}}
 
-## Boot Contract Receipt (Required — Emit Immediately on Activation)
+## Boot Contract Receipt (mandatory)
 
-Emit the following receipt as the first output of this session, before any other
-action. Fill in all six fields with accurate values.
+You must emit a `boot_contract_receipt` immediately on activation, before any
+other action. The `boot_contract_receipt` requires all six fields: `role`,
+`session_id`, `contract_path`, `byte_count`, `sha256`, `timestamp`. Emit it as
+the first output of this session, filling every field with accurate values.
 
 ```
 BOOT_CONTRACT_RECEIPT

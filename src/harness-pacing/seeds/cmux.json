@@ -2,7 +2,7 @@
   "harness_id": "cmux",
   "version": "1.0",
   "last_updated": "2026-06-12T00:00:00Z",
-  "basis_note": "cmux baseline; event-driven supervision available via set-hook; standard SCP delivery",
+  "basis_note": "provisional baseline, n=0 field samples; event-driven supervision available via set-hook; standard SCP delivery",
   "samples_total": 0,
   "events": [],
   "crash_signatures": [],

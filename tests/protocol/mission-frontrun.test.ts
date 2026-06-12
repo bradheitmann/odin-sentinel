@@ -1,3 +1,5 @@
+import { readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { getMissionFrontrunPack } from "../../src/protocol/service.js";
 import type { ProtocolData, ProtocolRepository } from "../../src/protocol/repository.js";
@@ -127,4 +129,41 @@ describe("getMissionFrontrunPack", () => {
     expect(pack.task_id).toBe(baseInput.task_id);
     expect(pack.write_scope).toEqual(baseInput.write_scope);
   });
+
+  it("every contract body in the real pack names boot_contract_receipt", () => {
+    // Uses the real file repository: each of the five contract bodies must itself
+    // require emitting a boot_contract_receipt (holdout STORY-010-01 step 8).
+    const pack = getMissionFrontrunPack(baseInput);
+    for (const key of Object.keys(pack.contracts) as Array<keyof typeof pack.contracts>) {
+      expect(pack.contracts[key]).toContain("boot_contract_receipt");
+    }
+  });
+});
+
+describe("mission-frontrun on-disk contract templates", () => {
+  const templateDir = join(import.meta.dirname, "..", "..", "protocol", "mission-frontrun");
+  const templateFiles = [
+    "orchestrator-contract.md",
+    "worker-contract.md",
+    "scrutiny-validator-contract.md",
+    "scrutiny-feature-reviewer-contract.md",
+    "droids-scrutiny-feature-reviewer.md"
+  ];
+  const receiptFields = ["role", "session_id", "contract_path", "byte_count", "sha256", "timestamp"];
+
+  for (const file of templateFiles) {
+    it(`${file} contains a mandatory boot_contract_receipt clause with all six fields`, () => {
+      const text = readFileSync(join(templateDir, file), "utf8");
+      expect(text).toContain("boot_contract_receipt");
+      expect(text).toContain("Boot Contract Receipt (mandatory)");
+      expect(text).toContain("immediately on activation, before any");
+      for (const field of receiptFields) {
+        expect(text).toContain(field);
+      }
+    });
+
+    it(`${file} stays within the 4096-byte template budget`, () => {
+      expect(statSync(join(templateDir, file)).size).toBeLessThanOrEqual(4096);
+    });
+  }
 });
