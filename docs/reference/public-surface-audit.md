@@ -41,7 +41,7 @@ languages, or harnesses.
 
 ## Current Public Surface
 
-- Public package/server version: `0.4.13`
+- Public package/server version: `0.5.0`
 - Minimum compatible child MCP version: `0.4.5`
 - MCP resources: 18
 - MCP tools: 28

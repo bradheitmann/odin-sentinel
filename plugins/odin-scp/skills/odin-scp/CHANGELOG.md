@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.0 - 2026-06-12
+
+- Added role cards for all five roles (exec-pm, team-pm, dev-worker, qa-worker, exec-asst) with tiered uptake support and `odin.get_role_card` MCP tool.
+- Cache-aligned packet ordering with hash-pinned re-arm: startup packets now include a content hash; re-arm requests are rejected unless the hash matches the cached packet.
+- Enforced no-bare-header rule: protocol resources must include a top-level header before any content block.
+- Added Crush pacing guidance: recommended token budget, pacing cadence, and harness-specific polling recommendations for Crush harness operators.
+- Hybrid Mission/surfaces topology with substrate capability tiers: surface layout now distinguishes human-CMUX, tab-only, and headless substrate types with per-tier capability declarations.
+- ODIN-watch wake analyzer for cmux and tmux: deterministic wake analysis to identify stalled surfaces, missed heartbeats, and polling overruns.
+- Harness pacing telemetry: optional session-report fields for pacing cadence, token consumption rate, and harness-level timing data.
+- Lattice design doc: canonical reference for the knowledge-lattice substrate used by ODIN Sentinel protocol resources.
+- Server now exposes 28 MCP tools and 18 MCP resources.
+
 ## 3.6.0 - 2026-05-11
 
 - Added `EXEC PM is the sole staffing authority` and `EXEC PM is the sole CMUX surface custodian` to Non-Negotiables. TEAM PMs and workers cannot staff, split, move, or close surfaces.
