@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { parseArgs } from "node:util";
 import { CmuxBackend } from "./backends/cmux.js";
+import { TmuxBackend } from "./backends/tmux.js";
 import { classify } from "./classifier.js";
 import { writeWakeFiles } from "./writers.js";
 import { execFileNoThrow } from "../utils/execFileNoThrow.js";
@@ -148,8 +149,20 @@ async function main(): Promise<void> {
   const intervalMs = intervalSeconds * 1000;
   const mandatoryAuditIntervalMs = mandatoryAuditSeconds * 1000;
 
-  // Only cmux substrate is currently supported; others fallback gracefully
-  const snapshotter = new CmuxBackend(archiveDir);
+  // Select backend based on substrate
+  let snapshotter;
+  switch (substrate) {
+    case "cmux":
+      snapshotter = new CmuxBackend(archiveDir);
+      break;
+    case "tmux":
+      snapshotter = new TmuxBackend(archiveDir);
+      break;
+    default:
+      throw new Error(
+        `Substrate '${substrate}' is not yet supported by odin-watch. Supported: cmux, tmux`
+      );
+  }
 
   let prevHash: string | null = null;
   let lastVerdictState: WakeVerdict | null = null;
