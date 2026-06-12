@@ -65,6 +65,13 @@ function minimalProtocolData(): ProtocolData {
       canonicalIntroductionPrompt: "# Canonical prompt",
       harnessSkillTargets: "# Harness targets",
       teamBootstrapRunbook: "# Team bootstrap"
+    },
+    roleCards: {
+      execPm: "# EXEC PM card",
+      teamPm: "# TEAM PM card",
+      devWorker: "# DEV WORKER card",
+      qaWorker: "# QA WORKER card",
+      execAsst: "# EXEC-ASST card"
     }
   };
 }

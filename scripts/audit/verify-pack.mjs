@@ -18,7 +18,12 @@ const requiredProtocolFiles = [
   "protocol/skill-references/boot-receipt-examples.md",
   "protocol/skill-references/canonical-introduction-prompt.md",
   "protocol/skill-references/harness-skill-targets.md",
-  "protocol/skill-references/team-bootstrap-runbook.md"
+  "protocol/skill-references/team-bootstrap-runbook.md",
+  "protocol/role-cards/exec-pm.md",
+  "protocol/role-cards/team-pm.md",
+  "protocol/role-cards/dev-worker.md",
+  "protocol/role-cards/qa-worker.md",
+  "protocol/role-cards/exec-asst.md"
 ];
 
 const requiredTemplateFiles = [
@@ -45,6 +50,7 @@ export const requiredPackageFiles = [
   "docs/reference/cost-and-privacy.md",
   "docs/reference/distribution.md",
   "docs/reference/public-surface-audit.md",
+  "docs/lattice/odin-lattice-design.md",
   ...requiredProtocolFiles,
   "plugins/odin-scp/.claude-plugin/plugin.json",
   "plugins/odin-scp/skills/odin-scp/SKILL.md",

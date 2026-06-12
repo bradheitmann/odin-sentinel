@@ -1,10 +1,11 @@
+import { createHash } from "node:crypto";
 import YAML from "yaml";
 import {
   createFileProtocolRepository,
   type ProtocolData,
   type ProtocolRepository
 } from "./repository.js";
-import type { CloseoutMode, DelegationPacketInput, StartupPacketInput } from "./schemas.js";
+import type { CloseoutMode, DelegationPacketInput, RoleCard, StartupPacketInput } from "./schemas.js";
 import {
   asRecord,
   buildValidationResult,
@@ -27,7 +28,7 @@ const DEFAULT_HANDOFF_PATHS = [
 ];
 
 export type { ProtocolData, ValidationResult };
-export type { CloseoutMode, DelegationPacketInput, StartupPacketInput };
+export type { CloseoutMode, DelegationPacketInput, RoleCard, StartupPacketInput };
 export { VERSION };
 
 export type StartupPacket = {
@@ -583,6 +584,34 @@ export function getRoleProfile(role: string, repository: ProtocolRepository = ge
   }
 
   return roleProfile;
+}
+
+type RoleCardEntry = { key: keyof ReturnType<typeof loadProtocolData>["roleCards"]; role_name: string };
+
+const ROLE_CARD_MAP: Record<string, RoleCardEntry> = {
+  "exec-pm":    { key: "execPm",    role_name: "EXEC PM" },
+  "team-pm":    { key: "teamPm",    role_name: "TEAM PM" },
+  "dev-worker": { key: "devWorker", role_name: "DEV WORKER" },
+  "qa-worker":  { key: "qaWorker",  role_name: "QA WORKER" },
+  "exec-asst":  { key: "execAsst",  role_name: "EXEC-ASST" }
+};
+
+export function getRoleCard(role_id: string, repository: ProtocolRepository = getDefaultRepository()): RoleCard {
+  const entry = ROLE_CARD_MAP[role_id];
+  if (!entry) {
+    throw new Error(`Unknown role_id: ${safeErrorText(role_id)}. Valid values: ${Object.keys(ROLE_CARD_MAP).join(", ")}`);
+  }
+  const content = loadProtocolData(repository).roleCards[entry.key];
+  const payload_bytes = Buffer.byteLength(content, "utf8");
+  const content_sha256 = createHash("sha256").update(content).digest("hex");
+  return {
+    role_id,
+    role_name: entry.role_name,
+    version: VERSION,
+    payload_bytes,
+    content_sha256,
+    content
+  };
 }
 
 export function getStartupPacket(
@@ -1867,6 +1896,7 @@ export function createProtocolService(repository: ProtocolRepository = createFil
     validateBootReceipt: (receipt: Record<string, unknown>) => validateBootReceipt(receipt, repository),
     validateTeamManifest: (manifest: Record<string, unknown>) => validateTeamManifest(manifest, repository),
     getCloseoutChecklist: (mode: CloseoutMode) => getCloseoutChecklist(mode, repository),
+    getRoleCard: (role_id: string) => getRoleCard(role_id, repository),
     getRuntimeNotice,
     exportProtocolSnapshot: () => exportProtocolSnapshot(repository)
   };

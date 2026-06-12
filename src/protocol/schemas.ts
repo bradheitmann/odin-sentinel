@@ -477,3 +477,17 @@ export interface DeliveryReceiptPacingExtension {
   delivery_verdict?: string;
   harness_id?: string;
 }
+
+// RoleCard: structured response for odin.get_role_card tool.
+export interface RoleCard {
+  role_id: string;
+  role_name: string;
+  version: string;
+  payload_bytes: number;
+  content_sha256: string;
+  content: string;
+}
+
+export const roleCardInputShape = {
+  role_id: z.string().describe("Role ID: exec-pm | team-pm | dev-worker | qa-worker | exec-asst")
+} as const;

@@ -12,6 +12,7 @@ import {
   getDelegationPacket,
   getHarnessProbeMatrix,
   getOnboardingPlan,
+  getRoleCard,
   getRoleProfile,
   getRuntimeNotice,
   getStartupPacket,
@@ -50,6 +51,7 @@ import {
   readinessGateInputShape,
   reportRecordInputShape,
   reportRecordInputSchema,
+  roleCardInputShape,
   roleProfileInputShape,
   sessionReportInputShape,
   submitSessionReportInputSchema,
@@ -94,6 +96,14 @@ function textResource(uri: string, text: string, mimeType: string) {
 function yamlResource(value: unknown): string {
   return YAML.stringify(value);
 }
+
+const ROLE_CARD_ID_TO_KEY: Record<string, keyof ReturnType<typeof loadProtocolData>["roleCards"]> = {
+  "exec-pm": "execPm",
+  "team-pm": "teamPm",
+  "dev-worker": "devWorker",
+  "qa-worker": "qaWorker",
+  "exec-asst": "execAsst"
+};
 
 function registerProtocolResources(server: McpServer) {
   const resources: ResourceSpec[] = [
@@ -216,6 +226,22 @@ function registerProtocolResources(server: McpServer) {
       (uri) => textResource(uri.href, resource.read(), resource.mimeType)
     );
   }
+
+  // Role card resources (one per role)
+  const roleCardIds = ["exec-pm", "team-pm", "dev-worker", "qa-worker", "exec-asst"] as const;
+  for (const role_id of roleCardIds) {
+    const cardKey = ROLE_CARD_ID_TO_KEY[role_id];
+    server.registerResource(
+      `role-card-${role_id}`,
+      `odin://protocol/role-cards/${role_id}`,
+      {
+        title: `SCP Role Card: ${role_id}`,
+        description: `Quick-start role card (<=4KB) for the ${role_id} role.`,
+        mimeType: "text/markdown"
+      },
+      (uri) => textResource(uri.href, loadProtocolData().roleCards[cardKey], "text/markdown")
+    );
+  }
 }
 
 export function createServer(): McpServer {
@@ -302,6 +328,17 @@ export function createServer(): McpServer {
       inputSchema: roleProfileInputShape
     },
     (input) => jsonText(getRoleProfile(input.role))
+  );
+
+  server.registerTool(
+    "odin.get_role_card",
+    {
+      title: "Get Role Card",
+      description:
+        "Return the quick-start role card for a given SCP role ID. Returns role_id, role_name, version, payload_bytes, content_sha256, and content. Valid role_ids: exec-pm, team-pm, dev-worker, qa-worker, exec-asst.",
+      inputSchema: roleCardInputShape
+    },
+    (input) => jsonText(getRoleCard(input.role_id))
   );
 
   server.registerTool(

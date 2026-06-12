@@ -30,8 +30,8 @@ the direct install paths below.
 ## What you get
 
 - **Skill content**: the full SCP governance contract (boot receipts, role topology, delegation, CMUX delivery proof, heartbeat cadence, adversarial QA, finish audit) plus the referenced prompt, harness target, boot receipt, and team bootstrap runbook files.
-- **MCP tools**: 27 `odin.*` tools including `compute_surface_layout`, `get_role_profile`, `get_onboarding_plan`, `validate_boot_receipt`, `compile_session_report`, and `get_bootstrap_skill`.
-- **MCP resources**: 13 protocol documents addressable via `odin://protocol/*` URIs.
+- **MCP tools**: 28 `odin.*` tools including `compute_surface_layout`, `get_role_profile`, `get_role_card`, `get_onboarding_plan`, `validate_boot_receipt`, `compile_session_report`, and `get_bootstrap_skill`.
+- **MCP resources**: 18 protocol documents addressable via `odin://protocol/*` URIs.
 
 ## Use without Claude Code
 

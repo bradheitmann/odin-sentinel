@@ -1,6 +1,6 @@
 # ODIN Sentinel
 
-**Portable MCP governance protocol for visible multi-agent teams: 27 tools, 13 resources, role topology, readiness gates, ODIN watchers, receipts, delegation, and closeout over stdio.**
+**Portable MCP governance protocol for visible multi-agent teams: 28 tools, 18 resources, role topology, readiness gates, ODIN watchers, receipts, delegation, and closeout over stdio.**
 
 ODIN Sentinel is a local stdio MCP server plus a portable coordination protocol
 for visible agent teams. It gives agents a shared roster, startup packet,
@@ -193,7 +193,7 @@ using them for real work.
 Local operator planning folders may be useful private workspaces, but they are
 not shipped product internals and are not required for public users.
 
-## Provided MCP Resources (13)
+## Provided MCP Resources (18)
 
 - `odin://protocol/main`
 - `odin://protocol/roles`
@@ -208,12 +208,18 @@ not shipped product internals and are not required for public users.
 - `odin://protocol/skill-references/canonical-introduction-prompt`
 - `odin://protocol/skill-references/harness-skill-targets`
 - `odin://protocol/skill-references/team-bootstrap-runbook`
+- `odin://protocol/role-cards/exec-pm`
+- `odin://protocol/role-cards/team-pm`
+- `odin://protocol/role-cards/dev-worker`
+- `odin://protocol/role-cards/qa-worker`
+- `odin://protocol/role-cards/exec-asst`
 
-## Provided MCP Tools (27)
+## Provided MCP Tools (28)
 
 - `odin.get_version`
 - `odin.get_startup_packet`
 - `odin.get_role_profile`
+- `odin.get_role_card`
 - `odin.get_bootstrap_skill`
 - `odin.get_boot_receipt_schema`
 - `odin.get_boot_receipt_examples`

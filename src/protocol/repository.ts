@@ -19,7 +19,12 @@ export const REQUIRED_PROTOCOL_FILES = [
   "protocol/skill-references/boot-receipt-examples.md",
   "protocol/skill-references/canonical-introduction-prompt.md",
   "protocol/skill-references/harness-skill-targets.md",
-  "protocol/skill-references/team-bootstrap-runbook.md"
+  "protocol/skill-references/team-bootstrap-runbook.md",
+  "protocol/role-cards/exec-pm.md",
+  "protocol/role-cards/team-pm.md",
+  "protocol/role-cards/dev-worker.md",
+  "protocol/role-cards/qa-worker.md",
+  "protocol/role-cards/exec-asst.md"
 ];
 
 export type ProtocolData = {
@@ -37,6 +42,13 @@ export type ProtocolData = {
     canonicalIntroductionPrompt: string;
     harnessSkillTargets: string;
     teamBootstrapRunbook: string;
+  };
+  roleCards: {
+    execPm: string;
+    teamPm: string;
+    devWorker: string;
+    qaWorker: string;
+    execAsst: string;
   };
 };
 
@@ -148,6 +160,13 @@ export function createFileProtocolRepository(rootDir = findRootDir()): ProtocolR
           canonicalIntroductionPrompt: readFileSync(protocolPath("skill-references", "canonical-introduction-prompt.md"), "utf8"),
           harnessSkillTargets: readFileSync(protocolPath("skill-references", "harness-skill-targets.md"), "utf8"),
           teamBootstrapRunbook: readFileSync(protocolPath("skill-references", "team-bootstrap-runbook.md"), "utf8")
+        },
+        roleCards: {
+          execPm: readFileSync(protocolPath("role-cards", "exec-pm.md"), "utf8"),
+          teamPm: readFileSync(protocolPath("role-cards", "team-pm.md"), "utf8"),
+          devWorker: readFileSync(protocolPath("role-cards", "dev-worker.md"), "utf8"),
+          qaWorker: readFileSync(protocolPath("role-cards", "qa-worker.md"), "utf8"),
+          execAsst: readFileSync(protocolPath("role-cards", "exec-asst.md"), "utf8")
         }
       });
 

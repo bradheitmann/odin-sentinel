@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "description": "Portable MCP governance protocol for multi-agent terminal teams: 27 tools, 13 resources, readiness gates, ODIN watchers, receipts, delegation, and closeout over stdio.",
+  "description": "Portable MCP governance protocol for multi-agent terminal teams: 28 tools, 18 resources, readiness gates, ODIN watchers, receipts, delegation, and closeout over stdio.",
   "type": "module",
   "main": "./dist/src/protocol/index.js",
   "types": "./dist/src/protocol/index.d.ts",
@@ -22,7 +22,8 @@
   "packageManager": "pnpm@11.0.3",
   "bin": {
     "odin-sentinel": "dist/src/bin/index.js",
-    "odin-sentinel-mcp": "dist/src/bin/index.js"
+    "odin-sentinel-mcp": "dist/src/bin/index.js",
+    "odin-watch": "dist/src/odin-watch/index.js"
   },
   "files": [
     ".claude-plugin",
