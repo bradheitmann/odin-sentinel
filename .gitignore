@@ -43,3 +43,6 @@ doppler.yaml
 
 # Intelligence intake (local-only; never publish process notes on the public repo)
 intelligence/
+
+# Product research (local-only proposals and renders)
+product-research/
