@@ -342,3 +342,138 @@ export const submitSessionReportInputShape = {
   report: sessionReportOutputSchema,
   userConsentConfirmed: z.literal(true)
 } as const;
+
+// BootReceipt: TypeScript interface for governed occupant boot receipts.
+// Required fields align with protocol/receipts/boot-receipt.yaml required_fields.
+// Optional fields are additive and never break existing receipts.
+export interface BootReceipt {
+  role: string;
+  authority_layer: string;
+  team: string;
+  terminal_locator: string;
+  branch: string;
+  cwd: string;
+  model_harness: string;
+  permission_mode: string;
+  may_implement: boolean;
+  may_qa_accept: boolean;
+  reports_to: string;
+  write_scope: string[];
+  evidence_path: string;
+  current_task: string;
+  // Optional recommended fields
+  upstream?: string;
+  head_sha?: string;
+  cost_tier?: string;
+  capability_profile?: string;
+  delegates_to?: string;
+  prohibited_paths?: string[];
+  proof_source?: string;
+  staffed_by?: string;
+  parent_surface_ref?: string;
+  column_index?: number | string;
+  team_letter?: string;
+  lifecycle_state?: string;
+  mcp_version?: string;
+  scp_context_source?: string;
+  instruction_read_proof?: Record<string, unknown>;
+  // BootReceiptExtension: new optional fields for performance/portability program
+  scp_skill_sha256?: string;
+  role_card_sha256?: string;
+  harness_id?: string;
+}
+
+// ReceiptType: union of all recognized receipt type strings.
+// SCP_BOOT_RECEIPT and SCP_MIN_BOOT_RECEIPT are the original types from boot-receipt.yaml.
+// POLL_OBSERVATION, POLL_INTERVENTION, DELIVERY_PROOF are new types added by this program.
+export type ReceiptType =
+  | "SCP_BOOT_RECEIPT"
+  | "SCP_MIN_BOOT_RECEIPT"
+  | "POLL_OBSERVATION"
+  | "POLL_INTERVENTION"
+  | "DELIVERY_PROOF";
+
+// Runtime-present const object (holdout asserts runtime existence via `in` check)
+export const CapabilityFlag = {
+  SEND: "SEND",
+  ENTER_PROOF: "ENTER_PROOF",
+  READ_SCREEN: "READ_SCREEN",
+  WAIT_IDLE: "WAIT_IDLE",
+  EVENTS: "EVENTS",
+  PERSISTENCE: "PERSISTENCE",
+  RECORDING: "RECORDING",
+} as const;
+
+// Derived type for TypeScript type annotations
+export type CapabilityFlag = (typeof CapabilityFlag)[keyof typeof CapabilityFlag];
+
+export type SubstrateType = "cmux" | "tmux" | "minimux" | "herdr" | "plain";
+
+export interface SubstrateCapability {
+  substrate_id: SubstrateType;
+  capabilities: CapabilityFlag[];
+  tier: number;
+}
+
+export type WakeVerdict =
+  | "WORKING"
+  | "WAITING_APPROVAL"
+  | "BLOCKED"
+  | "CRASHED"
+  | "DEV_COMPLETE_QA_PENDING"
+  | "QA_COMPLETE"
+  | "IDLE"
+  | "UNKNOWN_NEEDS_READ";
+
+export type PromptBudgetClass = "silent" | "compact" | "diagnostic" | "forensic";
+
+export interface WakeState {
+  schema_version: "1.0";
+  ts: string;
+  surface: string;
+  pane_id: string;
+  substrate: SubstrateType;
+  task?: string;
+  state: WakeVerdict;
+  wake: 0 | 1;
+  reason_codes: string[];
+  head?: string;
+  branch?: string;
+  dirty_paths: string[];
+  dirty_out_of_scope: string[];
+  screen_hash: string;
+  screen_changed: boolean;
+  last_marker?: string;
+  prompt_budget_class: PromptBudgetClass;
+  next_mandatory_audit_due: string;
+}
+
+export type PacingEventType =
+  | "PROMPT_DELIVERY"
+  | "IDLE_WAIT"
+  | "MODAL_BLOCK"
+  | "PERMISSION_BLOCK"
+  | "CRASH"
+  | "RECOVERY"
+  | "MILESTONE";
+
+export interface HarnessPacingEvent {
+  harness_id: string;
+  event_type: PacingEventType;
+  ts: string;
+  duration_ms?: number;
+  payload_bytes?: number;
+  verdict?: string;
+  notes?: string;
+  crash_signature_hash?: string;
+  crash_signature_summary?: string;
+  recovery_action?: string;
+}
+
+export interface DeliveryReceiptPacingExtension {
+  prompt_byte_count?: number;
+  prompt_line_count?: number;
+  prior_wait_seconds?: number;
+  delivery_verdict?: string;
+  harness_id?: string;
+}

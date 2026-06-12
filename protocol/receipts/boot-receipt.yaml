@@ -49,6 +49,19 @@ allowed_lifecycle_states:
   - PARKED_IDLE
   - FAILED
   - WATCH_UNSUPPORTED
+optional_extension_fields:
+  scp_skill_sha256:
+    type: string
+    required: false
+    description: "SHA-256 of bootstrap-skill.md at session boot; used for hash-pinned re-arm"
+  role_card_sha256:
+    type: string
+    required: false
+    description: "SHA-256 of role card content at session boot"
+  harness_id:
+    type: string
+    required: false
+    description: "Harness identifier: cmux | tmux | crush | glm-droid | minimux | herdr | plain"
 recommended_fields:
   - upstream
   - head_sha

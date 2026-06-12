@@ -47,3 +47,20 @@ export type {
   SurfaceLayoutSurface,
   SurfaceLayoutGate
 } from "./surface-layout.js";
+
+// New types for SCP performance/portability program (E1-E5 unblocking)
+// CapabilityFlag is exported as a value (runtime const) and as a type via the same export.
+export { CapabilityFlag } from "./schemas.js";
+
+export type {
+  BootReceipt,
+  DeliveryReceiptPacingExtension,
+  HarnessPacingEvent,
+  PacingEventType,
+  PromptBudgetClass,
+  ReceiptType,
+  SubstrateCapability,
+  SubstrateType,
+  WakeState,
+  WakeVerdict
+} from "./schemas.js";
