@@ -3,6 +3,7 @@ import {
   computeHumanCmuxQuadLayout,
   computeSurfaceLayout,
   computeSurfaceLayoutGate,
+  getSubstrateCapability,
   renderSurfaceLayoutAscii
 } from "../../src/protocol/surface-layout.js";
 
@@ -159,6 +160,50 @@ describe("computeSurfaceLayoutGate", () => {
     const gate = computeSurfaceLayoutGate(1, 3, { cmuxAvailable: false });
 
     expect(gate.status).toBe("NOT_GOVERNED_NO_CMUX");
+  });
+});
+
+describe("getSubstrateCapability", () => {
+  it("returns tier 3 and EVENTS for cmux", () => {
+    const result = getSubstrateCapability("cmux");
+    expect(result.tier).toBe(3);
+    expect(result.capabilities).toContain("SEND");
+    expect(result.capabilities).toContain("EVENTS");
+    expect(result.capabilities).not.toContain("PERSISTENCE");
+    expect(result.capabilities).not.toContain("RECORDING");
+  });
+
+  it("returns tier 2 and no EVENTS for tmux", () => {
+    const result = getSubstrateCapability("tmux");
+    expect(result.tier).toBe(2);
+    expect(result.capabilities).toContain("SEND");
+    expect(result.capabilities).toContain("WAIT_IDLE");
+    expect(result.capabilities).not.toContain("EVENTS");
+  });
+
+  it("returns tier 4 and all seven flags for minimux", () => {
+    const result = getSubstrateCapability("minimux");
+    expect(result.tier).toBe(4);
+    expect(result.capabilities).toEqual(["SEND", "ENTER_PROOF", "READ_SCREEN", "WAIT_IDLE", "EVENTS", "PERSISTENCE", "RECORDING"]);
+  });
+
+  it("returns tier 3 with PERSISTENCE for herdr", () => {
+    const result = getSubstrateCapability("herdr");
+    expect(result.tier).toBe(3);
+    expect(result.capabilities).toContain("PERSISTENCE");
+    expect(result.capabilities).not.toContain("RECORDING");
+  });
+
+  it("returns tier 0 with only SEND for unknown substrates (plain terminal)", () => {
+    const result = getSubstrateCapability("plain");
+    expect(result.tier).toBe(0);
+    expect(result.capabilities).toEqual(["SEND"]);
+  });
+
+  it("returns tier 0 for any unrecognized substrate string", () => {
+    const result = getSubstrateCapability("some-future-substrate");
+    expect(result.tier).toBe(0);
+    expect(result.capabilities).toEqual(["SEND"]);
   });
 });
 

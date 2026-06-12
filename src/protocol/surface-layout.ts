@@ -1,3 +1,5 @@
+import type { CapabilityFlag } from "./schemas.js";
+
 const MAX_TEAMS = 26;
 const MAX_SURFACES_PER_COLUMN = 2;
 
@@ -20,7 +22,32 @@ export type SurfaceLayout = {
   execColumnIndex: number;
   execColumnIsTall: boolean;
   columns: SurfaceLayoutColumn[];
+  /** Substrate capability tier for the probe matrix (0–4). Populated when substrate is provided. */
+  substrateTier?: number;
+  /** Capability flags active for the detected substrate. Populated when substrate is provided. */
+  capabilities?: CapabilityFlag[];
 };
+
+/**
+ * Returns the SCP capability tier and active CapabilityFlags for a given substrate.
+ * Used by the terminal_locator probe matrix to report substrate capability alongside
+ * surface layout information.
+ *
+ * Tier mapping:
+ *   0 — plain terminal (SEND only)
+ *   2 — tmux (SEND + ENTER_PROOF + READ_SCREEN + WAIT_IDLE)
+ *   3 — cmux / herdr (adds EVENTS; herdr also adds PERSISTENCE)
+ *   4 — minimux (all seven flags)
+ */
+export function getSubstrateCapability(substrate: string): { tier: number; capabilities: CapabilityFlag[] } {
+  switch (substrate) {
+    case "cmux":    return { tier: 3, capabilities: ["SEND", "ENTER_PROOF", "READ_SCREEN", "WAIT_IDLE", "EVENTS"] };
+    case "tmux":    return { tier: 2, capabilities: ["SEND", "ENTER_PROOF", "READ_SCREEN", "WAIT_IDLE"] };
+    case "minimux": return { tier: 4, capabilities: ["SEND", "ENTER_PROOF", "READ_SCREEN", "WAIT_IDLE", "EVENTS", "PERSISTENCE", "RECORDING"] };
+    case "herdr":   return { tier: 3, capabilities: ["SEND", "ENTER_PROOF", "READ_SCREEN", "WAIT_IDLE", "EVENTS", "PERSISTENCE"] };
+    default:        return { tier: 0, capabilities: ["SEND"] };
+  }
+}
 
 function teamLetter(index: number): string {
   return String.fromCharCode(65 + index);

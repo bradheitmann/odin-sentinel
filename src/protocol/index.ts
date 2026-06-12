@@ -38,6 +38,7 @@ export type {
 export {
   computeSurfaceLayout,
   computeSurfaceLayoutGate,
+  getSubstrateCapability,
   renderSurfaceLayoutAscii
 } from "./surface-layout.js";
 
