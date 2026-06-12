@@ -29,6 +29,13 @@ policy:
     - mcp_tool_hydration
     - governed_role_ready
   non_governed_one_shot_only: Harnesses without MCP access, native SCP skill, or full injected protocol text must be classified NON_GOVERNED_ONE_SHOT_ONLY and must not hold persistent governed roles.
+  mission_as_dev_capacity_policy: |
+    Factory Missions may be used as one Dev capacity type when the work is a
+    large decomposable implementation burst, internal Mission orchestration adds
+    value over manual decomposition, and the Mission output will be reviewed by
+    an external independently contracted QA surface. The default team primitive
+    remains separate visible surfaces, not Factory Missions. See the Hybrid
+    Mission/Surfaces Topology Default section in bootstrap-skill.md.
   scp_skill_install_recommendation: Skill-capable harnesses should install the odin-scp skill before governed launch; native skill discoverability improved compliance in observed runs.
 harness_capabilities:
   Codex:

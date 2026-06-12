@@ -38,7 +38,7 @@ Portable curated skill/session records may live under the declared source, for e
 - Keep agents interchangeable by role, not by blurred authority. Any supported harness may serve any role only after it has a clean boot block declaring the current role, write scope, branch, cwd, model/harness, and proof source. The same assignment must not QA and close its own work.
 - Preserve strict scope. Governance/package work cannot mutate product code, Loop runtime, design prototypes, operational-team work product, or lifecycle state unless explicitly authorized.
 - Use zero-secret-output behavior. Never print tokens, API keys, OAuth material, or config values. Report secret presence by name/count/status only.
-- Under SCP, team topology is the audit surface. If work is not visible in CMUX, it is not governed work.
+- Under SCP, team topology is the audit surface. If work is not visible on a substrate meeting READ_SCREEN + ENTER_PROOF (capability tier 1+), it is not governed work. CMUX is the reference substrate; cmux-specific rules remain in force.
 - Preserve official SCP team topology. Once `EXEC PM` has bootstrapped the executive office and pods, role-named CMUX panes/surfaces are immutable operating slots. Do not close, delete, rename, repurpose, or replace the slot itself unless the user explicitly authorizes that exact slot mutation.
 - Treat agents as occupants of durable role slots. If a model/harness is blocked, stale, over budget, in plan mode, context-exhausted, or wrong for the task, clear, restart, exit, or substitute the agent occupant inside the existing role slot. Do not remove the CMUX pane/surface.
 - Do not create extra panes, extra workers, hidden assistants, invisible subagents, or ad hoc capacity during an active SCP run unless the user explicitly authorizes topology expansion. `EXEC PM` must route work to official roles already present in CMUX.
@@ -70,6 +70,99 @@ SCP is a standing control loop, not a one-time boot banner. Read or re-invoke th
 
 If an agent cannot state its current SCP role, authority layer, `may_implement`, `may_qa_accept`, reports-to chain, and next receipt type, it must stop and re-emit `SCP_BOOT_RECEIPT`.
 
+### Tiered Protocol Uptake
+
+Full SCP skill load is required for control-plane roles only:
+- EXEC PM: full skill at session start
+- ODIN monitor: full skill at session start
+- TEAM PM: full skill at team launch
+
+All other roles activate via their role-specific quick-start card (<=4KB):
+- DEV WORKER, QA WORKER, EXEC-ASST: receive their role card via
+  odin.get_role_card or via the odin://protocol/role-cards/{role_id} resource
+
+After initial activation, the full skill is NEVER re-read at heartbeat,
+dispatch, delegation, or QA cadence points. Use hash-pinned re-arm instead
+(see Hash-Pinned Skill Re-Arm section).
+
+### Hash-Pinned Skill Re-Arm
+
+At session boot, record `scp_skill_sha256` in the boot receipt:
+- Obtain the skill content SHA-256 from `odin.get_role_card` (the tool returns
+  `content_sha256` for the active role card).
+- For control-plane roles, compute SHA-256 of the full bootstrap-skill.md content.
+- Record in `scp_skill_sha256` field of the boot receipt.
+
+At each subsequent cadence point (heartbeat, dispatch, delegation, QA):
+- Do NOT re-read the full skill.
+- If re-arm verification is needed, call `odin.get_role_card` with the known
+  role_id and compare returned `content_sha256` against the recorded value.
+- Match: no re-read needed; proceed.
+- Mismatch: full re-read required; update `scp_skill_sha256` in the receipt.
+
+### Canonical Cache-Aligned Packet Ordering
+
+All dispatch packets must follow this canonical order to maximize cache prefix
+stability across all LLM providers:
+
+1. **Stable identity block** — SCP role contract, governance preamble
+2. **Stable role card** — role-specific quick-start card (static resource)
+3. **Stable repo invariants** — repo name, main branch, core constraints
+4. **Stable LCE/evidence recipe** — evidence format, write scope format
+5. **Volatile dispatch tail** — current slice ID, current HEAD, task-specific
+   write scope, current blockers, evidence path, timestamps
+
+Dynamic content (timestamps, current HEAD, short-lived state) goes LAST.
+Do not place frequently-changing items before the stable prefix.
+
+This ordering is IMMUTABLE. Reordering any layer requires EXEC PM approval
+and a SCP_PUBLIC_VERSION minor bump.
+
+### No-Bare-Header Rule
+
+Never send a coordination header ([SCP-DELEGATE], [SCP-AGENT-SUBSTITUTION],
+or similar) without its body in the same delivery unit. An agent receiving only
+a header cannot distinguish protocol fragmentation versus an invalid send.
+
+For harnesses that may show chunked input (Crush, some Droid surfaces):
+use a "DIRECT ROLE CONTRACT" plain-language wrapper instead of leading with
+a protocol header when fragmentation risk is present.
+
+Receivers that receive a bare header with no body MUST classify the delivery
+MALFORMED_COORDINATION and emit `[SCP-FEEDBACK]` requesting a resend.
+
+### Crush Bootstrap Delivery Guideline
+
+When activating an agent on a Crush harness surface:
+
+1. `cmux read-screen` first — confirm the surface is idle (no active spinner,
+   no queued steering text visible).
+2. Send ONE complete instruction block — do not fragment the contract across
+   multiple sends. One send, one block.
+3. Send Enter — a single `cmux send-keys Enter` after the block.
+4. Wait for idle — use `cmux wait-for` or poll until the surface returns to
+   a shell prompt or response state.
+5. Clear queued text before reissue — if the surface is unresponsive, clear
+   any queued steering text before sending again.
+
+**Two-panic rule**: If Crush panics twice in the same role slot during
+bootstrap, mark AGENT_SUBSTITUTION_REQUIRED and switch to the QA fallback
+ladder. Do not attempt a third bootstrap in the same slot.
+
+Preferred parking receipt format: one-line status + semicolon-delimited
+SCP_MIN_BOOT_RECEIPT fields (compact enough to avoid queue overflow).
+
+### Anthropic Cache-Warming Guidance
+
+Before activating a fleet of Claude-occupied roles:
+1. Send a warm-up request with `max_tokens: 0` to pre-populate the prefix cache.
+   This spares every agent in the fleet a cache-write cost on its
+   first request.
+2. Set `ENABLE_PROMPT_CACHING_1H=1` on API keys where 1-hour TTL is acceptable.
+   This reduces cache-write cost for long sessions.
+3. Place the stable role card content before the volatile dispatch tail to
+   maximize the length of the cacheable prefix.
+
 ## Generic Role Model And Control Topology
 
 SCP role names are generic. Do not bind authority to model names, harness names, pane names, or vendor brands. Every assignment must separate:
@@ -96,6 +189,31 @@ Preferred role taxonomy:
 - `SHADOW REVIEWER`: read-only drift, stale-proof, scope, validator, and evidence watcher.
 - `INTEGRATION STEWARD`: merge/cherry-pick/integration proof and branch hygiene. Does not implement product features unless separately authorized.
 - `QUEUE TRIAGE`: dependency, readiness, and dispatch-order analysis.
+
+#### PM Reasoning Level Guidance
+
+Adjust reasoning level by phase:
+
+- **L1 — Passive supervision** (lower reasoning): polling, heartbeat routing,
+  contract maintenance, flag-file checks. Do not use full reasoning for
+  routine no-change supervision cycles.
+- **L2 — Active coordination** (medium reasoning): dispatch planning, model and
+  role assignment, QA synthesis and comparison, merge commit review.
+- **L3 — Authority decisions** (full reasoning): disagreement resolution,
+  merge conflicts, protocol exception handling, closure decisions, any action
+  that modifies the governed team topology.
+
+#### EXEC-ASST as QA Capacity
+
+EXEC-ASST may serve as QA capacity only under the following conditions:
+1. An explicit role exception contract is sent before the QA task begins.
+2. The agent receives a fresh boot receipt acknowledging the role change.
+3. The prior task context (heartbeat, pane inventory) is explicitly parked or
+   cleared in the new boot receipt.
+
+Implicit role inference based on a prior task is prohibited. An EXEC-ASST that
+was running heartbeat loops does NOT automatically become a QA worker without
+a fresh contract.
 
 Use role-named terminal tabs/panes/surfaces when possible. Model and harness are capabilities, not identity. If a harness fails, substitute another harness by reissuing the same role contract; do not change scope or authority just because the runtime changed.
 
@@ -329,7 +447,46 @@ Default official grouping:
 
 If no existing role is appropriate, `EXEC PM` must request the user authorization before creating capacity.
 
-Active SCP visible role-slot rules override generic external subagent language while SCP is active. Generic external coordination concepts may describe Dev/QA capacity, but under SCP that capacity must be represented by visible CMUX role slots unless the user authorizes topology expansion.
+Active SCP visible role-slot rules override generic external subagent language while SCP is active. Generic external coordination concepts may describe Dev/QA capacity, but under SCP that capacity must be represented by visible role slots on a substrate meeting the declared capability tier (CMUX is the reference substrate) unless the user authorizes topology expansion.
+
+### Hybrid Mission/Surfaces Topology Default
+
+The default team primitive is separate visible surfaces, not Factory Missions.
+
+Use separate visible surfaces when:
+- QA independence is required (each reviewer needs its own boot receipt and model)
+- Model diversity reduces correlated blind spots in review
+- Dispatch control (model selection per slice) is needed
+
+Use Missions as one Dev capacity type when:
+- The work is a large decomposable implementation burst
+- Internal Mission orchestration adds value over manual decomposition
+- The Mission output will be reviewed by an external, independently contracted QA surface
+
+**Routing rules by slice size:**
+
+| Slice type | Dev surfaces | QA surfaces | Notes |
+|------------|-------------|-------------|-------|
+| Small | 1 | 1 | Simple implementation + review |
+| Medium | 2 (separate worktrees) | 1-2 | Parallel implementation |
+| Hard / risky | 1 strong Dev or Mission | 3 (QA swarm) | Adversarial review |
+| Ambiguous / multi-impl | Multiple Dev | Swarm selects best | Exploratory |
+| Cheap repetitive | 1 low-cost Droid | 1 stronger QA | Cost-optimized |
+| Large decomposable | 1 Factory Mission | External independent QA | Self-contained burst |
+
+### Substrate Capability Tiers
+
+Protocol obligations reference capability tiers rather than specific harness names. Any substrate meeting the required tier may satisfy the obligation. CMUX is the reference substrate and remains the canonical choice for governed teams; cmux-specific rules are not deleted by this table.
+
+| Substrate | SEND | ENTER_PROOF | READ_SCREEN | WAIT_IDLE | EVENTS | Tier |
+|-----------|:----:|:-----------:|:-----------:|:---------:|:------:|:----:|
+| cmux | Y | Y | Y | Y | Y | 3 |
+| tmux | Y | Y | Y | Y | N | 2 |
+| minimux | Y | Y | Y | Y | Y | 4 |
+| herdr | Y | Y | Y | Y | Y | 3+ |
+| plain terminal | Y | N | N | N | N | 0 |
+
+Governed work must be visible on a substrate meeting READ_SCREEN + ENTER_PROOF (capability tier 1+). Work visible only on a plain terminal (tier 0) is not governed work under SCP. Where a substrate requires a substrate meeting EVENTS capability (tier 3+), the obligation cannot be satisfied by tier 0-2 substrates without explicit degraded-mode authorization in the boot receipt.
 
 ## Surface Layout Custodianship
 
