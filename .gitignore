@@ -19,5 +19,24 @@ telemetry/wrangler.deploy.toml
 
 # Internal planning artifacts (local-only; do not publish proprietary process notes)
 project/planning/
-.edge-agentic/local/
 .tmp/
+
+# Edge Agentic Framework (entire consolidated dir is local-only in this public repo,
+# per the same proprietary-process policy as project/planning/)
+.edge-agentic/
+.loop/
+CLAUDE.local.md
+config/dangerous-patterns.yaml
+config/governance-publication.yaml
+config/telemetry-protocol.md
+scripts/governance-setup-diagnostics.sh
+scripts/telemetry-setup-diagnostics.sh
+doppler.yaml
+
+# Edge-Agentic Claude Code symlinks (machine-specific)
+.claude/commands/
+.claude/skills/
+.mcp.json
+
+# Task list persistence (machine-specific)
+.envrc
