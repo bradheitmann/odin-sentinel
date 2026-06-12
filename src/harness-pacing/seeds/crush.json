@@ -1,0 +1,29 @@
+{
+  "harness_id": "crush",
+  "version": "1.0",
+  "last_updated": "2026-06-12T00:00:00Z",
+  "basis_note": "provisional; seed data, n=1 field report 2026-06-11; not statistically significant",
+  "samples_total": 1,
+  "events": [
+    {
+      "harness_id": "crush",
+      "event_type": "CRASH",
+      "ts": "2026-06-11T21:10:09Z",
+      "notes": "Coordinator panic triggered by overlapping queued prompt submissions during bootstrap; Crush v0.76.0; GLM-5.1 max reasoning",
+      "crash_signature_hash": "f94360680e22b229e9fff8d9d34346689d023b2fffa2e6f8b13c7b4337d4c13f",
+      "crash_signature_summary": "sync.(*WaitGroup).Wait | agent.(*coordinator).run | ui.(*UI).sendMessage.func2 | bubbletea.execBatchMsg | TUI run error: program experienced a panic",
+      "recovery_action": "restart crush --debug in same role slot; use single-block compact re-contract"
+    }
+  ],
+  "crash_signatures": [
+    "f94360680e22b229e9fff8d9d34346689d023b2fffa2e6f8b13c7b4337d4c13f"
+  ],
+  "recommended": {
+    "harness_id": "crush",
+    "max_word_bucket": "0-100 words",
+    "min_idle_wait_seconds": 5,
+    "slash_command_bundling": "avoid",
+    "multi_phase_prompting": "avoid",
+    "notes": "Single-intent phased prompts; wait for idle after each phase; avoid slash-command bundling; avoid sending multiple fragments; crash override applied (1 known crash signature(s))"
+  }
+}

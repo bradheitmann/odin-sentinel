@@ -1,0 +1,24 @@
+{
+  "harness_id": "glm-droid",
+  "version": "1.0",
+  "last_updated": "2026-06-12T00:00:00Z",
+  "basis_note": "provisional; seed data, n=1 field observation 2026-06-11; not statistically significant",
+  "samples_total": 1,
+  "events": [
+    {
+      "harness_id": "glm-droid",
+      "event_type": "MODAL_BLOCK",
+      "ts": "2026-06-11T00:00:00Z",
+      "notes": "Factory Droid Mission surface blocked on proposal approval gate after receiving mission contract; required Enter assist to approve 'Proceed with the proposal'"
+    }
+  ],
+  "crash_signatures": [],
+  "recommended": {
+    "harness_id": "glm-droid",
+    "max_word_bucket": "501-1000 words",
+    "min_idle_wait_seconds": 3,
+    "slash_command_bundling": "unknown",
+    "multi_phase_prompting": "allowed",
+    "notes": "Tolerates larger mission contracts; watch for proposal approval modal gates; send Enter assist for 'Proceed with the proposal' prompts"
+  }
+}

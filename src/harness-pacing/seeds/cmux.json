@@ -1,0 +1,17 @@
+{
+  "harness_id": "cmux",
+  "version": "1.0",
+  "last_updated": "2026-06-12T00:00:00Z",
+  "basis_note": "cmux baseline; event-driven supervision available via set-hook; standard SCP delivery",
+  "samples_total": 0,
+  "events": [],
+  "crash_signatures": [],
+  "recommended": {
+    "harness_id": "cmux",
+    "max_word_bucket": "251-500 words",
+    "min_idle_wait_seconds": 2,
+    "slash_command_bundling": "allowed",
+    "multi_phase_prompting": "allowed",
+    "notes": "Standard SCP delivery; set-hook available for event-driven supervision; no known crash patterns"
+  }
+}
