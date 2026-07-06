@@ -71,6 +71,7 @@ export const requiredPackageFiles = [
   "plugins/odin-scp/skills/odin-scp/references/harness-skill-targets.md",
   "plugins/odin-scp/skills/odin-scp/references/team-bootstrap-runbook.md",
   "plugins/odin-scp/skills/odin-scp/scripts/sync-installations.sh",
+  "plugins/odin-scp/skills/bulk-migration/SKILL.md",
   "plugins/odin-scp/README.md",
   ...requiredTemplateFiles,
   "scripts/audit/public-surface.mjs",
