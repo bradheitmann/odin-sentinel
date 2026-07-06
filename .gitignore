@@ -46,3 +46,6 @@ intelligence/
 
 # Product research (local-only proposals and renders)
 product-research/
+
+# Odin MCP field-feedback research staging (local-only; imported from team field use)
+research/
