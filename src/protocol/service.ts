@@ -81,9 +81,14 @@ function normalizeRoleName(role: string): string {
   const visibleSlot = role.includes("/") ? role.split("/").at(-1) ?? role : role;
   const normalized = visibleSlot.toUpperCase().replace(/[\s-]+/g, "_");
   if (normalized === "ODIN") return "TEAM_ODIN";
-  if (/^DEV_\d+$/.test(normalized)) return "DEV_WORKER";
-  if (/^QA_\d+$/.test(normalized)) return "QA_WORKER";
-  if (/^SHADOW_\d+$/.test(normalized)) return "SHADOW_REVIEWER";
+  // Bare team-prefixed PM slots (C/PM, D/PM) are TEAM PM seats; the exec form is
+  // always spelled EXEC-PM and never reduces to bare "PM".
+  if (normalized === "PM") return "TEAM_PM";
+  // Worker slots resolve with or without a lane number: B/QA and B/QA-1 are the
+  // same profile. Un-numbered slots are common in the field (single-lane pods).
+  if (/^DEV(_\d+)?$/.test(normalized)) return "DEV_WORKER";
+  if (/^QA(_\d+)?$/.test(normalized)) return "QA_WORKER";
+  if (/^SHADOW(_\d+)?$/.test(normalized)) return "SHADOW_REVIEWER";
   return normalized;
 }
 
@@ -1162,7 +1167,8 @@ export function validateBootReceipt(
     for (const field of requiredForNonExec) {
       const current = receipt[field];
       if (current === undefined || current === null || (typeof current === "string" && current.trim() === "")) {
-        warnings.push(`staffing audit field missing on non-exec receipt: ${field}`);
+        missing.push(field);
+        warnings.push(`staffing audit field required on non-exec receipt (team != "A"): ${field}`);
       }
     }
     const canonicalStaffer =
@@ -1170,7 +1176,12 @@ export function validateBootReceipt(
         ? staffingAuditAudit.staffed_by_canonical_value
         : "A/EXEC-PM";
     if (typeof receipt.staffed_by === "string" && receipt.staffed_by !== canonicalStaffer) {
-      warnings.push(`staffed_by is "${receipt.staffed_by}" but staffing authority belongs solely to ${canonicalStaffer}`);
+      invalid.push("staffed_by");
+      warnings.push(`staffed_by is "${receipt.staffed_by}" but staffing authority belongs solely to ${canonicalStaffer}; self-staffing is halt-eligible`);
+    }
+    if (typeof receipt.team_letter === "string" && receipt.team_letter !== "" && receipt.team_letter !== team) {
+      invalid.push("team_letter");
+      warnings.push(`team_letter "${receipt.team_letter}" does not match the receipt's team prefix "${team}"`);
     }
   }
 

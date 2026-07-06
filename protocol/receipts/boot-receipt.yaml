@@ -70,14 +70,21 @@ recommended_fields:
   - delegates_to
   - prohibited_paths
   - proof_source
-  - staffed_by
-  - parent_surface_ref
-  - column_index
-  - team_letter
   - lifecycle_state
   - mcp_version
   - scp_context_source
   - instruction_read_proof
+conditionally_required_fields:
+  condition: team != "A"
+  fields:
+    - staffed_by
+    - parent_surface_ref
+    - column_index
+    - team_letter
+  note: >-
+    Required, not recommended, for any role outside the executive office. A
+    reader following required_fields alone must also apply this block; the
+    validator hard-fails non-exec receipts that omit these fields.
 receipt_type_policy:
   SCP_BOOT_RECEIPT: full governed occupant receipt after role/context/readiness are known
   SCP_MIN_BOOT_RECEIPT: minimal bootstrap-only receipt for orientation or pre-dispatch identity proof
@@ -86,8 +93,9 @@ staffing_audit:
     For any role outside the executive office (team != "A"), the boot receipt
     must record who staffed the agent (staffed_by) and which CMUX surface it
     occupies (parent_surface_ref, column_index, team_letter). Receipts missing
-    these fields on non-exec roles produce ODIN warnings. EXEC PM is the sole
-    canonical staffing authority.
+    these fields on non-exec roles are INVALID (hard validation failure, not a
+    warning), and a staffed_by other than the canonical staffing authority is
+    invalid and halt-eligible. EXEC PM is the sole canonical staffing authority.
   required_for_non_exec_team:
     - staffed_by
     - parent_surface_ref
