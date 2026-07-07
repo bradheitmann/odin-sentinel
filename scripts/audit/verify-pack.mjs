@@ -14,6 +14,8 @@ const requiredProtocolFiles = [
   "protocol/delegation.yaml",
   "protocol/receipts/boot-receipt.yaml",
   "protocol/receipts/team-manifest.yaml",
+  "protocol/resources/step-up-ladder.yaml",
+  "protocol/resources/recipe-capture.yaml",
   "protocol/bootstrap-skill.md",
   "protocol/skill-references/boot-receipt-examples.md",
   "protocol/skill-references/canonical-introduction-prompt.md",

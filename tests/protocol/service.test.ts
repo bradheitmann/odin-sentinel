@@ -56,6 +56,8 @@ function minimalProtocolData(): ProtocolData {
     bootReceipt: {
       required_fields: []
     },
+    stepUpLadder: { step_up_ladder: {} },
+    recipeCapture: { recipe_capture: {} },
     teamManifest: {
       required_fields: []
     },

@@ -44,6 +44,26 @@ delegation_contract:
       - DELIVERED_NO_ACK
     rule: A dispatch is delivered only after submit (Enter) plus verified processing on the target surface; input-bar text is not delivery.
     validate_with: odin.validate_cmux_delivery_proof
+  step_up_ladder_mode:
+    description: >-
+      Delegation mode for capability-tiered remediation (odin://protocol/step-up-ladder).
+      Routes a gate-failed artifact UP one tier for REWORK, never restart. PM-routed,
+      readiness-gated, liveness-checked.
+    required_fields:
+      - failed_artifact_paths    # non-empty; the salvaged baton
+      - failure_reason           # the exact gate finding that failed the prior tier
+      - failed_gate              # QA_REJECT | HOLDOUT_FAIL | SELF_PROOF_GAP
+      - acceptance_bar           # UNCHANGED from the original assignment
+      - source_tier_index
+      - target_tier_index        # source + 1
+      - review_lane_tier_index   # must equal target_tier_index (independence travels with the DEV)
+    rules:
+      - Step up only on a real, independent gate failure; a self-authored tool green never justifies escalation state.
+      - The receiving tier opens and continues the salvaged artifact; an empty failed_artifact_paths is an invalid restart.
+      - The acceptance bar is immutable across tiers.
+      - The receiving tier is reviewed by its OWN QA + holdout lane, never the prior tier's lane.
+      - Never dispatch into an unready, saturated, or drifting lane; hold and surface instead.
+      - Validate packets with odin.validate_remediation_packet; evaluate gates with odin.evaluate_escalation_gate.
   rules:
     - Delegation must target a visible role slot.
     - Delegation must not create hidden agents or off-ledger workers.

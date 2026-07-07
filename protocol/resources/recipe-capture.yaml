@@ -1,0 +1,32 @@
+version: 0.5.0
+recipe_capture:
+  purpose: >-
+    Solve-hard-once, scale-cheap: when a tier above tier 0 cracks a hard CLASS
+    of problem, the winning method is captured as a reusable recipe artifact and
+    re-injected at tier 0, so cheaper tiers replicate it across the rest of the
+    class instead of re-escalating every instance.
+
+  artifact_schema:
+    required_fields:
+      - recipe_id              # stable slug for the cracked class
+      - cracked_class          # description of the problem class this recipe solves
+      - produced_by_tier_index # tier (>0) whose attempt cracked the class
+      - method                 # the working method/prompt/discipline, stated reusably
+      - validation             # how a cheap-tier application of the recipe is verified
+      - reinjection_target     # always tier_0
+    recommended_fields:
+      - source_task_ref        # the instance that was solved hard
+      - acceptance_bar         # the bar the recipe was proven against
+      - expiry_or_refresh      # when the recipe should be revalidated
+    field_rules:
+      produced_by_tier_index: must be greater than 0 (tier 0 needs no recipe to do tier-0 work)
+      reinjection_target: fixed value tier_0; recipes flow DOWN the ladder only
+      method: no model names or lane ids; the recipe must be binding-agnostic
+
+  lifecycle:
+    - capture: the tier that cracked the class writes the recipe with validation evidence
+    - review: the capturing tier's own QA lane confirms the recipe reproduces the solve
+    - reinject: tier 0 receives the recipe in its standing context for the class
+    - retire: refresh or retire per expiry_or_refresh when the class or bindings change
+
+  binding: odin://protocol/step-up-ladder

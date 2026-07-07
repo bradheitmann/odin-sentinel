@@ -19,7 +19,9 @@ import {
   getStartupPacket,
   getVersionMetadata,
   loadProtocolData,
+  evaluateEscalationGate,
   validateBootReceipt,
+  validateRemediationPacket,
   validateCmuxDeliveryProof,
   validateDelegationPacket,
   validateInstructionReadProof,
@@ -60,7 +62,9 @@ import {
   startupPacketInputShape,
   surfaceLayoutGateInputShape,
   surfaceLayoutInputShape,
-  teamManifestInputShape
+  teamManifestInputShape,
+  escalationGateInputShape,
+  remediationPacketInputShape
 } from "../protocol/schemas.js";
 
 function jsonText(value: unknown) {
@@ -124,6 +128,22 @@ function registerProtocolResources(server: McpServer) {
       description: "Native ODIN delegation packet contract and validation rules.",
       mimeType: "application/yaml",
       read: () => yamlResource(loadProtocolData().delegation)
+    },
+    {
+      name: "step-up-ladder",
+      uri: "odin://protocol/step-up-ladder",
+      title: "Step-Up Remediation Ladder",
+      description: "Configurable capability-tiered remediation doctrine: cheap-first, step up only on real gate failure, rework-not-restart, reserve top tier.",
+      mimeType: "application/yaml",
+      read: () => yamlResource(loadProtocolData().stepUpLadder)
+    },
+    {
+      name: "recipe-capture",
+      uri: "odin://protocol/recipe-capture",
+      title: "Recipe Capture Artifact",
+      description: "Solve-hard-once, scale-cheap: reusable recipe artifact captured when a strong tier cracks a hard class, re-injected at tier 0.",
+      mimeType: "application/yaml",
+      read: () => yamlResource(loadProtocolData().recipeCapture)
     },
     {
       name: "boot-receipt",
@@ -351,6 +371,28 @@ export function createServer(): McpServer {
       inputSchema: bootReceiptInputShape
     },
     (input) => jsonText(validateBootReceipt(input.receipt))
+  );
+
+  server.registerTool(
+    "odin.evaluate_escalation_gate",
+    {
+      title: "Evaluate Escalation Gate",
+      description:
+        "Step-Up Remediation Ladder gate: given tier position and independent gate observations (QA verdict, sealed holdout, self-proof), return DONE, REMEDIATE (next tier, rework-not-restart), ESCALATE_OPERATOR (reserve-tier failure), or INSUFFICIENT_EVIDENCE (self-tool green never passes).",
+      inputSchema: escalationGateInputShape
+    },
+    (input) => jsonText(evaluateEscalationGate(input))
+  );
+
+  server.registerTool(
+    "odin.validate_remediation_packet",
+    {
+      title: "Validate Remediation Packet",
+      description:
+        "Validate a step-up remediation packet (the baton): non-empty salvaged artifact, exact failure reason, immutable acceptance bar, one-rung step, and a review lane that travels with the DEV.",
+      inputSchema: remediationPacketInputShape
+    },
+    (input) => jsonText(validateRemediationPacket(input.packet))
   );
 
   server.registerTool(

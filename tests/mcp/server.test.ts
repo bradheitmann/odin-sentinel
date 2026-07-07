@@ -40,6 +40,7 @@ describe("ODIN MCP server", () => {
         "odin.compute_human_cmux_quad_layout",
         "odin.compute_surface_layout",
         "odin.compute_surface_layout_gate",
+        "odin.evaluate_escalation_gate",
         "odin.evaluate_readiness_gate",
         "odin.export_protocol_snapshot",
         "odin.get_activation_gates",
@@ -64,6 +65,7 @@ describe("ODIN MCP server", () => {
         "odin.validate_cmux_delivery_proof",
         "odin.validate_delegation_packet",
         "odin.validate_instruction_read_proof",
+        "odin.validate_remediation_packet",
         "odin.validate_team_manifest"
       ]);
       expect(resources.resources.map((resource) => resource.uri).sort()).toEqual([
@@ -74,6 +76,7 @@ describe("ODIN MCP server", () => {
         "odin://protocol/model-profiles",
         "odin://protocol/receipts/boot",
         "odin://protocol/receipts/team-manifest",
+        "odin://protocol/recipe-capture",
         "odin://protocol/role-cards/dev-worker",
         "odin://protocol/role-cards/exec-asst",
         "odin://protocol/role-cards/exec-pm",
@@ -84,6 +87,7 @@ describe("ODIN MCP server", () => {
         "odin://protocol/skill-references/canonical-introduction-prompt",
         "odin://protocol/skill-references/harness-skill-targets",
         "odin://protocol/skill-references/team-bootstrap-runbook",
+        "odin://protocol/step-up-ladder",
         "odin://protocol/topology"
       ]);
     } finally {
@@ -104,11 +108,13 @@ describe("ODIN MCP server", () => {
         "odin://protocol/model-profiles",
         "odin://protocol/receipts/boot",
         "odin://protocol/receipts/team-manifest",
+        "odin://protocol/recipe-capture",
         "odin://protocol/roles",
         "odin://protocol/skill-references/boot-receipt-examples",
         "odin://protocol/skill-references/canonical-introduction-prompt",
         "odin://protocol/skill-references/harness-skill-targets",
         "odin://protocol/skill-references/team-bootstrap-runbook",
+        "odin://protocol/step-up-ladder",
         "odin://protocol/topology"
       ];
       const toolCalls = [

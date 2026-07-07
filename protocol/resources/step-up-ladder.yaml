@@ -1,0 +1,111 @@
+version: 0.5.0
+step_up_ladder:
+  doctrine: >-
+    Solve-hard-once, scale-cheap. Try the cheapest capable tier first; step up to
+    a more capable (costlier) tier only when the prior tier fails a real,
+    independent gate; on step-up, salvage and REWORK the prior artifact — never
+    restart; reserve the most expensive tier for work that is PROVEN hard.
+
+  # ------------------------------------------------------------------
+  # This resource ships DOCTRINE, not bindings. Tier count and per-tier
+  # model/harness bindings are operator configuration supplied at run
+  # time (resolve capability/cost through odin://protocol/model-profiles).
+  # No model name, lane id, or cost multiple ships here by design.
+  # ------------------------------------------------------------------
+  binding_policy:
+    tiers_are_configuration: true
+    minimum_tiers: 2
+    bindings_resolve_via: odin://protocol/model-profiles
+    shipped_bindings: none
+    reserve_rule: >-
+      The top tier is a reserve weapon, not a default. The higher its cost
+      multiple, the more strictly it is reserved for last-resort, proven-hard
+      work. Never route routine or fan-out volume to the reserve tier.
+    default_rule: All standard work starts at tier 0 (cheapest capable).
+
+  ladder_config_schema:
+    tier_fields:
+      - tier_index            # 0-based, ascending capability/cost
+      - binding_ref           # model-profiles reference; pin model+flags, never a harness default
+      - reasoning             # reasoning/effort level for the binding
+      - cost_tier             # declared cost class
+      - budget_envelope       # tokens/time/attempt cap for this tier
+      - is_reserve            # true only on the top tier
+    triplet_rule: >-
+      Each tier is a full DEV + its OWN paired QA + its OWN holdout lane.
+      Stepping up moves the complete triplet: the reviewer of a tier's rework is
+      always that tier's dedicated lane, never a borrowed (prior-tier) lane.
+
+  escalation_gates:
+    description: >-
+      A tier has failed — and only then may the ladder step up — when the
+      attempt fails ANY real, independent gate. A green result from a tool the
+      producing agent itself wrote is NEVER sufficient to pass; the independent
+      gates below are the bar.
+    gates:
+      - QA_REJECT        # independent adversarial review found a defect
+      - HOLDOUT_FAIL     # sealed, blind, source-reading verification failed
+      - SELF_PROOF_GAP   # the artifact's required decisive proof does not hold
+    additional_failure_signals:
+      - BUDGET_EXHAUSTED # the tier consumed its budget envelope without passing
+      - BLOCKED          # the tier self-declared it cannot proceed
+
+  verdicts:
+    DONE: >-
+      No gate failed AND at least one independent gate (QA pass or holdout pass)
+      was actually observed. Work returns; the ladder stops.
+    REMEDIATE: >-
+      A gate failed and a higher tier exists. The next tier REWORKS the salvaged
+      artifact under the UNCHANGED acceptance bar, reviewed by its OWN lane.
+    ESCALATE_OPERATOR: >-
+      A gate failed at the top (reserve) tier, or the reserve tier exhausted its
+      budget. Never silent-fail past the top of the ladder.
+    INSUFFICIENT_EVIDENCE: >-
+      No gate failed but no independent gate was observed (for example, only a
+      self-authored tool reported green). Not DONE — and not proven-hard either,
+      so no step-up is spent. Obtain an independent verdict at the CURRENT tier.
+
+  rework_not_restart:
+    rule: >-
+      The step-up handoff is the prior tier's partial artifact (the baton) plus
+      the exact failure reason plus the UNCHANGED acceptance bar. The stronger
+      tier opens and continues the artifact; a restart (missing salvaged
+      artifact) is INVALID. The prior tier usually got most of the way there —
+      restarting re-burns that cost.
+    packet: remediation_packet   # validate with odin.validate_remediation_packet
+    anti_patterns:
+      - restarting from scratch (empty artifact_paths)
+      - mutating the acceptance bar between tiers
+      - borrowing the prior tier's review lane
+      - repeating a prior tier's recorded dead-end attempts
+      - inheriting a harness default model at any tier
+      - escalating silently past the reserve tier
+
+  remediation_packet:
+    required_fields:
+      - task_ref
+      - tier_index             # tier that produced the failed artifact
+      - artifact_paths         # non-empty: the salvaged partial work product
+      - failure_reason         # QA findings | holdout verdict | self-proof gap
+      - failed_gate            # QA_REJECT | HOLDOUT_FAIL | SELF_PROOF_GAP
+      - acceptance_bar         # UNCHANGED across tiers
+      - next_tier_index        # tier receiving the baton
+      - review_lane_tier_index # must equal next_tier_index (independence travels with the DEV)
+    recommended_fields:
+      - attempts               # dead-ends tried, so the next tier does not repeat them
+      - budget_spent
+      - original_acceptance_bar # when present, must be byte-identical to acceptance_bar
+
+  recipe_capture:
+    binding: odin://protocol/recipe-capture
+    rule: >-
+      When a strong tier cracks a hard CLASS of problem, capture the winning
+      method as a reusable recipe and re-inject it at tier 0, so the cheap tier
+      replicates it on the rest of the class. Solve the hard instance once with
+      the expensive tier; scale the rest cheaply.
+
+  operating_rules:
+    - The team PM owns routing up the ladder; the orchestrator sets the policy.
+    - Never escalate into an unready, saturated, or drifting lane; hold and surface instead.
+    - Judge lane liveness from real advancing output, not a context-percentage gauge.
+    - Step-up delegation uses the step_up_ladder delegation mode (protocol/delegation.yaml).

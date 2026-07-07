@@ -533,3 +533,47 @@ export interface MissionFrontrunPack {
     tool: string;
   };
 }
+
+// ---------------------------------------------------------------------------
+// EPIC-027 — Step-Up Remediation Ladder (odin://protocol/step-up-ladder)
+// ---------------------------------------------------------------------------
+
+export const escalationGateVerdictSchema = z.enum([
+  "DONE",
+  "REMEDIATE",
+  "ESCALATE_OPERATOR",
+  "INSUFFICIENT_EVIDENCE"
+]);
+export type EscalationGateVerdict = z.infer<typeof escalationGateVerdictSchema>;
+
+export const escalationFailedGateSchema = z.enum(["QA_REJECT", "HOLDOUT_FAIL", "SELF_PROOF_GAP"]);
+export type EscalationFailedGate = z.infer<typeof escalationFailedGateSchema>;
+
+export const escalationGateInputShape = {
+  // Ladder shape is configuration: only the tier count matters to the gate.
+  tierCount: z.number().int().min(2).max(16),
+  currentTierIndex: z.number().int().min(0),
+  observations: z.object({
+    qa_verdict: z.enum(["PASS", "REJECT"]).optional(),
+    holdout_result: z.enum(["PASS", "FAIL"]).optional(),
+    self_proof: z.enum(["HOLDS", "GAP"]).optional(),
+    self_tool_green: z.boolean().optional(),
+    budget_exhausted: z.boolean().optional(),
+    blocked: z.boolean().optional()
+  }),
+  taskRef: z.string().optional()
+} as const;
+export const escalationGateInputSchema = z.object(escalationGateInputShape);
+export type EscalationGateInput = z.infer<typeof escalationGateInputSchema>;
+
+export interface EscalationGateResult {
+  verdict: EscalationGateVerdict;
+  failed_gates: string[];
+  next_tier_index: number | null;
+  reasons: string[];
+  remediation_requirements: string[] | null;
+}
+
+export const remediationPacketInputShape = {
+  packet: z.record(z.string(), z.unknown())
+} as const;

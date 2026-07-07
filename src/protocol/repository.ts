@@ -15,6 +15,8 @@ export const REQUIRED_PROTOCOL_FILES = [
   "protocol/delegation.yaml",
   "protocol/receipts/boot-receipt.yaml",
   "protocol/receipts/team-manifest.yaml",
+  "protocol/resources/step-up-ladder.yaml",
+  "protocol/resources/recipe-capture.yaml",
   "protocol/bootstrap-skill.md",
   "protocol/skill-references/boot-receipt-examples.md",
   "protocol/skill-references/canonical-introduction-prompt.md",
@@ -41,6 +43,8 @@ export type ProtocolData = {
   delegation: Record<string, unknown>;
   bootReceipt: Record<string, unknown>;
   teamManifest: Record<string, unknown>;
+  stepUpLadder: Record<string, unknown>;
+  recipeCapture: Record<string, unknown>;
   bootstrapSkill: string;
   skillReferences: {
     bootReceiptExamples: string;
@@ -166,6 +170,8 @@ export function createFileProtocolRepository(rootDir = findRootDir()): ProtocolR
         delegation: readYaml(protocolPath("delegation.yaml")),
         bootReceipt: readYaml(protocolPath("receipts", "boot-receipt.yaml")),
         teamManifest: readYaml(protocolPath("receipts", "team-manifest.yaml")),
+        stepUpLadder: readYaml(protocolPath("resources", "step-up-ladder.yaml")),
+        recipeCapture: readYaml(protocolPath("resources", "recipe-capture.yaml")),
         bootstrapSkill: readFileSync(protocolPath("bootstrap-skill.md"), "utf8"),
         skillReferences: {
           bootReceiptExamples: readFileSync(protocolPath("skill-references", "boot-receipt-examples.md"), "utf8"),

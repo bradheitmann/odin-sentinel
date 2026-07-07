@@ -5,7 +5,7 @@ import {
   type ProtocolData,
   type ProtocolRepository
 } from "./repository.js";
-import type { CloseoutMode, DelegationPacketInput, MissionFrontrunInput, MissionFrontrunPack, RoleCard, StartupPacketInput } from "./schemas.js";
+import type { CloseoutMode, DelegationPacketInput, EscalationGateInput, EscalationGateResult, MissionFrontrunInput, MissionFrontrunPack, RoleCard, StartupPacketInput } from "./schemas.js";
 import {
   asRecord,
   buildValidationResult,
@@ -1949,6 +1949,138 @@ export function getMissionFrontrunPack(
   };
 }
 
+// ---------------------------------------------------------------------------
+// EPIC-027 — Step-Up Remediation Ladder
+// Doctrine: protocol/resources/step-up-ladder.yaml (configurable; no bindings ship here).
+// ---------------------------------------------------------------------------
+
+/**
+ * Evaluate the escalation gate for a tier's attempt.
+ *
+ * DONE requires an INDEPENDENT positive (QA pass or sealed-holdout pass) with no
+ * failures — a green from a tool the producing agent itself wrote never passes.
+ * Any real gate failure steps up one tier (REMEDIATE) until the reserve tier,
+ * where failure escalates to the operator instead of silently retrying.
+ */
+export function evaluateEscalationGate(input: EscalationGateInput): EscalationGateResult {
+  const { tierCount, currentTierIndex, observations } = input;
+  if (currentTierIndex >= tierCount) {
+    throw new Error(`currentTierIndex ${currentTierIndex} is outside the configured ladder (tierCount ${tierCount})`);
+  }
+
+  const failedGates: string[] = [];
+  if (observations.qa_verdict === "REJECT") failedGates.push("QA_REJECT");
+  if (observations.holdout_result === "FAIL") failedGates.push("HOLDOUT_FAIL");
+  if (observations.self_proof === "GAP") failedGates.push("SELF_PROOF_GAP");
+  if (observations.budget_exhausted === true) failedGates.push("BUDGET_EXHAUSTED");
+  if (observations.blocked === true) failedGates.push("BLOCKED");
+
+  const independentPass = observations.qa_verdict === "PASS" || observations.holdout_result === "PASS";
+  const atReserveTier = currentTierIndex === tierCount - 1;
+  const reasons: string[] = [];
+
+  if (failedGates.length === 0) {
+    if (independentPass) {
+      reasons.push("no gate failed and an independent gate (QA or sealed holdout) passed");
+      return { verdict: "DONE", failed_gates: [], next_tier_index: null, reasons, remediation_requirements: null };
+    }
+    if (observations.self_tool_green === true) {
+      reasons.push("only a self-authored tool reported green; a self-tool green is never accepted as a pass");
+    }
+    reasons.push("no independent gate (QA verdict or sealed holdout) was observed; obtain one at the CURRENT tier — an unproven attempt does not justify a step-up");
+    return { verdict: "INSUFFICIENT_EVIDENCE", failed_gates: [], next_tier_index: null, reasons, remediation_requirements: null };
+  }
+
+  if (atReserveTier) {
+    reasons.push(`gate failure at the reserve (top) tier ${currentTierIndex}: ${failedGates.join(", ")}; never silent-fail past the top of the ladder`);
+    return { verdict: "ESCALATE_OPERATOR", failed_gates: failedGates, next_tier_index: null, reasons, remediation_requirements: null };
+  }
+
+  reasons.push(`gate failure at tier ${currentTierIndex}: ${failedGates.join(", ")}; the work is PROVEN hard — step up one tier and REWORK`);
+  return {
+    verdict: "REMEDIATE",
+    failed_gates: failedGates,
+    next_tier_index: currentTierIndex + 1,
+    reasons,
+    remediation_requirements: [
+      "hand the next tier the salvaged artifact (rework, never restart)",
+      "carry the exact failure reason from the failed gate",
+      "the acceptance bar is UNCHANGED across tiers",
+      `review lane = tier ${currentTierIndex + 1}'s OWN QA + holdout lane (independence travels with the DEV)`,
+      "record dead-end attempts so the next tier does not repeat them",
+      "validate the handoff with odin.validate_remediation_packet"
+    ]
+  };
+}
+
+const REMEDIATION_FAILED_GATES = ["QA_REJECT", "HOLDOUT_FAIL", "SELF_PROOF_GAP"] as const;
+
+/**
+ * Validate a step-up remediation packet (the baton). Required fields come from
+ * the step-up-ladder doctrine resource; the semantic rules — non-empty salvage,
+ * immutable acceptance bar, review lane travels with the DEV — are enforced here.
+ */
+export function validateRemediationPacket(
+  packet: Record<string, unknown>,
+  repository: ProtocolRepository = getDefaultRepository()
+): ValidationResult {
+  const data = loadProtocolData(repository);
+  const ladder = asRecord(asRecord(data.stepUpLadder).step_up_ladder);
+  const packetSchema = asRecord(ladder.remediation_packet);
+  const required = Array.isArray(packetSchema.required_fields)
+    ? (packetSchema.required_fields as unknown[]).filter((f): f is string => typeof f === "string")
+    : ["task_ref", "tier_index", "artifact_paths", "failure_reason", "failed_gate", "acceptance_bar", "next_tier_index", "review_lane_tier_index"];
+
+  const missing = validateRequiredFields(packet, required);
+  const invalid: string[] = [];
+  const warnings: string[] = [];
+
+  // Rework, never restart: an empty baton is a restart in disguise.
+  if (packet.artifact_paths !== undefined) {
+    if (!Array.isArray(packet.artifact_paths) || packet.artifact_paths.length === 0 ||
+        !packet.artifact_paths.every((p) => typeof p === "string" && p.trim().length > 0)) {
+      invalid.push("artifact_paths");
+      warnings.push("artifact_paths must be a non-empty list of salvaged artifact paths; an empty baton is a restart, which the ladder forbids");
+    }
+  }
+
+  if (packet.failed_gate !== undefined &&
+      !REMEDIATION_FAILED_GATES.includes(packet.failed_gate as (typeof REMEDIATION_FAILED_GATES)[number])) {
+    invalid.push("failed_gate");
+    warnings.push(`failed_gate must be one of ${REMEDIATION_FAILED_GATES.join(" | ")}`);
+  }
+
+  const tierIndex = typeof packet.tier_index === "number" ? packet.tier_index : undefined;
+  const nextTier = typeof packet.next_tier_index === "number" ? packet.next_tier_index : undefined;
+  const reviewLaneTier = typeof packet.review_lane_tier_index === "number" ? packet.review_lane_tier_index : undefined;
+
+  if (tierIndex !== undefined && (!Number.isInteger(tierIndex) || tierIndex < 0)) invalid.push("tier_index");
+  if (tierIndex !== undefined && nextTier !== undefined && nextTier !== tierIndex + 1) {
+    invalid.push("next_tier_index");
+    warnings.push(`next_tier_index must be tier_index + 1 (one rung at a time); got ${nextTier} after tier ${tierIndex}`);
+  }
+  if (nextTier !== undefined && reviewLaneTier !== undefined && reviewLaneTier !== nextTier) {
+    invalid.push("review_lane_tier_index");
+    warnings.push(`review lane travels WITH the DEV: review_lane_tier_index must equal next_tier_index ${nextTier}; a borrowed (prior-tier) reviewer breaks QA independence`);
+  }
+
+  if (typeof packet.acceptance_bar === "string" && packet.acceptance_bar.trim().length === 0) {
+    invalid.push("acceptance_bar");
+    warnings.push("acceptance_bar must be the non-empty, unchanged bar from the original assignment");
+  }
+  if (typeof packet.original_acceptance_bar === "string" && typeof packet.acceptance_bar === "string" &&
+      packet.original_acceptance_bar !== packet.acceptance_bar) {
+    invalid.push("acceptance_bar");
+    warnings.push("acceptance bar is immutable across tiers: acceptance_bar differs from original_acceptance_bar");
+  }
+
+  if (packet.attempts === undefined) {
+    warnings.push("attempts (dead-ends tried) is recommended so the next tier does not repeat them");
+  }
+
+  return buildValidationResult(missing, invalid, warnings);
+}
+
 export function createProtocolService(repository: ProtocolRepository = createFileProtocolRepository()) {
   return {
     protocolPath: (...segments: string[]) => repository.path(...segments),
@@ -1976,6 +2108,8 @@ export function createProtocolService(repository: ProtocolRepository = createFil
     getRoleCard: (role_id: string) => getRoleCard(role_id, repository),
     getRuntimeNotice,
     exportProtocolSnapshot: () => exportProtocolSnapshot(repository),
-    getMissionFrontrunPack: (input: MissionFrontrunInput) => getMissionFrontrunPack(input, repository)
+    getMissionFrontrunPack: (input: MissionFrontrunInput) => getMissionFrontrunPack(input, repository),
+    evaluateEscalationGate,
+    validateRemediationPacket: (packet: Record<string, unknown>) => validateRemediationPacket(packet, repository)
   };
 }
