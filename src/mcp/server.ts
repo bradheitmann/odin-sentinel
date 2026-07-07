@@ -24,6 +24,7 @@ import {
   evaluateSliceHealth,
   validateAuthorityAction,
   validateBootReceipt,
+  validateBringUpPlan,
   validateClosureIndependence,
   validateControlRecipe,
   validateCommitGate,
@@ -430,6 +431,17 @@ export function createServer(): McpServer {
       inputSchema: bootReceiptInputShape
     },
     (input) => jsonText(validateBootReceipt(input.receipt))
+  );
+
+  server.registerTool(
+    "odin.validate_bring_up_plan",
+    {
+      title: "Validate Bring-Up Plan",
+      description:
+        "Validate a pod bring-up plan: ground truth captured AFTER boot (SessionStart hooks mutate the repo), count-agnostic preserve framing, and TARGET_ARTIFACT_WRONG as the only stop trigger.",
+      inputSchema: recordInputShape
+    },
+    (input) => jsonText(validateBringUpPlan(input.packet))
   );
 
   server.registerTool(

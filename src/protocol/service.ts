@@ -2618,6 +2618,55 @@ export function evaluateSliceHealth(input: {
   return signals;
 }
 
+// ---------------------------------------------------------------------------
+// EPIC-025 — Pod bring-up & ground-truth safety. Field origin: RFC-v2.3 sweep
+// §3.2 — launching a pod in the target repo fired that repo's SessionStart
+// hooks AFTER the pre-launch scan, so the enumerated expected-state diverged
+// and the pod (correctly) halted on a false positive.
+// ---------------------------------------------------------------------------
+
+/**
+ * Validate a pod bring-up plan: ground truth is captured AFTER the pod boots
+ * in the target repo (SessionStart hooks mutate it), and preservation is
+ * count-agnostic — preserve ALL non-target dirty/untracked whatever the count;
+ * the ONLY stop trigger is a wrong TARGET artifact. Enumerated expected-state
+ * framing is rejected because any hook-side mutation turns it into a false halt.
+ */
+export function validateBringUpPlan(plan: Record<string, unknown>): ValidationResult {
+  const missing = validateRequiredFields(plan, ["ground_truth_capture", "preserve_framing", "stop_triggers"]);
+  const invalid: string[] = [];
+  const warnings: string[] = [];
+
+  const capture = typeof plan.ground_truth_capture === "string"
+    ? plan.ground_truth_capture.toLowerCase().replace(/[\s-]+/g, "_") : "";
+  if (capture !== "" && capture !== "after_boot") {
+    invalid.push("ground_truth_capture");
+    warnings.push("capture ground truth AFTER the pod boots in the target repo — SessionStart hooks mutate the repo, so a pre-boot scan diverges and forces a false halt");
+  }
+
+  const framing = typeof plan.preserve_framing === "string"
+    ? plan.preserve_framing.toLowerCase().replace(/[\s-]+/g, "_") : "";
+  if (framing !== "" && framing !== "count_agnostic") {
+    invalid.push("preserve_framing");
+    warnings.push("use count-agnostic preserve framing (preserve ALL non-target dirty/untracked, whatever the count); enumerated expected-state breaks the moment a hook archives one more file");
+  }
+
+  const triggers = Array.isArray(plan.stop_triggers)
+    ? (plan.stop_triggers as unknown[]).filter((v): v is string => typeof v === "string") : [];
+  for (const trigger of triggers) {
+    const upper = trigger.toUpperCase().replace(/[\s-]+/g, "_");
+    if (upper !== "TARGET_ARTIFACT_WRONG") {
+      invalid.push("stop_triggers");
+      warnings.push(`"${trigger}" is not a valid stop trigger — the ONLY stop condition is a wrong TARGET artifact; non-target mutations are preserved, never halted on`);
+    }
+  }
+  if (triggers.length === 0 && plan.stop_triggers !== undefined) {
+    warnings.push("declare TARGET_ARTIFACT_WRONG as the stop trigger");
+  }
+
+  return buildValidationResult(missing, invalid, warnings);
+}
+
 export function createProtocolService(repository: ProtocolRepository = createFileProtocolRepository()) {
   return {
     protocolPath: (...segments: string[]) => repository.path(...segments),
@@ -2656,6 +2705,7 @@ export function createProtocolService(repository: ProtocolRepository = createFil
     validateControlRecipe,
     validateAuthorityAction,
     evaluateBlockedPodRollover,
-    evaluateSliceHealth
+    evaluateSliceHealth,
+    validateBringUpPlan
   };
 }

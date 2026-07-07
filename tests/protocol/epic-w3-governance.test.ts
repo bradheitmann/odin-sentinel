@@ -172,3 +172,46 @@ describe("evaluateSliceHealth", () => {
     ).toHaveLength(0);
   });
 });
+
+// EPIC-025 — pod bring-up & ground-truth safety.
+import { validateBringUpPlan } from "../../src/protocol/index.js";
+
+describe("validateBringUpPlan", () => {
+  it("accepts capture-after-boot + count-agnostic + target-only stop", () => {
+    const result = validateBringUpPlan({
+      ground_truth_capture: "after_boot",
+      preserve_framing: "count_agnostic",
+      stop_triggers: ["TARGET_ARTIFACT_WRONG"]
+    });
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects a pre-boot ground-truth scan (hooks mutate the repo)", () => {
+    const result = validateBringUpPlan({
+      ground_truth_capture: "before_boot",
+      preserve_framing: "count_agnostic",
+      stop_triggers: ["TARGET_ARTIFACT_WRONG"]
+    });
+    expect(result.valid).toBe(false);
+    expect(result.warnings.join(" ")).toMatch(/SessionStart hooks/);
+  });
+
+  it("rejects enumerated expected-state framing", () => {
+    const result = validateBringUpPlan({
+      ground_truth_capture: "after_boot",
+      preserve_framing: "enumerated",
+      stop_triggers: ["TARGET_ARTIFACT_WRONG"]
+    });
+    expect(result.valid).toBe(false);
+  });
+
+  it("rejects stop triggers other than a wrong TARGET artifact (count-agnostic preserve)", () => {
+    const result = validateBringUpPlan({
+      ground_truth_capture: "after_boot",
+      preserve_framing: "count_agnostic",
+      stop_triggers: ["UNTRACKED_FILE_COUNT_CHANGED"]
+    });
+    expect(result.valid).toBe(false);
+    expect(result.warnings.join(" ")).toMatch(/ONLY stop condition/);
+  });
+});

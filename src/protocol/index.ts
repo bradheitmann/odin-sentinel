@@ -16,6 +16,7 @@ export {
   evaluateEscalationGate,
   evaluateSliceHealth,
   validateBootReceipt,
+  validateBringUpPlan,
   validateAuthorityAction,
   validateClosureIndependence,
   validateControlRecipe,

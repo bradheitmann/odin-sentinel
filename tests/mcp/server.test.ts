@@ -65,6 +65,7 @@ describe("ODIN MCP server", () => {
         "odin.submit_session_report",
         "odin.validate_authority_action",
         "odin.validate_boot_receipt",
+        "odin.validate_bring_up_plan",
         "odin.validate_closure_independence",
         "odin.validate_cmux_delivery_proof",
         "odin.validate_commit_gate",

@@ -89,6 +89,14 @@ unaffected seats, and reverts cleanly at recovery — no authority transfer by i
 Validate with `odin.validate_fallback_contract`, `odin.validate_successor_contract`, and
 `odin.validate_outage_handoff`.
 
+Pod bring-up ground truth. Launching a pod inside a target repo fires that repo's
+SessionStart hooks, which can mutate it (archive files, regenerate status). Capture
+ground truth AFTER the pod boots, not before, and frame preservation count-agnostically:
+preserve ALL non-target dirty/untracked state whatever the count; the ONLY stop trigger
+is a wrong TARGET artifact. Enumerated expected-state ("expect exactly 2 deletions")
+turns any hook-side mutation into a false halt. Validate plans with
+`odin.validate_bring_up_plan`.
+
 Full-instruction-read proof. Before implementation, QA acceptance, or ACTIVE_WATCH work, an
 activated role must produce a full-instruction-read proof listing each required instruction
 file with its byte or line count and a SHA-256 digest. First-screen, head, or partial reads
