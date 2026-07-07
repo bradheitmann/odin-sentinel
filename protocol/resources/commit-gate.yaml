@@ -1,0 +1,32 @@
+version: 0.5.0
+commit_gate:
+  doctrine: >-
+    Exec-gated commits: a pod stages and obtains independent QA, but the COMMIT
+    is authorized only by an EXEC seat that independently verified ground
+    truth, and re-verified after the commit landed. A PM cannot authorize its
+    own pod's commit. Field origin: RFC-v2.3 sweep §6 — the operator's
+    preferred loop, hand-authored into every delegation because no first-class
+    mode existed.
+
+  mode: "commit_gate: exec"    # declared in the delegation packet
+
+  state_machine:
+    - STAGED_READY        # pod staged the exact pathspec + obtained independent QA
+    - EXEC_VERIFIED       # EXEC independently verified ground truth (staged set, blob hashes, parent SHA)
+    - COMMIT_AUTHORIZED   # EXEC issued the authorization token
+    - COMMITTED           # DEV performed the commit
+    - EXEC_REVERIFIED     # EXEC re-verified the landed commit
+
+  authorization_token:
+    required_fields:
+      - token              # opaque, non-empty; quoted in the commit report
+      - issued_by          # an EXEC-layer seat; never the pod PM or implementer
+      - verified_ground_truth   # true — issued only after independent verification
+    rules:
+      - issued_by must be an EXEC-layer role (executive office)
+      - issued_by must not equal the pod PM lane (a PM cannot authorize its own pod's commit)
+      - issued_by must not equal the implementer lane (self-authorization)
+      - a commit claim without a valid token is rejected
+      - a completed commit without EXEC re-verification is not closure-eligible
+
+  validate_with: odin.validate_commit_gate

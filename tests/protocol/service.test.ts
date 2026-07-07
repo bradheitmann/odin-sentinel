@@ -57,6 +57,8 @@ function minimalProtocolData(): ProtocolData {
       required_fields: []
     },
     stepUpLadder: { step_up_ladder: {} },
+    qaIndependence: { qa_independence: {} },
+    commitGate: { commit_gate: {} },
     recipeCapture: { recipe_capture: {} },
     teamManifest: {
       required_fields: []

@@ -2281,6 +2281,142 @@ export function validateOutageHandoff(receipt: Record<string, unknown>): Validat
   return buildValidationResult(missing, invalid, warnings);
 }
 
+// ---------------------------------------------------------------------------
+// EPIC-022 — Active QA closure-independence detection.
+// ---------------------------------------------------------------------------
+
+const CLOSURE_KINDS = ["SLICE_QA_PASS", "HOLDOUT_ACCEPTED", "MISSION_INTERNAL_VALIDATOR"];
+
+/**
+ * Actively verify closure independence — prohibition alone did not prevent the
+ * field breach (a TEAM PM asserted QA=QA_PASS while the QA seat never emitted
+ * a verdict). Fails closed when a verdict is self-asserted, when the reviewer
+ * equals the implementer's lane, when no verdict exists, or when the only PASS
+ * evidence is a weak signal (SLICE_QA_PASS) or an advisory one (a harness's
+ * internal validator).
+ */
+export function validateClosureIndependence(claim: Record<string, unknown>): ValidationResult {
+  const missing = validateRequiredFields(claim, [
+    "task_ref",
+    "implementer_lane",
+    "closing_authority",
+    "verdicts"
+  ]);
+  const invalid: string[] = [];
+  const warnings: string[] = [];
+
+  const implementer = typeof claim.implementer_lane === "string" ? claim.implementer_lane : undefined;
+  const closer = typeof claim.closing_authority === "string" ? claim.closing_authority : undefined;
+  const verdicts = Array.isArray(claim.verdicts) ? claim.verdicts.map((v) => asRecord(v)) : undefined;
+
+  if (claim.verdicts !== undefined && verdicts === undefined) invalid.push("verdicts");
+
+  if (verdicts !== undefined) {
+    if (verdicts.length === 0) {
+      invalid.push("verdicts");
+      warnings.push("closure with NO verdict: a closure claim requires a real, independent QA emission — a fragmented or silent QA seat is not a pass");
+    }
+
+    let closureEligible = false;
+    for (const [index, v] of verdicts.entries()) {
+      const kind = typeof v.verdict_kind === "string" ? v.verdict_kind : "";
+      const emittedBy = typeof v.emitted_by === "string" ? v.emitted_by : "";
+      if (!CLOSURE_KINDS.includes(kind)) {
+        invalid.push("verdicts");
+        warnings.push(`verdict ${index}: verdict_kind must be one of ${CLOSURE_KINDS.join(" | ")} — the vocabulary deliberately separates slice-QA-pass from holdout-accepted`);
+        continue;
+      }
+      if (emittedBy !== "" && implementer !== undefined && emittedBy === implementer) {
+        invalid.push("verdicts");
+        warnings.push(`verdict ${index}: emitted by the implementer's own lane (${emittedBy}) — the same assignment must not QA its own work`);
+        continue;
+      }
+      if (emittedBy !== "" && closer !== undefined && emittedBy === closer) {
+        invalid.push("verdicts");
+        warnings.push(`verdict ${index}: SELF-ASSERTED by the closing authority (${emittedBy}) — a PM/EXEC may not assert the QA verdict for its own pod's work`);
+        continue;
+      }
+      if (kind === "HOLDOUT_ACCEPTED" && v.result === "PASS") {
+        closureEligible = true;
+      }
+      if (kind === "MISSION_INTERNAL_VALIDATOR") {
+        warnings.push(`verdict ${index}: a harness-internal (Mission) validator is ADVISORY, not closure — independently contracted QA is not interchangeable with a nested validator`);
+      }
+    }
+
+    if (verdicts.length > 0 && !closureEligible && !invalid.includes("verdicts")) {
+      invalid.push("verdicts");
+      const kinds = verdicts.map((v) => v.verdict_kind).join(", ");
+      warnings.push(`not closure-eligible (${kinds}): SLICE_QA_PASS is a weak signal (field evidence: every slice leg green while sealed holdouts failed 2 of 3) and internal validators are advisory — closure requires an independent HOLDOUT_ACCEPTED PASS; until then the state is DEV_COMPLETE_QA_PENDING`);
+    }
+  }
+
+  return buildValidationResult(missing, invalid, warnings);
+}
+
+// ---------------------------------------------------------------------------
+// EPIC-023 — Exec-gated commit mode (commit_gate: exec).
+// ---------------------------------------------------------------------------
+
+/**
+ * Validate an exec-gated commit record: STAGED_READY -> EXEC verify ->
+ * COMMIT_AUTHORIZED (EXEC-issued token) -> DEV commits -> EXEC re-verify.
+ * A PM cannot authorize its own pod's commit; a self-issued or non-EXEC token
+ * is rejected; a landed commit without EXEC re-verification is not closure-eligible.
+ */
+export function validateCommitGate(record: Record<string, unknown>): ValidationResult {
+  const missing = validateRequiredFields(record, [
+    "task_ref",
+    "pod_pm_lane",
+    "implementer_lane",
+    "staged_ready",
+    "commit_authorization"
+  ]);
+  const invalid: string[] = [];
+  const warnings: string[] = [];
+
+  if (record.staged_ready === false) {
+    invalid.push("staged_ready");
+    warnings.push("the pod must reach STAGED-READY (staged pathspec + independent QA) before any authorization is sought");
+  }
+
+  const auth = record.commit_authorization !== undefined ? asRecord(record.commit_authorization) : undefined;
+  if (auth !== undefined) {
+    const token = typeof auth.token === "string" ? auth.token.trim() : "";
+    const issuedBy = typeof auth.issued_by === "string" ? auth.issued_by : "";
+    const podPm = typeof record.pod_pm_lane === "string" ? record.pod_pm_lane : undefined;
+    const implementer = typeof record.implementer_lane === "string" ? record.implementer_lane : undefined;
+
+    if (token === "") {
+      invalid.push("commit_authorization");
+      warnings.push("a commit without a valid EXEC-issued authorization token is rejected under commit_gate: exec");
+    }
+    if (issuedBy === "" || !/EXEC/i.test(issuedBy)) {
+      invalid.push("commit_authorization");
+      warnings.push(`authorization token issued_by "${issuedBy || "<missing>"}" is not an EXEC-layer seat — only the executive office authorizes exec-gated commits`);
+    }
+    if (podPm !== undefined && issuedBy !== "" && issuedBy === podPm) {
+      invalid.push("commit_authorization");
+      warnings.push("SELF-ISSUED token: a PM cannot authorize its own pod's commit — that is the exact pattern commit_gate: exec exists to prevent");
+    }
+    if (implementer !== undefined && issuedBy !== "" && issuedBy === implementer) {
+      invalid.push("commit_authorization");
+      warnings.push("the implementer cannot issue its own commit authorization");
+    }
+    if (auth.verified_ground_truth !== true) {
+      invalid.push("commit_authorization");
+      warnings.push("the token must be issued AFTER the EXEC independently verified ground truth (staged set == pathspec, blob hashes, parent SHA)");
+    }
+  }
+
+  if (record.committed === true && record.exec_reverified !== true) {
+    invalid.push("exec_reverified");
+    warnings.push("the commit landed but the EXEC has not re-verified it — the sequence ends at EXEC_REVERIFIED, not COMMITTED");
+  }
+
+  return buildValidationResult(missing, invalid, warnings);
+}
+
 export function createProtocolService(repository: ProtocolRepository = createFileProtocolRepository()) {
   return {
     protocolPath: (...segments: string[]) => repository.path(...segments),
@@ -2313,6 +2449,8 @@ export function createProtocolService(repository: ProtocolRepository = createFil
     validateRemediationPacket: (packet: Record<string, unknown>) => validateRemediationPacket(packet, repository),
     validateFallbackContract,
     validateSuccessorContract,
-    validateOutageHandoff
+    validateOutageHandoff,
+    validateClosureIndependence,
+    validateCommitGate
   };
 }

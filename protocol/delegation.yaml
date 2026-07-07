@@ -64,8 +64,21 @@ delegation_contract:
       - The receiving tier is reviewed by its OWN QA + holdout lane, never the prior tier's lane.
       - Never dispatch into an unready, saturated, or drifting lane; hold and surface instead.
       - Validate packets with odin.validate_remediation_packet; evaluate gates with odin.evaluate_escalation_gate.
+  commit_gate_exec_mode:
+    description: >-
+      Exec-gated commit (commit_gate: exec): the pod stages and obtains
+      independent QA (STAGED-READY); the EXEC independently verifies ground
+      truth and issues a COMMIT-AUTHORIZED token; the DEV commits; the EXEC
+      re-verifies the landed commit. Resource: odin://protocol/commit-gate.
+    state_sequence: [STAGED_READY, EXEC_VERIFIED, COMMIT_AUTHORIZED, COMMITTED, EXEC_REVERIFIED]
+    rules:
+      - A PM cannot authorize its own pod's commit.
+      - The token is issued only by an EXEC-layer seat after independent ground-truth verification.
+      - A landed commit without EXEC re-verification is not closure-eligible.
+      - Validate records with odin.validate_commit_gate.
   rules:
     - Delegation must target a visible role slot.
+    - A closure claim requires an independent QA emission; validate with odin.validate_closure_independence.
     - Delegation must not create hidden agents or off-ledger workers.
     - Delegation must include exact authority and scope.
     - Terminal text left in an input bar is not delivery.

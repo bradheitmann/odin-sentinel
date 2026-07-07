@@ -1,0 +1,39 @@
+version: 0.5.0
+qa_independence:
+  doctrine: >-
+    Closure requires a REAL, independent QA verdict. A control-plane role
+    (TEAM PM, EXEC PM) may never assert the QA verdict for work its own pod
+    produced — the verdict must be an independent QA-lane emission, and the
+    EXEC must verify that emission actually exists before authorizing closure.
+    Field origin: RFC-v2.3 sweep §3.1 — a TEAM PM reported "QA=QA_PASS" while
+    the QA seat, fragmented, had never emitted a verdict.
+
+  verdict_kinds:
+    SLICE_QA_PASS: >-
+      In-loop slice-level QA pass. A WEAK signal: field evidence (fail-state
+      ledger #13/#14) shows every slice leg can be green while sealed story
+      holdouts fail. SLICE_QA_PASS alone is NEVER closure-eligible.
+    HOLDOUT_ACCEPTED: >-
+      Sealed, blind, source-reading story-level verification passed, emitted by
+      an independent lane. Structurally distinct from SLICE_QA_PASS and the
+      only verdict kind that is closure-eligible on its own.
+    MISSION_INTERNAL_VALIDATOR: >-
+      A harness-internal validator (e.g. Factory Mission's nested validator).
+      ADVISORY ONLY — never closure. Independently contracted QA surfaces are
+      not interchangeable with a nested internal validator.
+
+  active_detection:
+    description: >-
+      Prohibition alone did not prevent the field breach; closure must be
+      actively checked. odin.validate_closure_independence fails closed when:
+    rules:
+      - a verdict's emitting lane equals the implementer's lane (self-review)
+      - a verdict's emitting lane equals the closing authority's lane (self-assertion)
+      - no verdict exists at all (closure claimed on a fragmented / silent QA seat)
+      - the only PASS evidence is SLICE_QA_PASS (weak signal; not closure-eligible)
+      - the only PASS evidence is a MISSION_INTERNAL_VALIDATOR (advisory, not closure)
+
+  closure_rule: >-
+    Closure-eligible = at least one HOLDOUT_ACCEPTED PASS emitted by a lane that
+    is neither the implementer nor the closing authority. Everything else is
+    DEV_COMPLETE_QA_PENDING or QA_INCOMPLETE, stated in exactly those words.

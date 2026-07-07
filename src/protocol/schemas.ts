@@ -652,3 +652,49 @@ export interface SuccessorContract {
   roster_mutation_authority: string;            // "operator" | "TEAM_A_EXEC"
   report_up_chain: boolean;                     // downstream ODINs report up; no lateral roster negotiation
 }
+
+// ---------------------------------------------------------------------------
+// EPIC-022 — QA closure independence. Field origin: RFC-v2.3 sweep §3.1
+// (TEAM PM self-asserted QA=QA_PASS while the QA seat never emitted a verdict)
+// and fail-state ledger #13/#14 (all slice legs green, sealed holdouts failed).
+// ---------------------------------------------------------------------------
+
+export const CLOSURE_VERDICT_KINDS = [
+  "SLICE_QA_PASS",
+  "HOLDOUT_ACCEPTED",
+  "MISSION_INTERNAL_VALIDATOR"
+] as const;
+export type ClosureVerdictKind = (typeof CLOSURE_VERDICT_KINDS)[number];
+
+export interface ClosureVerdict {
+  verdict_kind: ClosureVerdictKind;
+  result: "PASS" | "FAIL";
+  emitted_by: string;   // the lane that emitted the verdict
+}
+
+export interface ClosureClaim {
+  task_ref: string;
+  implementer_lane: string;
+  closing_authority: string;   // the lane asserting closure (PM/EXEC)
+  verdicts: ClosureVerdict[];
+}
+
+// ---------------------------------------------------------------------------
+// EPIC-023 — Exec-gated commit mode. Field origin: RFC-v2.3 sweep §6.
+// ---------------------------------------------------------------------------
+
+export interface CommitAuthorization {
+  token: string;
+  issued_by: string;                // an EXEC-layer seat
+  verified_ground_truth: boolean;   // EXEC verified staged set / hashes / parent SHA first
+}
+
+export interface CommitGateRecord {
+  task_ref: string;
+  pod_pm_lane: string;
+  implementer_lane: string;
+  staged_ready: boolean;
+  commit_authorization?: CommitAuthorization;
+  committed?: boolean;
+  exec_reverified?: boolean;
+}

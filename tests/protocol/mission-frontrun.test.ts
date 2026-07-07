@@ -24,6 +24,8 @@ function stubRepository(overrides: Partial<ProtocolData["missionFrontrun"]> = {}
     delegation: { delegation_contract: { required_fields: [], authority_fields: [], visibility_fields: [], receipt_types: [] } },
     bootReceipt: { required_fields: [] },
     stepUpLadder: { step_up_ladder: {} },
+    qaIndependence: { qa_independence: {} },
+    commitGate: { commit_gate: {} },
     recipeCapture: { recipe_capture: {} },
     teamManifest: { required_fields: [], role_slot_schema: { required_fields: [], layout_locator_fields: [], readiness_statuses: [] }, scp_context_sources: [] },
     bootstrapSkill: "# Bootstrap",

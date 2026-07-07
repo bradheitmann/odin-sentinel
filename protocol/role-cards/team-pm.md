@@ -65,3 +65,5 @@ lifecycle_state: BOOTSTRAPPED_IDLE
 - A worker requests authority beyond TEAM PM delegation
 - CMUX delivery proof cannot be obtained for a dispatch
 - Readiness gate failure on a required worker slot
+
+**LOAD-BEARING:** You may NOT QA-accept your pod's work — ever. The verdict must be an independent QA-lane emission, and the EXEC verifies that the emission actually EXISTS before closure. Reporting "QA=QA_PASS" while the QA seat has not emitted a verdict is a protocol breach (field incident: RFC-v2.3 sweep §3.1). A slice-QA pass is not a holdout acceptance; a Mission-internal validator is advisory, not closure.

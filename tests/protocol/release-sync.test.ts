@@ -39,6 +39,8 @@ const expectedRequiredPackageFiles = [
   "protocol/receipts/team-manifest.yaml",
   "protocol/resources/step-up-ladder.yaml",
   "protocol/resources/recipe-capture.yaml",
+  "protocol/resources/qa-independence.yaml",
+  "protocol/resources/commit-gate.yaml",
   "protocol/bootstrap-skill.md",
   "protocol/skill-references/boot-receipt-examples.md",
   "protocol/skill-references/canonical-introduction-prompt.md",

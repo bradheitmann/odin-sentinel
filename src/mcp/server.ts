@@ -21,6 +21,8 @@ import {
   loadProtocolData,
   evaluateEscalationGate,
   validateBootReceipt,
+  validateClosureIndependence,
+  validateCommitGate,
   validateFallbackContract,
   validateOutageHandoff,
   validateRemediationPacket,
@@ -147,6 +149,22 @@ function registerProtocolResources(server: McpServer) {
       description: "Solve-hard-once, scale-cheap: reusable recipe artifact captured when a strong tier cracks a hard class, re-injected at tier 0.",
       mimeType: "application/yaml",
       read: () => yamlResource(loadProtocolData().recipeCapture)
+    },
+    {
+      name: "qa-independence",
+      uri: "odin://protocol/qa-independence",
+      title: "QA Closure Independence",
+      description: "Closure-independence contract: self-asserted verdicts forbidden and actively detected; slice-QA-pass is not holdout-accepted; internal validators are advisory.",
+      mimeType: "application/yaml",
+      read: () => yamlResource(loadProtocolData().qaIndependence)
+    },
+    {
+      name: "commit-gate",
+      uri: "odin://protocol/commit-gate",
+      title: "Exec-Gated Commit Mode",
+      description: "commit_gate: exec state machine and authorization-token semantics; a PM cannot authorize its own pod's commit.",
+      mimeType: "application/yaml",
+      read: () => yamlResource(loadProtocolData().commitGate)
     },
     {
       name: "boot-receipt",
@@ -429,6 +447,28 @@ export function createServer(): McpServer {
       inputSchema: recordInputShape
     },
     (input) => jsonText(validateOutageHandoff(input.packet))
+  );
+
+  server.registerTool(
+    "odin.validate_closure_independence",
+    {
+      title: "Validate Closure Independence",
+      description:
+        "Actively detect QA-independence breaches at closure: self-asserted verdicts, reviewer == implementer lane, missing verdicts, slice-QA-pass-only evidence, and advisory internal validators counted as closure.",
+      inputSchema: recordInputShape
+    },
+    (input) => jsonText(validateClosureIndependence(input.packet))
+  );
+
+  server.registerTool(
+    "odin.validate_commit_gate",
+    {
+      title: "Validate Commit Gate",
+      description:
+        "Validate an exec-gated commit record (commit_gate: exec): EXEC-issued token after independent ground-truth verification, no self-issued authorization, and post-commit EXEC re-verification.",
+      inputSchema: recordInputShape
+    },
+    (input) => jsonText(validateCommitGate(input.packet))
   );
 
   server.registerTool(

@@ -14,6 +14,8 @@ export {
   harnessCategory,
   evaluateEscalationGate,
   validateBootReceipt,
+  validateClosureIndependence,
+  validateCommitGate,
   validateFallbackContract,
   validateOutageHandoff,
   validateRemediationPacket,
