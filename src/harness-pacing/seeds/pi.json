@@ -1,0 +1,46 @@
+{
+  "harness_id": "pi",
+  "version": "1.0",
+  "last_updated": "2026-07-06T00:00:00Z",
+  "basis_note": "field-confirmed 2026-06-27 (okoa-website fleet, GLM-5.2 on Pi): embedded newlines submit one line per prompt (machine-gunning), jamming the recipient; two boot stalls 2026-06-20 sweep. Compose single-line; helpers auto-flatten as backstop.",
+  "samples_total": 3,
+  "events": [
+    {
+      "harness_id": "pi",
+      "event_type": "MODAL_BLOCK",
+      "ts": "2026-06-20T00:00:00Z",
+      "submitted": true,
+      "submit_behavior": "submits_on_every_newline",
+      "notes": "Multi-line boot contract arrived fragmented; pi processed each line as a separate submission and stalled waiting for the rest. Re-sent as one single-line message with ' ;; ' separators."
+    },
+    {
+      "harness_id": "pi",
+      "event_type": "MODAL_BLOCK",
+      "ts": "2026-06-27T00:00:00Z",
+      "submitted": true,
+      "submit_behavior": "submits_on_every_newline",
+      "crash_signature_summary": "machine-gunning: embedded \\n in a single send submitted line-by-line; recipient jammed and burned context",
+      "recovery_action": "auto-flatten newlines/CR/tabs to single spaces in the send helper before the one submit",
+      "notes": "The trigger is the embedded newline itself, not multiple send calls; prose rules alone did not prevent it — the safe path must flatten automatically."
+    }
+  ],
+  "crash_signatures": [],
+  "message_format": {
+    "harness_id": "pi",
+    "submit_profile": "single_line_flatten",
+    "newline_policy": "flatten_to_space",
+    "multi_line_ok": false,
+    "field_separator": " ;; ",
+    "notes": "Submits on EVERY newline. Compose the entire message as ONE line with ' ;; ' field separators; flatten \\n/CR/tab to spaces before the single submit."
+  },
+  "recommended": {
+    "harness_id": "pi",
+    "max_word_bucket": "101-250 words",
+    "min_idle_wait_seconds": 3,
+    "slash_command_bundling": "avoid",
+    "multi_phase_prompting": "avoid",
+    "submit_profile": "single_line_flatten",
+    "newline_policy": "flatten_to_space",
+    "notes": "Single-line-only harness: never send embedded newlines (machine-gunning); use ' ;; ' separators; one atomic submit"
+  }
+}

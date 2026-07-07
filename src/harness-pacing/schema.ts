@@ -1,6 +1,6 @@
 // Re-export pacing event types from the canonical schemas location.
 // Do NOT redefine — task-001 owns these definitions.
-export type { HarnessPacingEvent, PacingEventType } from "../protocol/schemas.js";
+export type { HarnessMessageFormat, HarnessPacingEvent, NewlinePolicy, PacingEventType, SubmitProfile } from "../protocol/schemas.js";
 
 /**
  * A per-harness pacing profile built from accumulated HarnessPacingEvents.
@@ -15,6 +15,7 @@ export interface HarnessProfile {
   samples_total: number;
   events: import("../protocol/schemas.js").HarnessPacingEvent[];
   crash_signatures: string[];  // SHA-256 hashes of known crash signatures
+  message_format?: import("../protocol/schemas.js").HarnessMessageFormat;  // EPIC-020: submit/format contract for this harness
   recommended: PacingRecommendation;
 }
 
@@ -28,5 +29,7 @@ export interface PacingRecommendation {
   min_idle_wait_seconds: number;
   slash_command_bundling: "allowed" | "avoid" | "unknown";
   multi_phase_prompting: "allowed" | "avoid" | "unknown";
+  submit_profile?: import("../protocol/schemas.js").SubmitProfile;   // EPIC-020
+  newline_policy?: import("../protocol/schemas.js").NewlinePolicy;   // EPIC-020
   notes: string;
 }

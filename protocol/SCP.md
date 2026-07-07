@@ -56,6 +56,21 @@ with Enter and verifies processing on the target surface. Text sitting in an inp
 `submitted`, `verification_method`, `observed_processing_state`, `timestamp`, and
 `sender_role`. Validate it with `odin.validate_cmux_delivery_proof`.
 
+Per-harness message format. Submit semantics are NOT uniform across harnesses, and Enter
+alone does not make a delivery safe. Each harness declares a `submit_profile`:
+`single_line_flatten` (submits on EVERY embedded newline — compose the message as ONE
+line, flatten newlines/CR/tabs to single spaces, join fields with a separator such as
+`" ;; "`; a multi-line message fires one prompt per line and jams the recipient),
+`double_enter` (standard send plus a second Enter; a long paste during a busy transition
+may need the second Enter to submit), or `single_enter_verify` (exactly one Enter followed
+by a read-screen verify; a blind second Enter interrupts reply generation). The trigger
+for the single-line rule is the embedded newline itself, not the number of send calls.
+Senders should run a pre-dispatch dry-run (`dry_run: true` with `target_submit_profile`
+and the payload) through `odin.validate_cmux_delivery_proof`; a multi-line payload aimed
+at a `single_line_flatten` harness is invalid (`MULTILINE_TO_SINGLE_SUBMIT_HARNESS`) even
+with `submitted: true`, unless the canonical helper flattened it first. Per-harness format
+profiles ship in the harness-pacing seeds.
+
 Full-instruction-read proof. Before implementation, QA acceptance, or ACTIVE_WATCH work, an
 activated role must produce a full-instruction-read proof listing each required instruction
 file with its byte or line count and a SHA-256 digest. First-screen, head, or partial reads

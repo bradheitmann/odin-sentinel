@@ -19,6 +19,16 @@
     "min_idle_wait_seconds": 3,
     "slash_command_bundling": "unknown",
     "multi_phase_prompting": "allowed",
-    "notes": "Tolerates larger mission contracts; watch for proposal approval modal gates; send Enter assist for 'Proceed with the proposal' prompts"
+    "notes": "Tolerates larger mission contracts; watch for proposal approval modal gates; send Enter assist for 'Proceed with the proposal' prompts",
+    "submit_profile": "double_enter",
+    "newline_policy": "preserve"
+  },
+  "message_format": {
+    "harness_id": "glm-droid",
+    "submit_profile": "double_enter",
+    "newline_policy": "preserve",
+    "multi_line_ok": true,
+    "second_enter_on_busy": true,
+    "notes": "Long multi-line pastes during a busy transition can land unsubmitted ('Enter to steer'); a second Enter is required. Watch for proposal approval modal gates."
   }
 }

@@ -12,6 +12,15 @@
     "min_idle_wait_seconds": 2,
     "slash_command_bundling": "allowed",
     "multi_phase_prompting": "allowed",
-    "notes": "Standard SCP delivery; set-hook available for event-driven supervision; no known crash patterns"
+    "notes": "Standard SCP delivery; set-hook available for event-driven supervision; no known crash patterns",
+    "submit_profile": "double_enter",
+    "newline_policy": "preserve"
+  },
+  "message_format": {
+    "harness_id": "cmux",
+    "submit_profile": "double_enter",
+    "newline_policy": "preserve",
+    "multi_line_ok": true,
+    "notes": "Standard SCP delivery: send text, then Enter to submit; verify by read-screen."
   }
 }

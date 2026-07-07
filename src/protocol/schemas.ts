@@ -468,6 +468,10 @@ export interface HarnessPacingEvent {
   crash_signature_hash?: string;
   crash_signature_summary?: string;
   recovery_action?: string;
+  // EPIC-020 additive submit/format fields (legacy events without them remain valid).
+  submitted?: boolean;             // Enter-delivered vs input-bar-only, per event
+  submit_behavior?: string;        // observed submit semantics (e.g. "submits_on_every_newline")
+  message_format?: HarnessMessageFormat;
 }
 
 export interface DeliveryReceiptPacingExtension {
@@ -577,3 +581,33 @@ export interface EscalationGateResult {
 export const remediationPacketInputShape = {
   packet: z.record(z.string(), z.unknown())
 } as const;
+
+// ---------------------------------------------------------------------------
+// EPIC-020 — Harness-aware delivery: per-harness message-format matrix.
+// Field origin (2026-06-27 incident): messages with embedded newlines sent to
+// GLM-5.2/Pi were submitted one line per prompt ("machine-gunning"), jamming
+// the recipient. The trigger is the embedded \n itself — not multiple send
+// calls — so the contract names it explicitly and the safe path auto-flattens.
+// ---------------------------------------------------------------------------
+
+/**
+ * How a harness turns typed text into a submitted prompt.
+ * - single_line_flatten: submits on EVERY newline; messages must be one line
+ *   (flatten \n/CR/tab to spaces; use a field separator such as " ;; ").
+ * - double_enter: standard send + a second Enter to submit (2nd Enter on busy).
+ * - single_enter_verify: exactly one Enter, then read-screen verify; a blind
+ *   second Enter interrupts reply generation.
+ */
+export type SubmitProfile = "single_line_flatten" | "double_enter" | "single_enter_verify";
+
+export type NewlinePolicy = "flatten_to_space" | "preserve";
+
+export interface HarnessMessageFormat {
+  harness_id: string;
+  submit_profile: SubmitProfile;
+  newline_policy: NewlinePolicy;
+  multi_line_ok: boolean;
+  field_separator?: string;        // e.g. " ;; " for single-line harnesses
+  second_enter_on_busy?: boolean;  // long paste during a busy transition needs a 2nd Enter
+  notes?: string;
+}

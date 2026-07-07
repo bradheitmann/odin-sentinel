@@ -810,10 +810,15 @@ const ACTIVATION_GATE_ROLE_WORK = ["implementation", "QA acceptance", "ACTIVE_WA
  * INPUT_BAR_ONLY, not delivery. A submitted=false proof or an INPUT_BAR_ONLY state fails.
  */
 export function validateCmuxDeliveryProof(proof: Record<string, unknown>): ValidationResult {
-  const missing = validateRequiredFields(proof, CMUX_DELIVERY_PROOF_FIELDS);
+  const dryRun = proof.dry_run === true;
+  // A pre-dispatch dry-run validates the PLAN (payload/format compatibility)
+  // before anything is sent, so submission/processing fields are not yet due.
+  const requiredFields = dryRun
+    ? ["target_surface_locator", "sender_role", "timestamp"]
+    : CMUX_DELIVERY_PROOF_FIELDS;
+  const missing = validateRequiredFields(proof, requiredFields);
   const invalid = validateFieldTypes(proof, {
     target_surface_locator: "string",
-    submitted: "boolean",
     verification_method: "string",
     observed_processing_state: "string",
     timestamp: "string",
@@ -827,9 +832,32 @@ export function validateCmuxDeliveryProof(proof: Record<string, unknown>): Valid
     warnings.push(`observed_processing_state must be one of: ${CMUX_DELIVERY_STATES.join(", ")}`);
   }
 
-  if (proof.submitted === false) {
+  if (proof.submitted !== undefined && typeof proof.submitted !== "boolean") {
+    invalid.push("submitted");
+  }
+  if (!dryRun && proof.submitted === false) {
     invalid.push("submitted");
     warnings.push("CMUX text was not submitted with Enter; this is INPUT_BAR_ONLY, not delivery. Send Enter and re-read the target surface.");
+  }
+
+  // EPIC-020 — per-harness format compatibility. Field origin 2026-06-27: a
+  // message with embedded newlines sent to a single-submit harness (GLM-5.2 on
+  // Pi) is submitted one line per prompt ("machine-gunning") even when Enter
+  // was sent, jamming the recipient. The trigger is the embedded newline
+  // itself — not multiple send calls — so it is named explicitly here.
+  const submitProfile = typeof proof.target_submit_profile === "string" ? proof.target_submit_profile : undefined;
+  const payloadPreview = typeof proof.payload_preview === "string" ? proof.payload_preview : undefined;
+  const payloadHasNewline =
+    proof.payload_contains_newline === true ||
+    (payloadPreview !== undefined && /[\r\n]/.test(payloadPreview));
+  if (submitProfile === "single_line_flatten" && payloadHasNewline && proof.newlines_flattened !== true) {
+    invalid.push("payload_contains_newline");
+    warnings.push(
+      "MULTILINE_TO_SINGLE_SUBMIT_HARNESS: the payload contains embedded newlines and the target harness submits on EVERY newline — each line fires as a separate prompt (machine-gunning) even with Enter sent. Flatten newlines/CR/tabs to single spaces (field separator \" ;; \") before the one submit, or set newlines_flattened: true when the canonical helper already flattened it."
+    );
+  }
+  if (dryRun) {
+    warnings.push("dry_run: pre-dispatch format check only — this proof does not attest delivery; emit a full delivery proof after the send.");
   }
 
   if (state === "INPUT_BAR_ONLY") {

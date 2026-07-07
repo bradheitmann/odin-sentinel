@@ -24,6 +24,15 @@
     "min_idle_wait_seconds": 5,
     "slash_command_bundling": "avoid",
     "multi_phase_prompting": "avoid",
-    "notes": "Single-intent phased prompts; wait for idle after each phase; avoid slash-command bundling; avoid sending multiple fragments; crash override applied (1 known crash signature(s))"
+    "notes": "Single-intent phased prompts; wait for idle after each phase; avoid slash-command bundling; avoid sending multiple fragments; crash override applied (1 known crash signature(s))",
+    "submit_profile": "double_enter",
+    "newline_policy": "preserve"
+  },
+  "message_format": {
+    "harness_id": "crush",
+    "submit_profile": "double_enter",
+    "newline_policy": "preserve",
+    "multi_line_ok": true,
+    "notes": "Send one complete instruction block, Enter, wait for idle; queued/fragmented prompts during bootstrap have caused coordinator panics."
   }
 }
