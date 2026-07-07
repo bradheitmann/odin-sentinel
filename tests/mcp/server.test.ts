@@ -64,8 +64,11 @@ describe("ODIN MCP server", () => {
         "odin.validate_boot_receipt",
         "odin.validate_cmux_delivery_proof",
         "odin.validate_delegation_packet",
+        "odin.validate_fallback_contract",
         "odin.validate_instruction_read_proof",
+        "odin.validate_outage_handoff",
         "odin.validate_remediation_packet",
+        "odin.validate_successor_contract",
         "odin.validate_team_manifest"
       ]);
       expect(resources.resources.map((resource) => resource.uri).sort()).toEqual([

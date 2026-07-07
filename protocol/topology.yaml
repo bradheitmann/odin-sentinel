@@ -104,3 +104,25 @@ default_topology:
       teams_6: "[A/F] [B/C] [D/E]"
       teams_7: "[A] [B/C] [D/E] [F/G]"
       teams_8: "[A/H] [B/C] [D/E] [F/G]"
+
+failover:
+  description: >-
+    Durable role slots, replaceable occupants. Substitution uses the role's
+    pre-staged fallback contract inside the same slot; mass outages use the
+    pre-dark outage handoff to a provider-diverse surviving seat.
+  triggers:
+    - AGENT_DEATH
+    - USAGE_CAP_EXHAUSTION
+    - SILENT_SESSION_DROP
+  non_triggers_operator_side:
+    - PROVIDER_BILLING_ERROR
+  substitution_state: AGENT_SUBSTITUTION_REQUIRED
+  substitution_requires: fallback_contract   # validate: odin.validate_fallback_contract
+  exec_seat_requires: successor_contract     # validate: odin.validate_successor_contract
+  mass_outage_receipt: SCP-OUTAGE-HANDOFF    # validate: odin.validate_outage_handoff
+  rules:
+    - Every fallback rung pins harness + model + flags; harness defaults are forbidden.
+    - Empty fallback ladder resolves to PAUSE_ESCALATE, never improvisation.
+    - Re-verify the committed model from the status bar after any relaunch.
+    - Outage reconstitution is a bounded, ledgered exception that expires at recovery.
+    - Roster mutation belongs solely to the operator or a Team-A EXEC.

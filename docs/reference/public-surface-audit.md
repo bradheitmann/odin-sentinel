@@ -44,7 +44,7 @@ languages, or harnesses.
 - Public package/server version: `0.5.0`
 - Minimum compatible child MCP version: `0.4.5`
 - MCP resources: 20
-- MCP tools: 31
+- MCP tools: 34
 - Optional telemetry tools: user-invoked, not automatic collection
 
 ## Release Drift Rule

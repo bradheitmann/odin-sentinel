@@ -2109,6 +2109,178 @@ export function validateRemediationPacket(
   return buildValidationResult(missing, invalid, warnings);
 }
 
+// ---------------------------------------------------------------------------
+// EPIC-024 — Roster continuity & dead-seat / mass-outage failover.
+// ---------------------------------------------------------------------------
+
+const CANONICAL_FAILOVER_TRIGGERS = ["AGENT_DEATH", "USAGE_CAP_EXHAUSTION", "SILENT_SESSION_DROP"];
+const NON_TRIGGER_OPERATOR_SIDE = ["PROVIDER_BILLING_ERROR", "BILLING_ERROR", "INSUFFICIENT_BALANCE"];
+const HARNESS_DEFAULT_MODEL_PATTERN = /^(default|harness[\s_-]?default|auto|latest|whatever|unset|)$/i;
+
+/**
+ * Validate a dev-pod pre-staged fallback contract. The trap this guards
+ * (RFC-v2.3 §5, HIGH): a fallback that names only a harness inherits that
+ * harness's DEFAULT model, which can silently seat a non-agentic model in a
+ * control role — the pod just stalls. Every rung must pin model + flags, and
+ * "no authorized substitute" must resolve to PAUSE_ESCALATE, never improvisation.
+ */
+export function validateFallbackContract(contract: Record<string, unknown>): ValidationResult {
+  const missing = validateRequiredFields(contract, [
+    "role_slot",
+    "fallback_rungs",
+    "substitution_triggers",
+    "post_relaunch_model_verify"
+  ]);
+  const invalid: string[] = [];
+  const warnings: string[] = [];
+
+  const rungs = Array.isArray(contract.fallback_rungs) ? contract.fallback_rungs : undefined;
+  if (contract.fallback_rungs !== undefined && rungs === undefined) invalid.push("fallback_rungs");
+
+  if (rungs !== undefined) {
+    if (rungs.length === 0) {
+      if (contract.no_substitute_action !== "PAUSE_ESCALATE") {
+        invalid.push("no_substitute_action");
+        warnings.push("no authorized substitute exists: no_substitute_action must be PAUSE_ESCALATE — pause the pod and escalate to the operator, never improvise a seat");
+      }
+    } else {
+      rungs.forEach((rung, index) => {
+        const r = asRecord(rung);
+        const model = typeof r.model === "string" ? r.model.trim() : "";
+        if (typeof r.harness !== "string" || r.harness.trim() === "") {
+          if (!invalid.includes("fallback_rungs")) invalid.push("fallback_rungs");
+          warnings.push(`fallback rung ${index}: harness is required`);
+        }
+        if (model === "" || HARNESS_DEFAULT_MODEL_PATTERN.test(model)) {
+          if (!invalid.includes("fallback_rungs")) invalid.push("fallback_rungs");
+          warnings.push(`fallback rung ${index}: the model MUST be pinned explicitly — "use harness X" inherits X's default model, which can silently seat a non-agentic model in a control role`);
+        }
+      });
+    }
+  }
+
+  const triggers = Array.isArray(contract.substitution_triggers)
+    ? (contract.substitution_triggers as unknown[]).filter((v): v is string => typeof v === "string")
+    : [];
+  for (const trigger of triggers) {
+    const upper = trigger.toUpperCase().replace(/[\s-]+/g, "_");
+    if (NON_TRIGGER_OPERATOR_SIDE.some((banned) => upper.includes(banned))) {
+      invalid.push("substitution_triggers");
+      warnings.push(`"${trigger}" is not a failover trigger: provider billing errors are operator-side — HOLD the seat, do not substitute or alarm`);
+    } else if (!CANONICAL_FAILOVER_TRIGGERS.includes(upper)) {
+      warnings.push(`substitution trigger "${trigger}" is not in the canonical set (${CANONICAL_FAILOVER_TRIGGERS.join(", ")})`);
+    }
+  }
+
+  if (contract.post_relaunch_model_verify === false) {
+    invalid.push("post_relaunch_model_verify");
+    warnings.push("post_relaunch_model_verify must be true: model identity drifts on relaunch/reconfig — always re-verify the committed model from the status bar");
+  }
+
+  return buildValidationResult(missing, invalid, warnings);
+}
+
+/**
+ * Validate an exec-team successor contract: what any authorized agent needs to
+ * assume a dead EXEC seat — the locked roster, the in-flight worklist, and the
+ * canonical hashes — under the constraint that roster mutation belongs solely
+ * to the operator / Team-A EXEC (a taking-over EXEC keeps the roster locked
+ * and reports; downstream ODINs report up, never negotiate roster laterally).
+ */
+export function validateSuccessorContract(contract: Record<string, unknown>): ValidationResult {
+  const missing = validateRequiredFields(contract, [
+    "successor_seat",
+    "locked_roster",
+    "in_flight_worklist",
+    "canonical_hashes",
+    "roster_mutation_authority",
+    "report_up_chain"
+  ]);
+  const invalid: string[] = [];
+  const warnings: string[] = [];
+
+  if (contract.locked_roster !== undefined &&
+      (!Array.isArray(contract.locked_roster) || contract.locked_roster.length === 0)) {
+    invalid.push("locked_roster");
+    warnings.push("locked_roster must be the non-empty roster the successor carries forward, locked against unilateral change");
+  }
+  if (contract.in_flight_worklist !== undefined && !Array.isArray(contract.in_flight_worklist)) {
+    invalid.push("in_flight_worklist");
+  }
+  if (contract.canonical_hashes !== undefined) {
+    const hashes = asRecord(contract.canonical_hashes);
+    if (Object.keys(hashes).length === 0) {
+      invalid.push("canonical_hashes");
+      warnings.push("canonical_hashes must carry the preserve-rule hashes the successor verifies against");
+    }
+  }
+  const authority = typeof contract.roster_mutation_authority === "string"
+    ? contract.roster_mutation_authority.toUpperCase().replace(/[\s-]+/g, "_")
+    : undefined;
+  if (authority !== undefined && authority !== "OPERATOR" && authority !== "TEAM_A_EXEC") {
+    invalid.push("roster_mutation_authority");
+    warnings.push("roster mutation belongs solely to the operator or a Team-A EXEC; a successor does not re-staff on its own initiative");
+  }
+  if (contract.report_up_chain === false) {
+    invalid.push("report_up_chain");
+    warnings.push("downstream ODINs report up the Team-A EXEC line; lateral roster negotiation is a breach");
+  }
+
+  return buildValidationResult(missing, invalid, warnings);
+}
+
+/**
+ * Validate an [SCP-OUTAGE-HANDOFF] pre-dark receipt: the structured handoff a
+ * seat or contingent emits BEFORE going dark on provider-credit exhaustion, so
+ * a provider-diverse surviving ODIN can open a bounded exception, cover
+ * critical roles from unaffected seats, and revert cleanly at recovery.
+ * Field origin: the 2026-06-28 okoa-website outage (~12-minute bounded
+ * exception, clean revert, no authority transfer by inertia) — minus its one
+ * gap: the operator had to be the message bus. This receipt is that message.
+ */
+export function validateOutageHandoff(receipt: Record<string, unknown>): ValidationResult {
+  const missing = validateRequiredFields(receipt, [
+    "receipt_type",
+    "affected_provider",
+    "affected_slots",
+    "surviving_continuity_seat",
+    "in_flight_work",
+    "critical_roles_needing_cover",
+    "expiry_condition",
+    "bounded_exception"
+  ]);
+  const invalid: string[] = [];
+  const warnings: string[] = [];
+
+  if (receipt.receipt_type !== undefined && receipt.receipt_type !== "SCP-OUTAGE-HANDOFF") {
+    invalid.push("receipt_type");
+  }
+  if (receipt.affected_slots !== undefined &&
+      (!Array.isArray(receipt.affected_slots) || receipt.affected_slots.length === 0)) {
+    invalid.push("affected_slots");
+    warnings.push("affected_slots must enumerate every seat on the exhausted provider/account so the survivor can partition affected vs unaffected");
+  }
+  const survivor = asRecord(receipt.surviving_continuity_seat);
+  const affectedProvider = typeof receipt.affected_provider === "string" ? receipt.affected_provider.toLowerCase() : undefined;
+  const survivorProvider = typeof survivor.provider === "string" ? survivor.provider.toLowerCase() : undefined;
+  if (affectedProvider !== undefined && survivorProvider !== undefined && survivorProvider === affectedProvider) {
+    invalid.push("surviving_continuity_seat");
+    warnings.push("the surviving continuity seat must run on a DIFFERENT provider than the exhausted one — provider diversity is what makes the handoff survivable");
+  }
+  if (receipt.bounded_exception === false) {
+    invalid.push("bounded_exception");
+    warnings.push("the reconstitution must be a bounded, ledgered SCP-EXCEPTION that expires at recovery — no authority transfer by inertia");
+  }
+  if (typeof receipt.expiry_condition === "string" && receipt.expiry_condition.trim() === "") {
+    invalid.push("expiry_condition");
+  }
+  if (receipt.restoration_trigger === undefined) {
+    warnings.push("restoration_trigger is recommended: name a REAL owned trigger (account reset detection + timed backstop + operator confirm), not an assumed self-wake");
+  }
+
+  return buildValidationResult(missing, invalid, warnings);
+}
+
 export function createProtocolService(repository: ProtocolRepository = createFileProtocolRepository()) {
   return {
     protocolPath: (...segments: string[]) => repository.path(...segments),
@@ -2138,6 +2310,9 @@ export function createProtocolService(repository: ProtocolRepository = createFil
     exportProtocolSnapshot: () => exportProtocolSnapshot(repository),
     getMissionFrontrunPack: (input: MissionFrontrunInput) => getMissionFrontrunPack(input, repository),
     evaluateEscalationGate,
-    validateRemediationPacket: (packet: Record<string, unknown>) => validateRemediationPacket(packet, repository)
+    validateRemediationPacket: (packet: Record<string, unknown>) => validateRemediationPacket(packet, repository),
+    validateFallbackContract,
+    validateSuccessorContract,
+    validateOutageHandoff
   };
 }

@@ -21,7 +21,10 @@ import {
   loadProtocolData,
   evaluateEscalationGate,
   validateBootReceipt,
+  validateFallbackContract,
+  validateOutageHandoff,
   validateRemediationPacket,
+  validateSuccessorContract,
   validateCmuxDeliveryProof,
   validateDelegationPacket,
   validateInstructionReadProof,
@@ -393,6 +396,39 @@ export function createServer(): McpServer {
       inputSchema: remediationPacketInputShape
     },
     (input) => jsonText(validateRemediationPacket(input.packet))
+  );
+
+  server.registerTool(
+    "odin.validate_fallback_contract",
+    {
+      title: "Validate Fallback Contract",
+      description:
+        "Validate a dev-pod pre-staged fallback contract: every rung pins model + flags (never a harness default), no-substitute resolves to PAUSE_ESCALATE, billing errors are not failover triggers, and the post-relaunch model re-verify is required.",
+      inputSchema: recordInputShape
+    },
+    (input) => jsonText(validateFallbackContract(input.packet))
+  );
+
+  server.registerTool(
+    "odin.validate_successor_contract",
+    {
+      title: "Validate Successor Contract",
+      description:
+        "Validate an exec-team successor contract: locked roster, in-flight worklist, canonical hashes, roster mutation restricted to operator/Team-A EXEC, and report-up (no lateral roster negotiation).",
+      inputSchema: recordInputShape
+    },
+    (input) => jsonText(validateSuccessorContract(input.packet))
+  );
+
+  server.registerTool(
+    "odin.validate_outage_handoff",
+    {
+      title: "Validate Outage Handoff",
+      description:
+        "Validate an [SCP-OUTAGE-HANDOFF] pre-dark receipt for provider-credit mass outages: affected slots enumerated, provider-diverse surviving continuity seat, bounded expiring exception, and a real restoration trigger.",
+      inputSchema: recordInputShape
+    },
+    (input) => jsonText(validateOutageHandoff(input.packet))
   );
 
   server.registerTool(

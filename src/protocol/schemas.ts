@@ -611,3 +611,44 @@ export interface HarnessMessageFormat {
   second_enter_on_busy?: boolean;  // long paste during a busy transition needs a 2nd Enter
   notes?: string;
 }
+
+// ---------------------------------------------------------------------------
+// EPIC-024 — Roster continuity & failover. Field origin: RFC-v2.3 sweep §5
+// (HIGH severity — a dead seat re-staffed with an unauthorized harness whose
+// DEFAULT model was non-agentic, failing silently) and the 2026-06-28
+// provider-outage case study (Codex credit exhaustion took out a whole
+// contingent; a pre-dark handoff to a provider-diverse ODIN saved the run).
+// ---------------------------------------------------------------------------
+
+/** Canonical failover triggers. Provider billing errors are deliberately NOT
+ *  triggers: they are operator-side — hold the seat, do not substitute. */
+export const FAILOVER_TRIGGERS = [
+  "AGENT_DEATH",
+  "USAGE_CAP_EXHAUSTION",
+  "SILENT_SESSION_DROP"
+] as const;
+export type FailoverTrigger = (typeof FAILOVER_TRIGGERS)[number];
+
+export interface FallbackRung {
+  harness: string;
+  model: string;        // REQUIRED: pin the model + flags, never the harness default
+  flags?: string[];
+  reasoning?: string;
+}
+
+export interface FallbackContract {
+  role_slot: string;
+  fallback_rungs: FallbackRung[];              // empty = no authorized substitute
+  no_substitute_action?: "PAUSE_ESCALATE";     // required when fallback_rungs is empty
+  substitution_triggers: string[];
+  post_relaunch_model_verify: boolean;         // re-verify committed model from the status bar
+}
+
+export interface SuccessorContract {
+  successor_seat: string;                       // e.g. "A/EXEC-ODIN"
+  locked_roster: Array<Record<string, unknown>>;
+  in_flight_worklist: string[];
+  canonical_hashes: Record<string, string>;
+  roster_mutation_authority: string;            // "operator" | "TEAM_A_EXEC"
+  report_up_chain: boolean;                     // downstream ODINs report up; no lateral roster negotiation
+}

@@ -71,6 +71,24 @@ at a `single_line_flatten` harness is invalid (`MULTILINE_TO_SINGLE_SUBMIT_HARNE
 with `submitted: true`, unless the canonical helper flattened it first. Per-harness format
 profiles ship in the harness-pacing seeds.
 
+Roster continuity and failover. Role slots are durable; agent occupants are replaceable —
+but never improvised. Each role declares a pre-staged fallback contract whose rungs pin the
+substitute harness AND the required model + flags: "use harness X" inherits X's default
+model, which can silently seat a non-agentic model in a control role. If no authorized
+substitute exists, the action is PAUSE_ESCALATE, never invention. Failover triggers are
+agent death, usage-cap exhaustion, and silent session-drop; provider billing errors are
+operator-side (hold the seat, do not substitute or alarm). After any relaunch or
+reconfiguration, re-verify the committed model from the status bar — model identity drifts.
+The executive seat declares a successor contract (locked roster, in-flight worklist,
+canonical hashes); roster mutation belongs solely to the operator or a Team-A EXEC, and
+downstream ODINs report up, never negotiate roster laterally. For provider-wide mass
+outages (one account exhausting takes out a cluster of seats), the dying contingent emits
+an `[SCP-OUTAGE-HANDOFF]` receipt BEFORE going dark to a provider-diverse surviving
+continuity seat, which opens a bounded, expiring SCP-EXCEPTION, covers critical roles from
+unaffected seats, and reverts cleanly at recovery — no authority transfer by inertia.
+Validate with `odin.validate_fallback_contract`, `odin.validate_successor_contract`, and
+`odin.validate_outage_handoff`.
+
 Full-instruction-read proof. Before implementation, QA acceptance, or ACTIVE_WATCH work, an
 activated role must produce a full-instruction-read proof listing each required instruction
 file with its byte or line count and a SHA-256 digest. First-screen, head, or partial reads
