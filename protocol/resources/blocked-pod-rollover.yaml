@@ -1,0 +1,19 @@
+version: 0.5.0
+blocked_pod_rollover:
+  doctrine: >-
+    When a pod is BLOCKED awaiting operator input, pause it and spin up the
+    NEXT team letter (B -> C -> D -> E) to keep throughput while the blocked
+    pod waits. STOP at Team F: if F is also blocked, escalate to the operator
+    rather than fanning out further. A rollover spawns a NEW team (its own
+    PM/DEV/QA on authorized bindings) — it is NOT a re-staffing of the blocked
+    seat — and the blocked pod's state is preserved for resume.
+    Field origin: RFC-v2.3 sweep §6 (operator rule, documented for the protocol).
+
+  letter_progression: [B, C, D, E, F]
+  stop_at: F
+  rules:
+    - Pause the blocked pod first; never abandon or dismantle it.
+    - Rollover = a new team, never a re-staff of the blocked seat.
+    - The blocked pod's state (worklist, receipts, scope) is preserved for resume.
+    - Beyond F: ESCALATE_OPERATOR — no further fan-out.
+  evaluate_with: odin.evaluate_blocked_pod_rollover

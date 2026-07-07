@@ -1,0 +1,18 @@
+version: 0.5.0
+authority_chain:
+  doctrine: >-
+    Standing Team-A authority model. Non-EXEC agents take orders only from the
+    Team-A EXEC/PO line. The roster is owned by A/EXEC-PM and mutable only by
+    the operator or a Team-A EXEC. A taking-over EXEC keeps the roster LOCKED
+    and reports — it does not re-staff on its own initiative. Downstream
+    (Team C+) ODINs report up the Team-A EXEC line; they never negotiate roster
+    laterally. Field origin: RFC-v2.3 sweep §4/§5 — the near-miss was a dead
+    seat re-staffed with an unauthorized harness on the taker-over's initiative.
+
+  rules:
+    - A worker never re-staffs itself, never changes its own harness/model, never spins a sibling.
+    - "Roster mutation authority: operator or Team-A EXEC only."
+    - A successor EXEC inherits the roster LOCKED (see the successor contract).
+    - Lateral roster negotiation between ODINs/PMs is a breach; the accepted path is report-up.
+    - "Order sources for non-EXEC agents: the Team-A EXEC/PO line, or a delegation packet that traces to it."
+  validate_with: odin.validate_authority_action

@@ -1,0 +1,60 @@
+version: 0.5.0
+harness_control_matrix:
+  doctrine: >-
+    Driving heterogeneous harnesses through a terminal multiplexer requires
+    version-pinned, ARROW-FREE keystroke recipes: arrow/nav key tokens are
+    unusable through cmux send-key (every spelling returns invalid_params), and
+    raw arrow escape sequences cancel menus or leak literal text into prompts.
+    Field origin: cmux harness-control SOP (2026-06-12), 9 verified fail-states.
+
+  recipe_rules:
+    - Every recipe is pinned to a harness version; recipes are re-verified on upgrade.
+    - No recipe may contain arrow or nav-key tokens (Up/Down/Left/Right/Home/End/PageUp/PageDown)
+      or raw escape sequences; menus are driven by type-ahead, mnemonic keys, or launch flags.
+    - Clear-before-send is mandatory (ctrl+u, then read-screen) — send APPENDS to the input
+      bar, it does not replace it.
+    - Quit uses the harness's in-app quit verb, never ctrl+c.
+    - Probe new recipes on a disposable surface, never a live role slot.
+  recipe_validate_with: odin.validate_control_recipe
+
+  fail_state_guardrails:
+    - "FAIL-1: send appends, never replaces - always ctrl+u + read-screen before Enter."
+    - "FAIL-2: raw arrow escape sequences cancel menus / leak literal text - never send them."
+    - "FAIL-3: no arrow token exists in send-key - every spelling fails invalid_params."
+    - "FAIL-4: ctrl+c does not quit - use the in-app quit verb."
+    - "FAIL-5: type-ahead can be dead in some menus and default focus varies per model."
+    - "FAIL-6: Claude Code model/effort 'default' is GLOBAL, not per-session - last writer wins across instances; set in-session LAST, use a --model launch flag, or the session-only menu path."
+    - "FAIL-7: permission/yolo modes may not persist across relaunch - re-apply session state."
+    - "FAIL-8: relaunch can reset the model to the harness default - re-verify from the status bar (composes the fallback-contract post-relaunch verify)."
+    - "FAIL-9: stray probe keystrokes into the wrong or idle pane - verify the target locator before every probe."
+
+  matrix_entry_fields:
+    - harness_id
+    - version_pin           # exact version the recipes were verified against
+    - open_menu_recipe
+    - model_set_recipe
+    - effort_set_recipe
+    - quit_verb
+    - relaunch_recipe
+    - notes
+
+  transport_contract:
+    courier: >-
+      All loop-to-terminal I/O routes through a pane-resident courier: the
+      multiplexer drops orphaned background clients (SIGPIPE / exit 141), so a
+      detached writer silently loses messages.
+    delivery_verification_tiers:
+      - tier_1_scrollback_grep: grep deep scrollback for the message marker
+      - tier_2_timed_reread: read the screen again after a bounded delay
+      - tier_3_behavioral: screen advanced vs pre-send snapshot AND the message
+          head is absent from the input bar
+    alt_screen_rule: >-
+      Alt-screen TUIs with no scrollback (Crush) make marker-grep structurally
+      unreliable — the behavioral tier is MANDATORY there; marker-grep may never
+      be the sole verification method for an alt-screen surface.
+
+  upstream_flags:
+    cmux_send_key_nav_tokens: >-
+      OPEN upstream ask (possibly outside this repo): cmux send-key has no
+      arrow/nav-key tokens. The arrow-free contract above stands regardless of
+      whether upstream adds them.

@@ -698,3 +698,31 @@ export interface CommitGateRecord {
   committed?: boolean;
   exec_reverified?: boolean;
 }
+
+// EPIC-026 / EPIC-031 tool input shapes.
+export const blockedPodRolloverInputShape = {
+  lettersInUse: z.array(z.string()),
+  blockedPodPaused: z.boolean(),
+  blockedStatePreserved: z.boolean(),
+  framedAsRestaff: z.boolean().optional()
+} as const;
+
+export const sliceHealthInputShape = {
+  dnfEvents: z.array(z.object({ slice_ref: z.string(), agent: z.string() })).optional(),
+  prohibitedPathWrites: z.array(z.object({ path: z.string(), agent: z.string() })).optional(),
+  qaReview: z
+    .object({
+      slice_ref: z.string(),
+      reviewed_file_count: z.number().int().min(0),
+      flat_timeout_seconds: z.number().optional(),
+      sized_for_file_count: z.number().int().min(1).optional()
+    })
+    .optional()
+} as const;
+
+/** EPIC-031 — size-scaled QA review window (replaces flat timeouts). */
+export interface QaTimeoutPolicy {
+  base_seconds: number;
+  per_file_seconds: number;
+  max_seconds: number;
+}

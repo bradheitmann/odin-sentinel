@@ -19,6 +19,10 @@ export const REQUIRED_PROTOCOL_FILES = [
   "protocol/resources/recipe-capture.yaml",
   "protocol/resources/qa-independence.yaml",
   "protocol/resources/commit-gate.yaml",
+  "protocol/resources/harness-control-matrix.yaml",
+  "protocol/resources/authority-chain.yaml",
+  "protocol/resources/blocked-pod-rollover.yaml",
+  "protocol/resources/slice-health-sentinels.yaml",
   "protocol/bootstrap-skill.md",
   "protocol/skill-references/boot-receipt-examples.md",
   "protocol/skill-references/canonical-introduction-prompt.md",
@@ -49,6 +53,10 @@ export type ProtocolData = {
   recipeCapture: Record<string, unknown>;
   qaIndependence: Record<string, unknown>;
   commitGate: Record<string, unknown>;
+  harnessControlMatrix: Record<string, unknown>;
+  authorityChain: Record<string, unknown>;
+  blockedPodRollover: Record<string, unknown>;
+  sliceHealthSentinels: Record<string, unknown>;
   bootstrapSkill: string;
   skillReferences: {
     bootReceiptExamples: string;
@@ -178,6 +186,10 @@ export function createFileProtocolRepository(rootDir = findRootDir()): ProtocolR
         recipeCapture: readYaml(protocolPath("resources", "recipe-capture.yaml")),
         qaIndependence: readYaml(protocolPath("resources", "qa-independence.yaml")),
         commitGate: readYaml(protocolPath("resources", "commit-gate.yaml")),
+        harnessControlMatrix: readYaml(protocolPath("resources", "harness-control-matrix.yaml")),
+        authorityChain: readYaml(protocolPath("resources", "authority-chain.yaml")),
+        blockedPodRollover: readYaml(protocolPath("resources", "blocked-pod-rollover.yaml")),
+        sliceHealthSentinels: readYaml(protocolPath("resources", "slice-health-sentinels.yaml")),
         bootstrapSkill: readFileSync(protocolPath("bootstrap-skill.md"), "utf8"),
         skillReferences: {
           bootReceiptExamples: readFileSync(protocolPath("skill-references", "boot-receipt-examples.md"), "utf8"),

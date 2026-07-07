@@ -1,6 +1,6 @@
 # ODIN Sentinel
 
-**Portable MCP governance protocol for visible multi-agent teams: 36 tools, 22 resources, role topology, readiness gates, ODIN watchers, receipts, delegation, and closeout over stdio.**
+**Portable MCP governance protocol for visible multi-agent teams: 40 tools, 26 resources, role topology, readiness gates, ODIN watchers, receipts, delegation, and closeout over stdio.**
 
 ODIN Sentinel is a local stdio MCP server plus a portable coordination protocol
 for visible agent teams. It gives agents a shared roster, startup packet,
@@ -193,7 +193,7 @@ using them for real work.
 Local operator planning folders may be useful private workspaces, but they are
 not shipped product internals and are not required for public users.
 
-## Provided MCP Resources (22)
+## Provided MCP Resources (26)
 
 - `odin://protocol/main`
 - `odin://protocol/roles`
@@ -206,6 +206,10 @@ not shipped product internals and are not required for public users.
 - `odin://protocol/recipe-capture`
 - `odin://protocol/qa-independence`
 - `odin://protocol/commit-gate`
+- `odin://protocol/harness-control-matrix`
+- `odin://protocol/authority-chain`
+- `odin://protocol/blocked-pod-rollover`
+- `odin://protocol/slice-health-sentinels`
 - `odin://protocol/receipts/team-manifest`
 - `odin://protocol/bootstrap-skill`
 - `odin://protocol/skill-references/boot-receipt-examples`
@@ -218,7 +222,7 @@ not shipped product internals and are not required for public users.
 - `odin://protocol/role-cards/qa-worker`
 - `odin://protocol/role-cards/exec-asst`
 
-## Provided MCP Tools (36)
+## Provided MCP Tools (40)
 
 - `odin.get_version`
 - `odin.get_startup_packet`
@@ -242,6 +246,10 @@ not shipped product internals and are not required for public users.
 - `odin.validate_outage_handoff`
 - `odin.validate_closure_independence`
 - `odin.validate_commit_gate`
+- `odin.validate_control_recipe`
+- `odin.validate_authority_action`
+- `odin.evaluate_blocked_pod_rollover`
+- `odin.evaluate_slice_health`
 - `odin.validate_cmux_delivery_proof`
 - `odin.validate_instruction_read_proof`
 - `odin.get_activation_gates`

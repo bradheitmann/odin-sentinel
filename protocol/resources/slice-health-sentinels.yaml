@@ -1,0 +1,33 @@
+version: 0.5.0
+slice_health_sentinels:
+  doctrine: >-
+    Heuristic sentinels that SURFACE planning defects to the PM — they never
+    auto-block or auto-retry. Field origin: gerard EPIC-2 fail-state ledger
+    (#5, #10, #11) and the INCIDENT-004 reference diff.
+
+  sentinels:
+    OVERSIZED_SLICE:
+      trigger: the same slice DNFs across two or more INDEPENDENT agents
+      classification: the slice is too big — not agent-weak
+      recommended_response: PM splits the slice; do not auto-retry the same scope
+      evidence: >-
+        A slice that DNF'd two different agents at the timeout closed in a
+        fraction of the window once the residual gap was scoped down.
+    QA_WINDOW_TOO_SMALL:
+      trigger: a flat QA timeout is applied to a review materially larger than the sizing basis
+      classification: the window is wrong, not the reviewer
+      recommended_response: scale the window (base + per-file), then re-dispatch
+      timeout_shape:
+        base_seconds: floor for any review
+        per_file_seconds: linear growth with reviewed-file count
+        max_seconds: hard ceiling
+      migration: a legacy flat value is treated as base_seconds with per_file_seconds 0
+    SPEC_DEFECT:
+      trigger: two or more INDEPENDENT agents converge on writing the SAME WRITE-PROHIBITED path
+      classification: unsatisfiable acceptance criteria until proven otherwise —
+        the slice likely froze the artifact the task must change
+      recommended_response: SURFACE_TO_PM for spec review/amendment before any retry
+      caveat: false positives are possible; the PM investigates, the sentinel never auto-fails
+      single_agent_rule: one agent touching a prohibited path is a scope violation, not this sentinel
+
+  evaluate_with: odin.evaluate_slice_health

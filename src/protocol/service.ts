@@ -2417,6 +2417,207 @@ export function validateCommitGate(record: Record<string, unknown>): ValidationR
   return buildValidationResult(missing, invalid, warnings);
 }
 
+// ---------------------------------------------------------------------------
+// EPIC-028 — Harness control recipes (arrow-free, version-pinned).
+// ---------------------------------------------------------------------------
+
+const NAV_TOKEN_PATTERN = /\b(up|down|left|right|home|end|page[\s_-]?(up|down))\b|arrow|\x1b\[[ABCD]|\\e\[[ABCD]|\\x1b\[[ABCD]/i;
+const RECIPE_FIELDS = ["open_menu_recipe", "model_set_recipe", "effort_set_recipe", "quit_verb", "relaunch_recipe"];
+
+/**
+ * Validate a harness control-matrix entry: recipes must be arrow-free (arrow
+ * and nav-key tokens are unusable through cmux send-key and raw escapes cancel
+ * menus / leak text) and pinned to the exact harness version they were
+ * verified against.
+ */
+export function validateControlRecipe(entry: Record<string, unknown>): ValidationResult {
+  const missing = validateRequiredFields(entry, ["harness_id", "version_pin", "quit_verb"]);
+  const invalid: string[] = [];
+  const warnings: string[] = [];
+
+  if (typeof entry.version_pin === "string" && entry.version_pin.trim() === "") {
+    invalid.push("version_pin");
+  }
+  if (typeof entry.version_pin === "string" && /^(latest|\*|any)$/i.test(entry.version_pin.trim())) {
+    invalid.push("version_pin");
+    warnings.push("version_pin must be an exact verified version — recipes drift across harness releases");
+  }
+  for (const field of RECIPE_FIELDS) {
+    const value = entry[field];
+    if (typeof value !== "string") continue;
+    if (NAV_TOKEN_PATTERN.test(value)) {
+      invalid.push(field);
+      warnings.push(`${field} contains an arrow/nav-key token or raw escape sequence — arrow keys are unusable through the multiplexer (invalid_params) and raw escapes cancel menus or leak literal text; use type-ahead, mnemonic keys, or launch flags`);
+    }
+  }
+  if (entry.quit_verb !== undefined && typeof entry.quit_verb === "string" && /ctrl\+?c/i.test(entry.quit_verb)) {
+    invalid.push("quit_verb");
+    warnings.push("ctrl+c does not quit these harnesses — use the in-app quit verb");
+  }
+  return buildValidationResult(missing, invalid, warnings);
+}
+
+// ---------------------------------------------------------------------------
+// EPIC-026 — Authority chain + blocked-pod rollover.
+// ---------------------------------------------------------------------------
+
+/**
+ * Validate a staffing/roster action against the standing authority chain:
+ * workers never re-staff themselves or change their own bindings; roster
+ * mutation belongs to the operator / Team-A EXEC; lateral roster negotiation
+ * is a breach — the accepted path is report-up.
+ */
+export function validateAuthorityAction(action: Record<string, unknown>): ValidationResult {
+  const missing = validateRequiredFields(action, ["actor", "action_type", "authorized_by"]);
+  const invalid: string[] = [];
+  const warnings: string[] = [];
+
+  const actor = typeof action.actor === "string" ? action.actor : "";
+  const actionType = typeof action.action_type === "string"
+    ? action.action_type.toUpperCase().replace(/[\s-]+/g, "_")
+    : "";
+  const authorizedBy = typeof action.authorized_by === "string" ? action.authorized_by : "";
+  const target = typeof action.target_slot === "string" ? action.target_slot : undefined;
+
+  const rosterMutations = ["RESTAFF", "SELF_RESTAFF", "SPAWN", "SPAWN_SIBLING", "CHANGE_MODEL", "CHANGE_HARNESS", "ROSTER_MUTATION", "RENAME_SLOT", "CLOSE_SLOT"];
+  const isRosterMutation = rosterMutations.includes(actionType);
+  const authorizedIsExec = /^(OPERATOR|A\/)/i.test(authorizedBy) || /TEAM[\s_-]?A[\s_-]?EXEC/i.test(authorizedBy);
+  const actorIsExec = /^A\//i.test(actor);
+
+  if (isRosterMutation) {
+    if ((target === undefined || target === actor) && !actorIsExec && authorizedBy === actor) {
+      invalid.push("authorized_by");
+      warnings.push(`${actor} attempted a self-authorized ${actionType}: a worker never re-staffs itself, changes its own harness/model, or spins a sibling`);
+    } else if (!authorizedIsExec) {
+      invalid.push("authorized_by");
+      warnings.push(`roster mutation authorized by "${authorizedBy}": roster mutation belongs solely to the operator or a Team-A EXEC`);
+    }
+  }
+  if (actionType === "LATERAL_ROSTER_NEGOTIATION" || action.lateral === true) {
+    invalid.push("action_type");
+    warnings.push("lateral roster negotiation is a breach — downstream ODINs report UP the Team-A EXEC line");
+  }
+  return buildValidationResult(missing, invalid, warnings);
+}
+
+const ROLLOVER_LETTERS = ["B", "C", "D", "E", "F"];
+
+export interface RolloverDecision {
+  decision: "SPIN_NEXT_TEAM" | "ESCALATE_OPERATOR";
+  next_team_letter: string | null;
+  reasons: string[];
+}
+
+/**
+ * Decide a blocked-pod rollover: pause the blocked pod, spin the next team
+ * letter, STOP at F (escalate rather than fan out further). A rollover framed
+ * as a re-staff of the blocked seat, or one that drops the blocked pod's
+ * state, is rejected via the validation-style reasons.
+ */
+export function evaluateBlockedPodRollover(input: {
+  lettersInUse: string[];
+  blockedPodPaused: boolean;
+  blockedStatePreserved: boolean;
+  framedAsRestaff?: boolean;
+}): RolloverDecision {
+  const reasons: string[] = [];
+  if (input.framedAsRestaff === true) {
+    reasons.push("REJECTED: rollover spawns a NEW team; it is never a re-staffing of the blocked seat");
+    return { decision: "ESCALATE_OPERATOR", next_team_letter: null, reasons };
+  }
+  if (!input.blockedPodPaused) {
+    reasons.push("pause the blocked pod BEFORE spinning a rollover team");
+  }
+  if (!input.blockedStatePreserved) {
+    reasons.push("REJECTED: the blocked pod's state must be preserved for resume");
+    return { decision: "ESCALATE_OPERATOR", next_team_letter: null, reasons };
+  }
+  const used = new Set(input.lettersInUse.map((letter) => letter.toUpperCase()));
+  const next = ROLLOVER_LETTERS.find((letter) => !used.has(letter));
+  if (next === undefined) {
+    reasons.push("letter progression exhausted at Team F — escalate to the operator; no fan-out beyond F");
+    return { decision: "ESCALATE_OPERATOR", next_team_letter: null, reasons };
+  }
+  reasons.push(`spin Team ${next} as a NEW team (own PM/DEV/QA on authorized bindings); blocked pod stays paused for resume`);
+  return { decision: "SPIN_NEXT_TEAM", next_team_letter: next, reasons };
+}
+
+// ---------------------------------------------------------------------------
+// EPIC-031 — Slice & spec health sentinels (heuristics that SURFACE, never block).
+// ---------------------------------------------------------------------------
+
+export interface SliceHealthSignal {
+  sentinel_id: "OVERSIZED_SLICE" | "QA_WINDOW_TOO_SMALL" | "SPEC_DEFECT";
+  slice_ref: string;
+  classification: string;
+  recommended_response: string;
+  details: string;
+}
+
+/**
+ * Evaluate the three slice-health sentinels over observed run events. Pure
+ * heuristics: they surface signals to the PM and never auto-block or retry.
+ */
+export function evaluateSliceHealth(input: {
+  dnfEvents?: Array<{ slice_ref: string; agent: string }>;
+  prohibitedPathWrites?: Array<{ path: string; agent: string }>;
+  qaReview?: { slice_ref: string; reviewed_file_count: number; flat_timeout_seconds?: number; sized_for_file_count?: number };
+}): SliceHealthSignal[] {
+  const signals: SliceHealthSignal[] = [];
+
+  const dnfBySlice = new Map<string, Set<string>>();
+  for (const event of input.dnfEvents ?? []) {
+    const agents = dnfBySlice.get(event.slice_ref) ?? new Set<string>();
+    agents.add(event.agent);
+    dnfBySlice.set(event.slice_ref, agents);
+  }
+  for (const [sliceRef, agents] of dnfBySlice) {
+    if (agents.size >= 2) {
+      signals.push({
+        sentinel_id: "OVERSIZED_SLICE",
+        slice_ref: sliceRef,
+        classification: "the slice is too big — not agent-weak",
+        recommended_response: "PM splits the slice; do not auto-retry the same scope",
+        details: `same slice DNF'd ${agents.size} independent agents (${[...agents].join(", ")})`
+      });
+    }
+  }
+
+  const writesByPath = new Map<string, Set<string>>();
+  for (const write of input.prohibitedPathWrites ?? []) {
+    const agents = writesByPath.get(write.path) ?? new Set<string>();
+    agents.add(write.agent);
+    writesByPath.set(write.path, agents);
+  }
+  for (const [path, agents] of writesByPath) {
+    if (agents.size >= 2) {
+      signals.push({
+        sentinel_id: "SPEC_DEFECT",
+        slice_ref: path,
+        classification: "unsatisfiable acceptance criteria until proven otherwise — the slice likely froze the artifact the task must change",
+        recommended_response: "SURFACE_TO_PM for spec review/amendment before any retry",
+        details: `${agents.size} independent agents converged on the same WRITE-PROHIBITED path (${[...agents].join(", ")})`
+      });
+    }
+  }
+
+  const qa = input.qaReview;
+  if (qa !== undefined && qa.flat_timeout_seconds !== undefined) {
+    const basis = qa.sized_for_file_count ?? 1;
+    if (qa.reviewed_file_count >= basis * 3) {
+      signals.push({
+        sentinel_id: "QA_WINDOW_TOO_SMALL",
+        slice_ref: qa.slice_ref,
+        classification: "the window is wrong, not the reviewer",
+        recommended_response: "scale the window (base_seconds + per_file_seconds, capped at max_seconds), then re-dispatch",
+        details: `flat ${qa.flat_timeout_seconds}s window sized for ~${basis} files applied to a ${qa.reviewed_file_count}-file review`
+      });
+    }
+  }
+
+  return signals;
+}
+
 export function createProtocolService(repository: ProtocolRepository = createFileProtocolRepository()) {
   return {
     protocolPath: (...segments: string[]) => repository.path(...segments),
@@ -2451,6 +2652,10 @@ export function createProtocolService(repository: ProtocolRepository = createFil
     validateSuccessorContract,
     validateOutageHandoff,
     validateClosureIndependence,
-    validateCommitGate
+    validateCommitGate,
+    validateControlRecipe,
+    validateAuthorityAction,
+    evaluateBlockedPodRollover,
+    evaluateSliceHealth
   };
 }

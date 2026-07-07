@@ -1,6 +1,6 @@
 // Re-export pacing event types from the canonical schemas location.
 // Do NOT redefine — task-001 owns these definitions.
-export type { HarnessMessageFormat, HarnessPacingEvent, NewlinePolicy, PacingEventType, SubmitProfile } from "../protocol/schemas.js";
+export type { HarnessMessageFormat, HarnessPacingEvent, NewlinePolicy, PacingEventType, QaTimeoutPolicy, SubmitProfile } from "../protocol/schemas.js";
 
 /**
  * A per-harness pacing profile built from accumulated HarnessPacingEvents.
@@ -31,5 +31,6 @@ export interface PacingRecommendation {
   multi_phase_prompting: "allowed" | "avoid" | "unknown";
   submit_profile?: import("../protocol/schemas.js").SubmitProfile;   // EPIC-020
   newline_policy?: import("../protocol/schemas.js").NewlinePolicy;   // EPIC-020
+  qa_timeout?: import("../protocol/schemas.js").QaTimeoutPolicy;     // EPIC-031: size-scaled, never flat
   notes: string;
 }

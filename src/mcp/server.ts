@@ -20,8 +20,12 @@ import {
   getVersionMetadata,
   loadProtocolData,
   evaluateEscalationGate,
+  evaluateBlockedPodRollover,
+  evaluateSliceHealth,
+  validateAuthorityAction,
   validateBootReceipt,
   validateClosureIndependence,
+  validateControlRecipe,
   validateCommitGate,
   validateFallbackContract,
   validateOutageHandoff,
@@ -68,8 +72,10 @@ import {
   surfaceLayoutGateInputShape,
   surfaceLayoutInputShape,
   teamManifestInputShape,
+  blockedPodRolloverInputShape,
   escalationGateInputShape,
-  remediationPacketInputShape
+  remediationPacketInputShape,
+  sliceHealthInputShape
 } from "../protocol/schemas.js";
 
 function jsonText(value: unknown) {
@@ -165,6 +171,38 @@ function registerProtocolResources(server: McpServer) {
       description: "commit_gate: exec state machine and authorization-token semantics; a PM cannot authorize its own pod's commit.",
       mimeType: "application/yaml",
       read: () => yamlResource(loadProtocolData().commitGate)
+    },
+    {
+      name: "harness-control-matrix",
+      uri: "odin://protocol/harness-control-matrix",
+      title: "Harness Control Matrix",
+      description: "Arrow-free, version-pinned control recipes per harness; 9 fail-state guardrails; courier transport + tiered/behavioral delivery verification for alt-screen TUIs.",
+      mimeType: "application/yaml",
+      read: () => yamlResource(loadProtocolData().harnessControlMatrix)
+    },
+    {
+      name: "authority-chain",
+      uri: "odin://protocol/authority-chain",
+      title: "Authority Chain",
+      description: "Standing Team-A authority model: order sources, roster ownership and lock, report-up chain (no lateral roster negotiation).",
+      mimeType: "application/yaml",
+      read: () => yamlResource(loadProtocolData().authorityChain)
+    },
+    {
+      name: "blocked-pod-rollover",
+      uri: "odin://protocol/blocked-pod-rollover",
+      title: "Blocked-Pod Rollover",
+      description: "Pause a blocked pod and spin the next team letter (B->C->D->E); STOP at F -> escalate; rollover is a new team, never a re-staff; blocked state preserved.",
+      mimeType: "application/yaml",
+      read: () => yamlResource(loadProtocolData().blockedPodRollover)
+    },
+    {
+      name: "slice-health-sentinels",
+      uri: "odin://protocol/slice-health-sentinels",
+      title: "Slice Health Sentinels",
+      description: "OVERSIZED_SLICE, QA_WINDOW_TOO_SMALL, and SPEC_DEFECT heuristics that surface planning defects to the PM without auto-blocking.",
+      mimeType: "application/yaml",
+      read: () => yamlResource(loadProtocolData().sliceHealthSentinels)
     },
     {
       name: "boot-receipt",
@@ -469,6 +507,50 @@ export function createServer(): McpServer {
       inputSchema: recordInputShape
     },
     (input) => jsonText(validateCommitGate(input.packet))
+  );
+
+  server.registerTool(
+    "odin.validate_control_recipe",
+    {
+      title: "Validate Control Recipe",
+      description:
+        "Validate a harness control-matrix entry: recipes must be arrow/nav-token-free, version-pinned to the verified harness release, and quit by in-app verb (never ctrl+c).",
+      inputSchema: recordInputShape
+    },
+    (input) => jsonText(validateControlRecipe(input.packet))
+  );
+
+  server.registerTool(
+    "odin.validate_authority_action",
+    {
+      title: "Validate Authority Action",
+      description:
+        "Check a staffing/roster action against the standing authority chain: no worker self-re-staffing or self binding changes; roster mutation only by operator/Team-A EXEC; lateral roster negotiation rejected.",
+      inputSchema: recordInputShape
+    },
+    (input) => jsonText(validateAuthorityAction(input.packet))
+  );
+
+  server.registerTool(
+    "odin.evaluate_blocked_pod_rollover",
+    {
+      title: "Evaluate Blocked-Pod Rollover",
+      description:
+        "Decide a blocked-pod rollover: next team letter (B->C->D->E), STOP at F -> ESCALATE_OPERATOR; rejects re-staff framing and dropped blocked-pod state.",
+      inputSchema: blockedPodRolloverInputShape
+    },
+    (input) => jsonText(evaluateBlockedPodRollover(input))
+  );
+
+  server.registerTool(
+    "odin.evaluate_slice_health",
+    {
+      title: "Evaluate Slice Health",
+      description:
+        "Run the OVERSIZED_SLICE / QA_WINDOW_TOO_SMALL / SPEC_DEFECT sentinels over run events; returns surface-to-PM signals, never auto-blocks.",
+      inputSchema: sliceHealthInputShape
+    },
+    (input) => jsonText(evaluateSliceHealth(input))
   );
 
   server.registerTool(

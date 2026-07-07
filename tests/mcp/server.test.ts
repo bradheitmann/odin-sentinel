@@ -40,8 +40,10 @@ describe("ODIN MCP server", () => {
         "odin.compute_human_cmux_quad_layout",
         "odin.compute_surface_layout",
         "odin.compute_surface_layout_gate",
+        "odin.evaluate_blocked_pod_rollover",
         "odin.evaluate_escalation_gate",
         "odin.evaluate_readiness_gate",
+        "odin.evaluate_slice_health",
         "odin.export_protocol_snapshot",
         "odin.get_activation_gates",
         "odin.get_active_watch_packet",
@@ -61,10 +63,12 @@ describe("ODIN MCP server", () => {
         "odin.get_version",
         "odin.preview_telemetry_redaction",
         "odin.submit_session_report",
+        "odin.validate_authority_action",
         "odin.validate_boot_receipt",
         "odin.validate_closure_independence",
         "odin.validate_cmux_delivery_proof",
         "odin.validate_commit_gate",
+        "odin.validate_control_recipe",
         "odin.validate_delegation_packet",
         "odin.validate_fallback_contract",
         "odin.validate_instruction_read_proof",
@@ -74,10 +78,13 @@ describe("ODIN MCP server", () => {
         "odin.validate_team_manifest"
       ]);
       expect(resources.resources.map((resource) => resource.uri).sort()).toEqual([
+        "odin://protocol/authority-chain",
+        "odin://protocol/blocked-pod-rollover",
         "odin://protocol/bootstrap-skill",
         "odin://protocol/closeout",
         "odin://protocol/commit-gate",
         "odin://protocol/delegation",
+        "odin://protocol/harness-control-matrix",
         "odin://protocol/main",
         "odin://protocol/model-profiles",
         "odin://protocol/qa-independence",
@@ -94,6 +101,7 @@ describe("ODIN MCP server", () => {
         "odin://protocol/skill-references/canonical-introduction-prompt",
         "odin://protocol/skill-references/harness-skill-targets",
         "odin://protocol/skill-references/team-bootstrap-runbook",
+        "odin://protocol/slice-health-sentinels",
         "odin://protocol/step-up-ladder",
         "odin://protocol/topology"
       ]);
@@ -108,10 +116,13 @@ describe("ODIN MCP server", () => {
 
     try {
       const resources = [
+        "odin://protocol/authority-chain",
+        "odin://protocol/blocked-pod-rollover",
         "odin://protocol/bootstrap-skill",
         "odin://protocol/closeout",
         "odin://protocol/commit-gate",
         "odin://protocol/delegation",
+        "odin://protocol/harness-control-matrix",
         "odin://protocol/main",
         "odin://protocol/model-profiles",
         "odin://protocol/qa-independence",
@@ -123,6 +134,7 @@ describe("ODIN MCP server", () => {
         "odin://protocol/skill-references/canonical-introduction-prompt",
         "odin://protocol/skill-references/harness-skill-targets",
         "odin://protocol/skill-references/team-bootstrap-runbook",
+        "odin://protocol/slice-health-sentinels",
         "odin://protocol/step-up-ladder",
         "odin://protocol/topology"
       ];

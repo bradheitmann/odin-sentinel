@@ -58,6 +58,10 @@ function minimalProtocolData(): ProtocolData {
     },
     stepUpLadder: { step_up_ladder: {} },
     qaIndependence: { qa_independence: {} },
+    harnessControlMatrix: { harness_control_matrix: {} },
+    authorityChain: { authority_chain: {} },
+    blockedPodRollover: { blocked_pod_rollover: {} },
+    sliceHealthSentinels: { slice_health_sentinels: {} },
     commitGate: { commit_gate: {} },
     recipeCapture: { recipe_capture: {} },
     teamManifest: {
