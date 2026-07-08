@@ -20,7 +20,10 @@ recipe_capture:
       - expiry_or_refresh      # when the recipe should be revalidated
     field_rules:
       produced_by_tier_index: must be greater than 0 (tier 0 needs no recipe to do tier-0 work)
-      reinjection_target: fixed value tier_0; recipes flow DOWN the ladder only
+      reinjection_target: >-
+        fixed value tier_0; recipes flow DOWN the ladder only. tier_0 is the
+        doctrine base/"Tier 1" (cheapest) tier — so re-injecting a cracked-class
+        recipe at tier_0 IS "re-injecting into Tier 1". The criterion reads true.
       method: no model names or lane ids; the recipe must be binding-agnostic
 
   lifecycle:

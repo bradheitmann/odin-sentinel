@@ -84,6 +84,7 @@ export const requiredPackageFiles = [
   ...requiredTemplateFiles,
   "scripts/audit/public-surface.mjs",
   "scripts/audit/verify-pack.mjs",
+  "scripts/protocol/cmux-send-governed.sh",
   "scripts/protocol/install-activation-hooks.mjs",
   "scripts/protocol/verify-governed-context.mjs",
   "scripts/protocol/verify-instruction-read.mjs",

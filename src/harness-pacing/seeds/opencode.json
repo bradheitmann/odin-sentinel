@@ -1,0 +1,26 @@
+{
+  "harness_id": "opencode",
+  "version": "1.0",
+  "last_updated": "2026-07-08T00:00:00Z",
+  "basis_note": "provisional; doctrine-seeded, n=0 field samples. OpenCode submits on a single Enter; a blind second Enter interrupts reply generation.",
+  "samples_total": 0,
+  "events": [],
+  "crash_signatures": [],
+  "recommended": {
+    "harness_id": "opencode",
+    "max_word_bucket": "101-250 words",
+    "min_idle_wait_seconds": 3,
+    "slash_command_bundling": "allowed",
+    "multi_phase_prompting": "allowed",
+    "submit_profile": "single_enter_verify",
+    "newline_policy": "preserve",
+    "notes": "Single Enter submits the prompt. Do NOT send a blind second Enter — it interrupts reply generation. After submit, read the target surface; re-Enter once only if the input bar still shows the un-submitted message."
+  },
+  "message_format": {
+    "harness_id": "opencode",
+    "submit_profile": "single_enter_verify",
+    "newline_policy": "preserve",
+    "multi_line_ok": true,
+    "notes": "Exactly one Enter submits. NEVER send a blind second Enter — it interrupts reply generation. Read the target surface after submit; re-Enter once ONLY if the input bar still shows the un-submitted message."
+  }
+}

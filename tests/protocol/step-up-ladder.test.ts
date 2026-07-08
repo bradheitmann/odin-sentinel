@@ -169,3 +169,32 @@ describe("doctrine resource ships no bindings", () => {
     expect(text).not.toMatch(/D[A-Z]?\/DEV-\d|DA\/QA-\d|12x|12×/i);
   });
 });
+
+describe("tier-indexing reconciliation — recipe-capture re-injection into Tier 1 reads true", () => {
+  // QA-WAVE-1-REQA E027 blocker: the slice DoD says "re-inject into Tier 1"
+  // (1-indexed) but the resources ship 0-indexed tier_0/tier 0. The resources
+  // now explicitly bridge the two conventions so the criterion reads true.
+
+  it("step-up-ladder.yaml states tiers are 0-indexed and tier_0 is the doctrine Tier 1", async () => {
+    const { readFileSync } = await import("node:fs");
+    const text = readFileSync("protocol/resources/step-up-ladder.yaml", "utf8");
+    expect(text).toMatch(/0-indexed/i);
+    expect(text).toMatch(/tier_0/i);
+    // The bridge note ties the 0-indexed base tier to the 1-indexed prose name.
+    expect(text).toMatch(/base_tier_doctrine_name: Tier 1/i);
+    expect(text).toMatch(/re-inject .* into Tier 1.*tier_0/i);
+  });
+
+  it("recipe-capture.yaml ties reinjection_target tier_0 to the doctrine Tier 1", async () => {
+    const { readFileSync } = await import("node:fs");
+    const text = readFileSync("protocol/resources/recipe-capture.yaml", "utf8");
+    expect(text).toMatch(/reinjection_target/i);
+    expect(text).toMatch(/tier_0/i);
+    // The re-injection criterion explicitly reads true: tier_0 == Tier 1.
+    expect(text).toMatch(/tier_0 is the/i);
+    expect(text).toMatch(/doctrine base.*Tier 1/i);
+    // The criterion-spanning sentence (YAML line-wraps across "re-injecting ... recipe
+    // at tier_0 IS"), so allow newlines in the match.
+    expect(text).toMatch(/re-injecting[\s\S]*recipe at tier_0 IS/i);
+  });
+});

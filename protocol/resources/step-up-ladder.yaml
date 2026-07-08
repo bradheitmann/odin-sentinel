@@ -23,6 +23,23 @@ step_up_ladder:
       work. Never route routine or fan-out volume to the reserve tier.
     default_rule: All standard work starts at tier 0 (cheapest capable).
 
+  # ------------------------------------------------------------------
+  # Tier indexing doctrine. The implementation is 0-indexed; the natural-
+  # language doctrine prose ("Tier 1", "re-inject into Tier 1") is 1-indexed.
+  # This block bridges the two so every tier reference reads unambiguously.
+  # ------------------------------------------------------------------
+  tier_indexing:
+    convention: 0-indexed            # tier_index values start at 0 and ascend
+    base_tier: tier_0                # cheapest capable tier; the default start
+    base_tier_doctrine_name: Tier 1  # 1-indexed prose name for tier_0
+    reserve_tier: highest tier_index # the reserve weapon (top of the ladder)
+    note: >-
+      Tiers are 0-indexed: tier_0, tier_1, ... tier_(N-1). tier_0 is the BASE /
+      cheapest tier — the tier all standard work starts at. In the 1-indexed
+      doctrine prose this base tier is "Tier 1". Therefore any reference to
+      "re-inject a recipe into Tier 1" means re-inject at tier_0 (the cheapest
+      base tier). The reserve tier is the highest tier_index.
+
   ladder_config_schema:
     tier_fields:
       - tier_index            # 0-based, ascending capability/cost
