@@ -100,3 +100,17 @@ export function redactSecretLikeText(value: string): string {
     .replace(/([A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD)[A-Z0-9_]*=)[^\s]+/gi, "$1[REDACTED]")
     .replace(/(Bearer\s+)[A-Za-z0-9._=-]+/gi, "$1[REDACTED]");
 }
+
+// EPIC-026/028/031 holdout-facing validator surfaces. The sealed holdouts import
+// this compiled module (./dist/src/protocol/validators.js) and call these names
+// directly; the canonical implementations live in service.ts and are re-exported
+// here so the holdout's import path resolves. These re-exports are lazy live
+// bindings (function declarations are hoisted), so the validators <-> service
+// module pair resolves safely at call time.
+export {
+  validateHarnessControlRecipe,
+  validateDeliveryVerification,
+  evaluateOversizedSliceSentinel,
+  evaluateQaTimeoutSentinel,
+  evaluateSpecDefectSentinel
+} from "./service.js";

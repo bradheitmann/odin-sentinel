@@ -62,11 +62,13 @@ function minimalProtocolData(): ProtocolData {
     authorityChain: { authority_chain: {} },
     blockedPodRollover: { blocked_pod_rollover: {} },
     sliceHealthSentinels: { slice_health_sentinels: {} },
+    podBringUp: { pod_bringup: {} },
     commitGate: { commit_gate: {} },
     recipeCapture: { recipe_capture: {} },
     teamManifest: {
       required_fields: []
     },
+    harnessProbeMatrix: { harnesses: [] },
     bootstrapSkill: "# Test bootstrap skill",
     skillReferences: {
       bootReceiptExamples: "# Boot examples",

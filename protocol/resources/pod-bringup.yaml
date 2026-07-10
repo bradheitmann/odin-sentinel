@@ -1,0 +1,40 @@
+version: 0.5.0
+pod_bringup:
+  doctrine: >-
+    Ground truth is captured AFTER the pod boots in the target repo, and
+    preservation is count-agnostic — preserve ALL non-target dirty/untracked
+    whatever the count; the ONLY stop trigger is a wrong TARGET artifact.
+    Enumerated expected-state framing is rejected because any hook-side mutation
+    turns it into a false halt. Field origin: RFC-v2.3 sweep §3.2 — launching a
+    pod in the target repo fired that repo's SessionStart hooks AFTER the
+    pre-launch scan, so the enumerated expected-state diverged and the pod
+    (correctly) halted on a false positive.
+
+  ordering:
+    - boot_pod_first       # launch the pod in the target repo; SessionStart hooks mutate the repo at boot
+    - capture_after_boot   # capture ground-truth AFTER boot so hook mutations are inside the baseline
+    - preserve_non_target  # preserve ALL non-target dirty/untracked regardless of count
+    - stop_only_on_target  # the ONLY stop trigger is a wrong TARGET artifact
+
+  ground_truth_capture: after_boot
+  # SessionStart hooks mutate the repo at boot; a pre-boot scan diverges and
+  # forces a false halt. Ground truth MUST be captured after the pod boots.
+
+  preserve_framing: count_agnostic
+  # Preserve ALL non-target dirty/untracked, whatever the count. Enumerated
+  # expected-state breaks the moment a hook archives one more file. The rule
+  # holds identically whether 0, 2, or N non-target files exist (no threshold).
+
+  stop_triggers:
+    sole_valid_trigger: TARGET_ARTIFACT_WRONG
+    # The ONLY stop condition is a wrong TARGET artifact. Non-target mutations
+    # are preserved, never halted on.
+
+  reject:
+    - enumerated_expected_state  # any count-enumerated framing; a hook mutation turns it into a false halt
+    - pre_boot_capture           # capturing before the pod boots; diverges from hook-mutated reality
+    - non_target_stop            # stopping on a non-target dirty/untracked file
+
+  validator: validateBringUpPlan
+  # odin.validate_bring_up_plan enforces: capture=after_boot,
+  # framing=count_agnostic, stop_triggers=[TARGET_ARTIFACT_WRONG] only.

@@ -31,3 +31,10 @@ slice_health_sentinels:
       single_agent_rule: one agent touching a prohibited path is a scope violation, not this sentinel
 
   evaluate_with: odin.evaluate_slice_health
+  # EPIC-031 per-sentinel façades (holdout input shapes) over the aggregate.
+  # Each returns a single SURFACE_TO_PM signal or null; the aggregate remains the
+  # canonical multi-signal entry point.
+  per_sentinel_surfaces:
+    OVERSIZED_SLICE: odin.evaluate_oversized_slice_sentinel
+    QA_WINDOW_TOO_SMALL: odin.evaluate_qa_timeout_sentinel
+    SPEC_DEFECT: odin.evaluate_spec_defect_sentinel

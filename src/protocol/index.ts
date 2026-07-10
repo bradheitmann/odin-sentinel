@@ -15,11 +15,16 @@ export {
   evaluateBlockedPodRollover,
   evaluateEscalationGate,
   evaluateSliceHealth,
+  evaluateOversizedSliceSentinel,
+  evaluateQaTimeoutSentinel,
+  evaluateSpecDefectSentinel,
   validateBootReceipt,
   validateBringUpPlan,
   validateAuthorityAction,
   validateClosureIndependence,
   validateControlRecipe,
+  validateHarnessControlRecipe,
+  validateDeliveryVerification,
   validateCommitGate,
   validateFallbackContract,
   validateOutageHandoff,
@@ -44,7 +49,8 @@ export type {
   RuntimeNotice,
   StartupPacket,
   StartupPacketInput,
-  ValidationResult
+  ValidationResult,
+  SentinelSignal
 } from "./service.js";
 
 export {

@@ -38,6 +38,77 @@ harness_control_matrix:
     - relaunch_recipe
     - notes
 
+  # EPIC-028 concrete harness entries (version-pinned, arrow-free). These carry
+  # the real data the matrix describes; `version_pin` is the canonical schema
+  # field and `harness_version` is its alias on the validateHarnessControlRecipe /
+  # holdout validator surface. The `+` floor means "verified at this release;
+  # re-verify on upgrade" — it is a real pin, not a `latest`/`any` placeholder.
+  field_aliases:
+    harness_version: version_pin   # holdout / validateHarnessControlRecipe surface
+  harnesses:
+    - harness_id: claude_code
+      version_pin: "2.1.170+"
+      harness_version: "2.1.170+"
+      quit_verb: "/exit"
+      open_menu_recipe: "type-ahead slash commands: /model, /effort, /exit"
+      model_set_recipe: "/model <name> (type-ahead; model/effort default is GLOBAL per instance — set in-session LAST or use --model flag)"
+      effort_set_recipe: "/effort <level> (type-ahead; global)"
+      relaunch_recipe: "relaunch with --model <name> launch flag; re-verify model from the status bar"
+      control_recipe: "clear-before-send: ctrl+u then read-screen; quit: /exit; model: /model (global, set last or --model flag)"
+      submit_profile: "double_enter"
+      newline_policy: "preserve"
+      notes: "FAIL-6: model/effort 'default' is GLOBAL, not per-session. Menus are driven by type-ahead slash commands or launch flags, never arrow/nav keys (unusable through cmux send-key)."
+    - harness_id: droid
+      version_pin: "0.144.2+"
+      harness_version: "0.144.2+"
+      quit_verb: "/quit"
+      open_menu_recipe: "type-ahead slash commands: /model, /quit"
+      model_set_recipe: "--model <name> launch flag or /model (session)"
+      effort_set_recipe: "--auto high for mission/high-autonomy (launch flag)"
+      relaunch_recipe: "relaunch with --model <name> and --auto high; re-verify autonomy level"
+      control_recipe: "clear-before-send: ctrl+u then read-screen; quit: /quit; autonomy: --auto high for mission/high-autonomy"
+      submit_profile: "double_enter"
+      newline_policy: "preserve"
+      notes: "Governed readiness needs `droid mcp`; mission/high-autonomy requires --auto high. Menus via type-ahead slash commands or launch flags, never arrow/nav keys (unusable through cmux send-key)."
+    - harness_id: opencode
+      version_pin: "1.17.4+"
+      harness_version: "1.17.4+"
+      quit_verb: "/exit"
+      open_menu_recipe: "type-ahead slash commands: /model, /effort, /exit"
+      model_set_recipe: "/model <name> (type-ahead)"
+      effort_set_recipe: "/effort <level> (type-ahead)"
+      relaunch_recipe: "relaunch with --model <name> launch flag; re-verify model from the status bar"
+      control_recipe: "clear-before-send: ctrl+u then read-screen; quit: /exit; single-Enter submit, no blind second Enter"
+      submit_profile: "single_enter_verify"
+      newline_policy: "preserve"
+      notes: "single-Enter submit; a blind second Enter interrupts reply generation. Menus via type-ahead slash commands or launch flags, never arrow/nav keys (unusable through cmux send-key)."
+    - harness_id: crush
+      version_pin: "0.76.0+"
+      harness_version: "0.76.0+"
+      quit_verb: "/q"
+      open_menu_recipe: "type-ahead slash commands: /model, /effort, /q"
+      model_set_recipe: "/model <name> (type-ahead)"
+      effort_set_recipe: "/effort <level> (type-ahead)"
+      relaunch_recipe: "relaunch with --model <name> launch flag; re-verify model from the status bar"
+      control_recipe: "clear-before-send: ctrl+u then read-screen; quit: /q; alt-screen TUI, no scrollback — behavioral delivery verification mandatory"
+      submit_profile: "double_enter"
+      newline_policy: "preserve"
+      notes: "Alt-screen TUI with no scrollback: marker-grep is structurally unreliable; behavioral delivery verification is MANDATORY (see transport_contract.alt_screen_rule). Menus via type-ahead slash commands or launch flags, never arrow/nav keys (unusable through cmux send-key)."
+    - harness_id: pi
+      version_pin: "0.79.6+"
+      harness_version: "0.79.6+"
+      quit_verb: "/exit"
+      open_menu_recipe: "type-ahead slash commands: /model, /exit"
+      model_set_recipe: "/model <name> (type-ahead)"
+      effort_set_recipe: "N/A (model/effort set via /model)"
+      relaunch_recipe: "relaunch with --model <name> launch flag; re-verify model from the status bar"
+      control_recipe: "clear-before-send: ctrl+u then read-screen; quit: /exit; single_line_flatten — flatten newlines to spaces with ' ;; ' separators before single submit"
+      submit_profile: "single_line_flatten"
+      newline_policy: "flatten_to_space"
+      notes: "Embedded newlines machine-gun (one line per prompt; GLM-5.2/Pi 2026-06-27 incident) — flatten before single submit. Menus via type-ahead slash commands or launch flags, never arrow/nav keys (unusable through cmux send-key). Central to the single_line_flatten contract."
+  submit_profile: single_line_flatten | double_enter | single_enter_verify
+  newline_policy: flatten_to_space | preserve
+
   transport_contract:
     courier: >-
       All loop-to-terminal I/O routes through a pane-resident courier: the
@@ -58,3 +129,13 @@ harness_control_matrix:
       OPEN upstream ask (possibly outside this repo): cmux send-key has no
       arrow/nav-key tokens. The arrow-free contract above stands regardless of
       whether upstream adds them.
+
+  open_questions:
+    - question: "Should upstream cmux add arrow/nav-key tokens to send-key?"
+      status: OPEN
+      impact: "Without nav-token support, all harness control recipes must be arrow-free (type-ahead, mnemonic keys, or launch flags). This is a hard constraint on the control matrix."
+      odin_position: "ODIN ships the arrow-free contract regardless; this question is tracked for potential upstream cmux relief."
+    - question: "Do vim-style single-letter nav keys (j/k/h/l) work through cmux send-key as text input to TUIs that accept them?"
+      status: OPEN
+      impact: "Some TUIs accept j/k/h/l as nav keys; sending them as text via cmux may or may not trigger navigation. validateControlRecipe rejects these as nav-key tokens to stay safe."
+      odin_position: "Rejected in recipes until verified on a disposable surface; the arrow-free contract applies to all nav-key tokens."

@@ -15,8 +15,10 @@ qa_independence:
       holdouts fail. SLICE_QA_PASS alone is NEVER closure-eligible.
     HOLDOUT_ACCEPTED: >-
       Sealed, blind, source-reading story-level verification passed, emitted by
-      an independent lane. Structurally distinct from SLICE_QA_PASS and the
-      only verdict kind that is closure-eligible on its own.
+      an independent lane. Structurally distinct from SLICE_QA_PASS. A strong
+      blind story verifier, but NOT a replacement for B/QA's slice-level checks
+      (scope, evidence, lifecycle, branch/gate hygiene, acceptance criteria).
+      Closure-eligible ONLY together with an independent SLICE_QA_PASS.
     MISSION_INTERNAL_VALIDATOR: >-
       A harness-internal validator (e.g. Factory Mission's nested validator).
       ADVISORY ONLY — never closure. Independently contracted QA surfaces are
@@ -31,9 +33,19 @@ qa_independence:
       - a verdict's emitting lane equals the closing authority's lane (self-assertion)
       - no verdict exists at all (closure claimed on a fragmented / silent QA seat)
       - the only PASS evidence is SLICE_QA_PASS (weak signal; not closure-eligible)
+      - the only PASS evidence is HOLDOUT_ACCEPTED (blind story verifier; not a
+        substitute for B/QA slice-level checks)
       - the only PASS evidence is a MISSION_INTERNAL_VALIDATOR (advisory, not closure)
+      - neither an independent SLICE_QA_PASS nor an independent HOLDOUT_ACCEPTED is present
+        together (closure requires BOTH)
 
   closure_rule: >-
-    Closure-eligible = at least one HOLDOUT_ACCEPTED PASS emitted by a lane that
-    is neither the implementer nor the closing authority. Everything else is
-    DEV_COMPLETE_QA_PENDING or QA_INCOMPLETE, stated in exactly those words.
+    Closure-eligible = an independent SLICE_QA_PASS PASS AND an independent
+    HOLDOUT_ACCEPTED PASS, each emitted by a lane that is neither the
+    implementer nor the closing authority. Both verdict kinds are required:
+    SLICE_QA_PASS alone is not closure-eligible (state DEV_COMPLETE_QA_PENDING /
+    HOLDOUT PENDING); HOLDOUT_ACCEPTED alone is not closure-eligible (state
+    QA_INCOMPLETE / B/QA PENDING). Everything else is DEV_COMPLETE_QA_PENDING
+    or QA_INCOMPLETE, stated in exactly those words.
+    Doctrine origin: A/EXEC-PM closure-doctrine ruling 2026-07-09T07:15:00Z —
+    holdout-alone is not sufficient for governed slice closure.

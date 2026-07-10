@@ -1,0 +1,81 @@
+version: 0.5.0
+# Harness Probe Matrix Receipt — EPIC-028
+# Per-harness version-pinned control recipes surfaced through the
+# odin.get_harness_probe_matrix tool output. Control recipes are probe-visible
+# (inline in each matrix row) so a probe consumer sees quit_verb /
+# model_set_recipe / control_recipe without a second resource read.
+# All recipes are ARROW-FREE: type-ahead, mnemonic keys, or launch flags only.
+
+harnesses:
+  - harness_id: "Claude Code"
+    version_pin: "2.1.170+"
+    submit_profile: multi_line
+    newline_policy: preserve
+    control_recipe: "clear-before-send: ctrl+u; quit: /exit; model: /model (GLOBAL per instance, set last or use --model flag)"
+    quit_verb: "/exit"
+    model_set_recipe: "/model <name> (type-ahead; model/effort is GLOBAL — number-key commits global; 's' key = session-only)"
+    effort_set_recipe: "/effort <level> (GLOBAL — same caveat as model)"
+    open_menu_recipe: "type-ahead slash commands (/model, /effort, /exit)"
+    relaunch_recipe: "claude --model <name>"
+    notes: "model/effort is GLOBAL across instances; set in-session LAST or use --model flag"
+
+  - harness_id: "Droid"
+    version_pin: "0.144.2+"
+    submit_profile: double_enter
+    newline_policy: preserve
+    control_recipe: "clear-before-send: ctrl+u; quit: /quit; autonomy: --auto high for mission/high-autonomy"
+    quit_verb: "/quit"
+    model_set_recipe: "--model <name> launch flag or /model (session)"
+    effort_set_recipe: "--auto high (mission/high-autonomy requires --auto high)"
+    open_menu_recipe: "type-ahead slash commands"
+    relaunch_recipe: "droid --model <name> --auto high"
+    notes: "governed readiness needs 'droid mcp'; read-only exec allowed without write authority"
+
+  - harness_id: "OpenCode"
+    version_pin: "1.17.4+"
+    submit_profile: single_enter_verify
+    newline_policy: preserve
+    control_recipe: "clear-before-send: ctrl+u; quit: /exit; single-Enter submits — NEVER send a blind second Enter"
+    quit_verb: "/exit"
+    model_set_recipe: "/model <name> (type-ahead)"
+    effort_set_recipe: "/effort <level> (type-ahead)"
+    open_menu_recipe: "type-ahead slash commands"
+    relaunch_recipe: "opencode --model <name>"
+    notes: "single Enter submits; a blind second Enter interrupts reply generation"
+
+  - harness_id: "Crush"
+    version_pin: "0.76.0+"
+    submit_profile: double_enter
+    newline_policy: preserve
+    control_recipe: "clear-before-send: ctrl+u; quit: /q; alt-screen TUI — behavioral delivery verification is MANDATORY (no scrollback)"
+    quit_verb: "/q"
+    model_set_recipe: "/model <name> (type-ahead; alt-screen TUI)"
+    effort_set_recipe: "/effort <level> (type-ahead)"
+    open_menu_recipe: "type-ahead slash commands"
+    relaunch_recipe: "crush --model <name>"
+    notes: "alt-screen TUI with no scrollback; marker-grep alone is insufficient — behavioral tier mandatory"
+
+  - harness_id: "Pi"
+    version_pin: "0.79.6+"
+    submit_profile: single_line_flatten
+    newline_policy: flatten_to_space
+    control_recipe: "clear-before-send: ctrl+u; quit: /exit; single-line flatten with ' ;; ' field separators"
+    quit_verb: "/exit"
+    model_set_recipe: "/model <name>"
+    effort_set_recipe: "N/A"
+    open_menu_recipe: "type-ahead slash commands"
+    relaunch_recipe: "pi --model <name>"
+    notes: "embedded newlines machine-gun (one line per prompt); flatten before single submit"
+
+delivery_verification_tiers:
+  - tier: scrollback_grep
+    description: "grep deep scrollback for the message marker (primary for scrollback-capable harnesses)"
+  - tier: timed_reread
+    description: "read the screen again after a bounded delay (weaker second pass)"
+  - tier: behavioral
+    description: "screen advanced vs pre-send snapshot AND message head absent from input bar (MANDATORY for alt-screen TUIs with no scrollback)"
+
+alt_screen_rule: >-
+  Alt-screen TUIs with no scrollback (Crush) make marker-grep structurally
+  unreliable — the behavioral tier is MANDATORY there; marker-grep may never be
+  the sole verification method for an alt-screen surface.

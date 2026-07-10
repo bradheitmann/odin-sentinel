@@ -17,8 +17,10 @@ function claim(overrides: Record<string, unknown> = {}): Record<string, unknown>
 }
 
 describe("validateClosureIndependence", () => {
-  it("accepts an independent HOLDOUT_ACCEPTED pass", () => {
-    expect(validateClosureIndependence(claim()).valid).toBe(true);
+  it("rejects HOLDOUT_ACCEPTED alone (holdout is not a substitute for slice QA)", () => {
+    const result = validateClosureIndependence(claim());
+    expect(result.valid).toBe(false);
+    expect(result.warnings.join(" ")).toMatch(/B\/QA PENDING|QA_INCOMPLETE/i);
   });
 
   it("rejects closure with NO verdict (the fragmented-QA-seat case)", () => {
@@ -43,12 +45,12 @@ describe("validateClosureIndependence", () => {
     expect(result.warnings.join(" ")).toMatch(/own lane/i);
   });
 
-  it("rejects SLICE_QA_PASS as the only evidence (weak signal, not closure-eligible)", () => {
+  it("rejects SLICE_QA_PASS alone (weak signal, not closure-eligible; HOLDOUT PENDING)", () => {
     const result = validateClosureIndependence(
       claim({ verdicts: [{ verdict_kind: "SLICE_QA_PASS", result: "PASS", emitted_by: "B/QA-1" }] })
     );
     expect(result.valid).toBe(false);
-    expect(result.warnings.join(" ")).toMatch(/DEV_COMPLETE_QA_PENDING/);
+    expect(result.warnings.join(" ")).toMatch(/HOLDOUT PENDING|DEV_COMPLETE_QA_PENDING/i);
   });
 
   it("rejects a Mission-internal validator as the only closure basis (advisory)", () => {
@@ -57,6 +59,30 @@ describe("validateClosureIndependence", () => {
     );
     expect(result.valid).toBe(false);
     expect(result.warnings.join(" ")).toMatch(/advisory/i);
+  });
+
+  it("accepts BOTH independent SLICE_QA_PASS and independent HOLDOUT_ACCEPTED together", () => {
+    const result = validateClosureIndependence(
+      claim({
+        verdicts: [
+          { verdict_kind: "SLICE_QA_PASS", result: "PASS", emitted_by: "B/QA-1" },
+          { verdict_kind: "HOLDOUT_ACCEPTED", result: "PASS", emitted_by: "B/HLDT-1" }
+        ]
+      })
+    );
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects both-lane verdicts when the holdout is emitted by the implementer", () => {
+    const result = validateClosureIndependence(
+      claim({
+        verdicts: [
+          { verdict_kind: "SLICE_QA_PASS", result: "PASS", emitted_by: "B/QA-1" },
+          { verdict_kind: "HOLDOUT_ACCEPTED", result: "PASS", emitted_by: "B/DEV-1" }
+        ]
+      })
+    );
+    expect(result.valid).toBe(false);
   });
 
   it("accepts slice-QA + independent holdout together, still flagging the advisory validator", () => {

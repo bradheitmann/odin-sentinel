@@ -2,8 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   evaluateBlockedPodRollover,
   evaluateSliceHealth,
+  evaluateOversizedSliceSentinel,
+  evaluateQaTimeoutSentinel,
+  evaluateSpecDefectSentinel,
   validateAuthorityAction,
-  validateControlRecipe
+  validateControlRecipe,
+  validateHarnessControlRecipe,
+  validateDeliveryVerification
 } from "../../src/protocol/index.js";
 
 // EPIC-028 — arrow-free, version-pinned control recipes.
@@ -40,6 +45,18 @@ describe("validateControlRecipe", () => {
     const result = validateControlRecipe(entry({ quit_verb: "ctrl+c" }));
     expect(result.valid).toBe(false);
     expect(result.invalid).toContain("quit_verb");
+  });
+
+  it("rejects standalone j/k/h/l as nav-key tokens (vim-style nav)", () => {
+    const result = validateControlRecipe(entry({ model_set_recipe: "press j as standalone nav-key" }));
+    expect(result.valid).toBe(false);
+    expect(result.invalid).toContain("model_set_recipe");
+  });
+
+  it("rejects arrow/nav tokens in the control_recipe field (EPIC-028 S-028.1)", () => {
+    const result = validateControlRecipe(entry({ control_recipe: "send-key Down Down Enter" }));
+    expect(result.valid).toBe(false);
+    expect(result.invalid).toContain("control_recipe");
   });
 });
 
@@ -83,6 +100,41 @@ describe("validateAuthorityAction", () => {
     });
     expect(result.valid).toBe(false);
     expect(result.warnings.join(" ")).toMatch(/report UP/);
+  });
+
+  // EPIC-026 / S-026.1 — the exact field incident: a taking-over EXEC-ODIN
+  // re-staffs a dead seat on its own initiative (self-authorized). The roster is
+  // LOCKED on a takeover; report-up is the only accepted path.
+  it("rejects a taking-over A/EXEC-ODIN self-authorized dead-seat restaff", () => {
+    const result = validateAuthorityAction({
+      actor: "A/EXEC-ODIN",
+      action_type: "restaff_dead_seat",
+      authorized_by: "A/EXEC-ODIN",
+      target_slot: "B/QA"
+    });
+    expect(result.valid).toBe(false);
+    expect(result.invalid).toContain("authorized_by");
+    expect(result.warnings.join(" ")).toMatch(/LOCKED|own initiative/);
+  });
+
+  it("rejects restaff_on_own_initiative self-authorized by A/EXEC-ODIN", () => {
+    const result = validateAuthorityAction({
+      actor: "A/EXEC-ODIN",
+      action_type: "restaff_on_own_initiative",
+      authorized_by: "A/EXEC-ODIN",
+      target_slot: "B/DEV-1"
+    });
+    expect(result.valid).toBe(false);
+  });
+
+  it("still accepts an operator-authorized dead-seat restaff (independent authorizer)", () => {
+    const result = validateAuthorityAction({
+      actor: "A/EXEC-ODIN",
+      action_type: "restaff_dead_seat",
+      authorized_by: "operator",
+      target_slot: "B/QA"
+    });
+    expect(result.valid).toBe(true);
   });
 });
 
@@ -213,5 +265,113 @@ describe("validateBringUpPlan", () => {
     });
     expect(result.valid).toBe(false);
     expect(result.warnings.join(" ")).toMatch(/ONLY stop condition/);
+  });
+});
+
+// EPIC-028 / S-028.1 — holdout-facing harness control-recipe validator.
+describe("validateHarnessControlRecipe", () => {
+  it("accepts an arrow-free recipe with an exact version pin", () => {
+    const result = validateHarnessControlRecipe({ recipe: "/model sonnet (type-ahead)", harness_version: "2.1.170+" });
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects a recipe bearing an arrow/nav token", () => {
+    const result = validateHarnessControlRecipe({ recipe: "send-key S Down", harness_version: "1.0.0" });
+    expect(result.valid).toBe(false);
+    expect(result.invalid).toContain("recipe");
+  });
+
+  it("rejects a missing harness_version", () => {
+    const result = validateHarnessControlRecipe({ recipe: "/model sonnet (type-ahead)" });
+    expect(result.valid).toBe(false);
+    expect(result.missing).toContain("harness_version");
+  });
+
+  it("rejects a placeholder version pin (latest)", () => {
+    const result = validateHarnessControlRecipe({ recipe: "/model sonnet", harness_version: "latest" });
+    expect(result.valid).toBe(false);
+    expect(result.invalid).toContain("harness_version");
+  });
+
+  it("accepts version_pin as an alias for harness_version", () => {
+    const result = validateHarnessControlRecipe({ recipe: "/model sonnet", version_pin: "1.2.3" });
+    expect(result.valid).toBe(true);
+  });
+});
+
+// EPIC-028 / S-028.2 — delivery-verification enforcement.
+describe("validateDeliveryVerification", () => {
+  it("rejects marker-grep-only for an alt-screen surface", () => {
+    const result = validateDeliveryVerification({ surface_type: "alt_screen", method: "marker_grep_only" });
+    expect(result.valid).toBe(false);
+    expect(result.invalid).toContain("method");
+  });
+
+  it("accepts behavioral verification for an alt-screen surface", () => {
+    const result = validateDeliveryVerification({ surface_type: "alt_screen", method: "behavioral" });
+    expect(result.valid).toBe(true);
+  });
+
+  it("accepts scrollback grep for a scrollback-capable surface", () => {
+    const result = validateDeliveryVerification({ surface_type: "scrollback", method: "scrollback_grep" });
+    expect(result.valid).toBe(true);
+  });
+
+  it("requires both surface_type and method", () => {
+    const result = validateDeliveryVerification({ surface_type: "alt_screen" });
+    expect(result.valid).toBe(false);
+    expect(result.missing).toContain("method");
+  });
+});
+
+// EPIC-031 / S-031.1 — OVERSIZED_SLICE per-sentinel façade.
+describe("evaluateOversizedSliceSentinel", () => {
+  it("fires OVERSIZED_SLICE with SURFACE_TO_PM for two independent agents", () => {
+    const signal = evaluateOversizedSliceSentinel({ slice_ref: "SLICE-TEST-001", dnf_agents: ["agent-a", "agent-b"] });
+    expect(signal).not.toBeNull();
+    expect(signal?.classification).toBe("OVERSIZED_SLICE");
+    expect(signal?.action).toBe("SURFACE_TO_PM");
+    expect(signal?.recommended_response).toMatch(/do not auto-retry/);
+  });
+
+  it("returns null for a single-agent DNF", () => {
+    expect(evaluateOversizedSliceSentinel({ slice_ref: "SLICE-TEST-002", dnf_agents: ["agent-a"] })).toBeNull();
+  });
+});
+
+// EPIC-031 / S-031.2 — QA_WINDOW_TOO_SMALL per-sentinel façade.
+describe("evaluateQaTimeoutSentinel", () => {
+  it("fires QA_WINDOW_TOO_SMALL for a flat timeout on a large review", () => {
+    const signal = evaluateQaTimeoutSentinel({
+      timeout_config: { base_seconds: 120, per_file_seconds: 0, max_seconds: 120 },
+      review_file_count: 40
+    });
+    expect(signal).not.toBeNull();
+    expect(signal?.classification).toBe("QA_WINDOW_TOO_SMALL");
+    expect(signal?.action).toBe("SURFACE_TO_PM");
+  });
+
+  it("returns null when the window scales with review size", () => {
+    expect(
+      evaluateQaTimeoutSentinel({
+        timeout_config: { base_seconds: 120, per_file_seconds: 30, max_seconds: 1800 },
+        review_file_count: 40
+      })
+    ).toBeNull();
+  });
+});
+
+// EPIC-031 / S-031.3 — SPEC_DEFECT per-sentinel façade.
+describe("evaluateSpecDefectSentinel", () => {
+  it("fires SPEC_DEFECT with SURFACE_TO_PM for two convergent agents", () => {
+    const signal = evaluateSpecDefectSentinel({ prohibited_path: "src/forbidden.ts", convergent_agents: ["agent-a", "agent-b"] });
+    expect(signal).not.toBeNull();
+    expect(signal?.classification).toBe("SPEC_DEFECT");
+    expect(signal?.action).toBe("SURFACE_TO_PM");
+    expect(signal?.recommended_response).toMatch(/SURFACE_TO_PM/);
+  });
+
+  it("returns null for a single agent touching a prohibited path", () => {
+    expect(evaluateSpecDefectSentinel({ prohibited_path: "src/forbidden.ts", convergent_agents: ["agent-a"] })).toBeNull();
   });
 });

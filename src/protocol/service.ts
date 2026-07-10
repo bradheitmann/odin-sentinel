@@ -233,6 +233,11 @@ export type HarnessProbeInput = {
     livenessState?: string;
     permissionBlocked?: boolean;
     idleStalled?: boolean;
+    // EPIC-028: control recipes are probe-visible so the matrix output carries
+    // version-pinned quit_verb / model_set_recipe / control_recipe per harness.
+    controlRecipe?: string;
+    quitVerb?: string;
+    modelSetRecipe?: string;
   }>;
   visibleOutputTimeoutSeconds?: number;
 };
@@ -1660,6 +1665,13 @@ export function getHarnessProbeMatrix(input: HarnessProbeInput = {}): Record<str
         governed_context_uptake_verified: governed.uptakeVerified,
         governed_role_ready: governedRoleReady
       },
+      // EPIC-028: control recipes are probe-visible (not only in the separate
+      // harness-control-matrix resource). Each row carries the version-pinned
+      // quit_verb / model_set_recipe / control_recipe from the observation, so a
+      // probe consumer sees them inline without a second resource read.
+      controlRecipe: observation?.controlRecipe ?? HARNESS_CONTROL_RECIPES[key]?.controlRecipe,
+      quitVerb: observation?.quitVerb ?? HARNESS_CONTROL_RECIPES[key]?.quitVerb,
+      modelSetRecipe: observation?.modelSetRecipe ?? HARNESS_CONTROL_RECIPES[key]?.modelSetRecipe,
       safeNextActions: classifications.size === 0 ? [] : defaultSafeOutcomes(),
       sanitizedObservation: observation?.text ? redactSecretLikeText(observation.text) : undefined
     };
@@ -2317,10 +2329,19 @@ export function validateClosureIndependence(claim: Record<string, unknown>): Val
       warnings.push("closure with NO verdict: a closure claim requires a real, independent QA emission — a fragmented or silent QA seat is not a pass");
     }
 
-    let closureEligible = false;
+    // EPIC-022 closure doctrine (A/EXEC-PM ruling 2026-07-09T07:15:00Z):
+    // closure requires BOTH an independent SLICE_QA_PASS and an independent
+    // HOLDOUT_ACCEPTED. Neither verdict is sufficient alone: SLICE_QA_PASS is a
+    // weak in-loop signal (sealed holdouts failed 2 of 3 while every slice leg
+    // was green — fail-state ledger #13/#14), and HOLDOUT_ACCEPTED is a strong
+    // blind story verifier but does NOT replace B/QA's slice-level checks for
+    // scope, evidence, lifecycle, branch/gate hygiene, and acceptance criteria.
+    let hasIndependentSliceQaPass = false;
+    let hasIndependentHoldoutAccepted = false;
     for (const [index, v] of verdicts.entries()) {
       const kind = typeof v.verdict_kind === "string" ? v.verdict_kind : "";
       const emittedBy = typeof v.emitted_by === "string" ? v.emitted_by : "";
+      const result = typeof v.result === "string" ? v.result : "";
       if (!CLOSURE_KINDS.includes(kind)) {
         invalid.push("verdicts");
         warnings.push(`verdict ${index}: verdict_kind must be one of ${CLOSURE_KINDS.join(" | ")} — the vocabulary deliberately separates slice-QA-pass from holdout-accepted`);
@@ -2336,18 +2357,28 @@ export function validateClosureIndependence(claim: Record<string, unknown>): Val
         warnings.push(`verdict ${index}: SELF-ASSERTED by the closing authority (${emittedBy}) — a PM/EXEC may not assert the QA verdict for its own pod's work`);
         continue;
       }
-      if (kind === "HOLDOUT_ACCEPTED" && v.result === "PASS") {
-        closureEligible = true;
+      // Track each independent verdict kind. "Independent" = emittedBy is set,
+      // not the implementer, not the closer (already checked above).
+      if (result === "PASS" && emittedBy !== "") {
+        if (kind === "SLICE_QA_PASS") hasIndependentSliceQaPass = true;
+        if (kind === "HOLDOUT_ACCEPTED") hasIndependentHoldoutAccepted = true;
       }
       if (kind === "MISSION_INTERNAL_VALIDATOR") {
         warnings.push(`verdict ${index}: a harness-internal (Mission) validator is ADVISORY, not closure — independently contracted QA is not interchangeable with a nested validator`);
       }
     }
 
+    const closureEligible = hasIndependentSliceQaPass && hasIndependentHoldoutAccepted;
     if (verdicts.length > 0 && !closureEligible && !invalid.includes("verdicts")) {
       invalid.push("verdicts");
       const kinds = verdicts.map((v) => v.verdict_kind).join(", ");
-      warnings.push(`not closure-eligible (${kinds}): SLICE_QA_PASS is a weak signal (field evidence: every slice leg green while sealed holdouts failed 2 of 3) and internal validators are advisory — closure requires an independent HOLDOUT_ACCEPTED PASS; until then the state is DEV_COMPLETE_QA_PENDING`);
+      if (!hasIndependentSliceQaPass && hasIndependentHoldoutAccepted) {
+        warnings.push(`not closure-eligible (${kinds}): a sealed HOLDOUT_ACCEPTED is a strong blind story verifier but does NOT replace B/QA's slice-level checks (scope, evidence, lifecycle, branch/gate hygiene, acceptance criteria) — closure requires BOTH an independent SLICE_QA_PASS and an independent HOLDOUT_ACCEPTED; without the slice-QA pass the state is QA_INCOMPLETE (B/QA PENDING)`);
+      } else if (hasIndependentSliceQaPass && !hasIndependentHoldoutAccepted) {
+        warnings.push(`not closure-eligible (${kinds}): SLICE_QA_PASS is a weak in-loop signal (field evidence: every slice leg green while sealed holdouts failed 2 of 3) and internal validators are advisory — closure requires BOTH an independent SLICE_QA_PASS and an independent HOLDOUT_ACCEPTED; without the holdout the state is DEV_COMPLETE_QA_PENDING (HOLDOUT PENDING)`);
+      } else {
+        warnings.push(`not closure-eligible (${kinds}): closure requires BOTH an independent SLICE_QA_PASS and an independent HOLDOUT_ACCEPTED — neither verdict is sufficient alone; the state is DEV_COMPLETE_QA_PENDING or QA_INCOMPLETE as applicable`);
+      }
     }
   }
 
@@ -2421,8 +2452,30 @@ export function validateCommitGate(record: Record<string, unknown>): ValidationR
 // EPIC-028 — Harness control recipes (arrow-free, version-pinned).
 // ---------------------------------------------------------------------------
 
-const NAV_TOKEN_PATTERN = /\b(up|down|left|right|home|end|page[\s_-]?(up|down))\b|arrow|\x1b\[[ABCD]|\\e\[[ABCD]|\\x1b\[[ABCD]/i;
-const RECIPE_FIELDS = ["open_menu_recipe", "model_set_recipe", "effort_set_recipe", "quit_verb", "relaunch_recipe"];
+const NAV_TOKEN_PATTERN = /\b(up|down|left|right|home|end|page[\s_-]?(up|down))\b|arrow|\x1b\[[ABCD]|\\e\[[ABCD]|\\x1b\[[ABCD]|\b(j|k|h|l)\b\s+(?:as\s+(?:a\s+)?(?:standalone\s+)?)?nav/i;
+// `control_recipe` / `controlRecipe` carry the full inline control recipe used by
+// HARNESS_CONTROL_RECIPES and the harness-control-matrix entries; they are checked
+// for arrow/nav tokens alongside the per-action recipe fields.
+const RECIPE_FIELDS = ["open_menu_recipe", "model_set_recipe", "effort_set_recipe", "quit_verb", "relaunch_recipe", "control_recipe", "controlRecipe"];
+
+// EPIC-028: version-pinned, arrow-free control recipes for the four harness
+// families. These make control recipes probe-visible in the getHarnessProbeMatrix
+// output (not only in the separate harness-control-matrix resource). Recipes are
+// type-ahead / mnemonic / launch-flag based — NEVER arrow or nav-key tokens.
+// (Vim-style j/k/h/l are nav keys too and are rejected by validateControlRecipe.)
+const HARNESS_CONTROL_RECIPES: Record<string, { controlRecipe?: string; quitVerb?: string; modelSetRecipe?: string; versionPin?: string }> = {
+  "claude code": { versionPin: "2.1.170+", quitVerb: "/exit", modelSetRecipe: "/model <name> (type-ahead; model/effort is GLOBAL per instance)", controlRecipe: "clear-before-send: ctrl+u; quit: /exit; model: /model (global, set last or use --model flag)" },
+  codex: { versionPin: "latest", quitVerb: "/exit", modelSetRecipe: "--model <name> launch flag", controlRecipe: "clear-before-send: ctrl+u; quit: /exit; model via --model flag" },
+  droid: { versionPin: "0.144.2+", quitVerb: "/quit", modelSetRecipe: "--model <name> launch flag or /model (session)", controlRecipe: "clear-before-send: ctrl+u; quit: /quit; autonomy: --auto high for mission/high-autonomy" },
+  opencode: { versionPin: "1.17.4+", quitVerb: "/exit", modelSetRecipe: "/model <name> (type-ahead)", controlRecipe: "clear-before-send: ctrl+u; quit: /exit; single-Enter submit, no blind second Enter" },
+  crush: { versionPin: "0.76.0+", quitVerb: "/q", modelSetRecipe: "/model <name> (type-ahead; alt-screen TUI, no scrollback)", controlRecipe: "clear-before-send: ctrl+u; quit: /q; alt-screen: behavioral delivery verification mandatory" },
+  goose: { versionPin: "latest", quitVerb: "/exit", modelSetRecipe: "/model <name>", controlRecipe: "clear-before-send: ctrl+u; quit: /exit" },
+  openhands: { versionPin: "latest", quitVerb: "/exit", modelSetRecipe: "config file or launch flag", controlRecipe: "clear-before-send: ctrl+u; quit: /exit" },
+  kilocode: { versionPin: "latest", quitVerb: "/exit", modelSetRecipe: "/model <name>", controlRecipe: "clear-before-send: ctrl+u; quit: /exit" },
+  pi: { versionPin: "latest", quitVerb: "/exit", modelSetRecipe: "/model <name>", controlRecipe: "clear-before-send: ctrl+u; quit: /exit; single_line_flatten with ' ;; ' separators" },
+  aider: { versionPin: "latest", quitVerb: "/exit", modelSetRecipe: "--model <name> launch flag", controlRecipe: "clear-before-send: ctrl+u; quit: /exit" },
+  nanocoder: { versionPin: "latest", quitVerb: "/exit", modelSetRecipe: "--model <name> launch flag", controlRecipe: "clear-before-send: ctrl+u; quit: /exit" }
+};
 
 /**
  * Validate a harness control-matrix entry: recipes must be arrow-free (arrow
@@ -2444,7 +2497,7 @@ export function validateControlRecipe(entry: Record<string, unknown>): Validatio
   }
   for (const field of RECIPE_FIELDS) {
     const value = entry[field];
-    if (typeof value !== "string") continue;
+    if (typeof value !== "string" || value.trim() === "") continue;
     if (NAV_TOKEN_PATTERN.test(value)) {
       invalid.push(field);
       warnings.push(`${field} contains an arrow/nav-key token or raw escape sequence — arrow keys are unusable through the multiplexer (invalid_params) and raw escapes cancel menus or leak literal text; use type-ahead, mnemonic keys, or launch flags`);
@@ -2453,6 +2506,77 @@ export function validateControlRecipe(entry: Record<string, unknown>): Validatio
   if (entry.quit_verb !== undefined && typeof entry.quit_verb === "string" && /ctrl\+?c/i.test(entry.quit_verb)) {
     invalid.push("quit_verb");
     warnings.push("ctrl+c does not quit these harnesses — use the in-app quit verb");
+  }
+  return buildValidationResult(missing, invalid, warnings);
+}
+
+/**
+ * EPIC-028 holdout-facing validator surface: validate a harness control recipe
+ * submitted in the holdout's field shape ({ recipe, harness_version }). Applies
+ * the same arrow/nav-token-free + version-pinned rules as validateControlRecipe,
+ * without requiring the full matrix entry (e.g. quit_verb). `harness_version` is
+ * the holdout/validator alias for the matrix's canonical `version_pin` field.
+ */
+export function validateHarnessControlRecipe(input: {
+  recipe?: unknown;
+  harness_version?: unknown;
+  version_pin?: unknown;
+}): ValidationResult {
+  const missing: string[] = [];
+  const invalid: string[] = [];
+  const warnings: string[] = [];
+
+  const recipe = typeof input.recipe === "string" ? input.recipe : "";
+  const versionPin = (typeof input.harness_version === "string" && input.harness_version.trim() !== "")
+    ? input.harness_version.trim()
+    : (typeof input.version_pin === "string" ? input.version_pin.trim() : "");
+
+  if (recipe.trim() === "") missing.push("recipe");
+  if (versionPin === "") {
+    missing.push("harness_version");
+  } else if (/^(latest|\*|any)$/i.test(versionPin)) {
+    invalid.push("harness_version");
+    warnings.push("harness_version must be an exact verified version — recipes drift across harness releases");
+  }
+  if (recipe.trim() !== "" && NAV_TOKEN_PATTERN.test(recipe)) {
+    invalid.push("recipe");
+    warnings.push("recipe contains an arrow/nav-key token or raw escape sequence — arrow keys are unusable through the multiplexer (invalid_params) and raw escapes cancel menus or leak literal text; use type-ahead, mnemonic keys, or launch flags");
+  }
+  return buildValidationResult(missing, invalid, warnings);
+}
+
+/**
+ * EPIC-028 delivery-verification enforcement. Alt-screen TUIs (e.g. Crush) have
+ * no scrollback, so marker-grep is structurally unreliable there — behavioral
+ * verification (screen advanced vs pre-send snapshot AND message head absent
+ * from the input bar) is MANDATORY. Scrollback-capable surfaces may use deep
+ * scrollback grep, timed re-read, or behavioral proof. `marker_grep_only` is
+ * the undisciplined anti-pattern and is rejected for every surface.
+ */
+export function validateDeliveryVerification(input: {
+  surface_type?: unknown;
+  method?: unknown;
+}): ValidationResult {
+  const missing = validateRequiredFields(input as Record<string, unknown>, ["surface_type", "method"]);
+  const invalid: string[] = [];
+  const warnings: string[] = [];
+
+  const surfaceType = typeof input.surface_type === "string"
+    ? input.surface_type.trim().toLowerCase().replace(/[\s-]+/g, "_") : "";
+  const method = typeof input.method === "string"
+    ? input.method.trim().toLowerCase().replace(/[\s-]+/g, "_") : "";
+
+  if (surfaceType !== "" && method !== "") {
+    const recognizedTiers = ["scrollback_grep", "timed_reread", "behavioral"];
+    if (surfaceType === "alt_screen") {
+      if (method !== "behavioral") {
+        invalid.push("method");
+        warnings.push("alt-screen TUIs have no scrollback — marker-grep/scrollback-grep is structurally unreliable; behavioral delivery verification (screen advanced vs pre-send AND message head absent from the input bar) is MANDATORY");
+      }
+    } else if (!recognizedTiers.includes(method)) {
+      invalid.push("method");
+      warnings.push(`"${input.method}" is not a recognized delivery-verification tier — use scrollback_grep (deep), timed_reread, or behavioral`);
+    }
   }
   return buildValidationResult(missing, invalid, warnings);
 }
@@ -2479,15 +2603,27 @@ export function validateAuthorityAction(action: Record<string, unknown>): Valida
   const authorizedBy = typeof action.authorized_by === "string" ? action.authorized_by : "";
   const target = typeof action.target_slot === "string" ? action.target_slot : undefined;
 
-  const rosterMutations = ["RESTAFF", "SELF_RESTAFF", "SPAWN", "SPAWN_SIBLING", "CHANGE_MODEL", "CHANGE_HARNESS", "ROSTER_MUTATION", "RENAME_SLOT", "CLOSE_SLOT"];
+  // `restaff_dead_seat` and `restaff_on_own_initiative` are the field spellings
+  // for the takeover-initiated re-staff incident (RFC-v2.3 §4/§5); normalize them
+  // into the roster-mutation class so the authority check actually runs.
+  const rosterMutations = ["RESTAFF", "RESTAFF_DEAD_SEAT", "RESTAFF_ON_OWN_INITIATIVE", "SELF_RESTAFF", "SPAWN", "SPAWN_SIBLING", "CHANGE_MODEL", "CHANGE_HARNESS", "ROSTER_MUTATION", "RENAME_SLOT", "CLOSE_SLOT"];
   const isRosterMutation = rosterMutations.includes(actionType);
   const authorizedIsExec = /^(OPERATOR|A\/)/i.test(authorizedBy) || /TEAM[\s_-]?A[\s_-]?EXEC/i.test(authorizedBy);
   const actorIsExec = /^A\//i.test(actor);
 
   if (isRosterMutation) {
-    if ((target === undefined || target === actor) && !actorIsExec && authorizedBy === actor) {
+    // A roster mutation is valid only with an INDEPENDENT authorizer — the
+    // operator or a Team-A EXEC other than the actor. Self-authorization is a
+    // breach for EVERY role, including a taking-over EXEC (A/EXEC-ODIN): the
+    // doctrine keeps the roster LOCKED on a takeover and requires report-up,
+    // never a re-staff of a dead seat on the taker-over's own initiative.
+    if (authorizedBy === actor) {
       invalid.push("authorized_by");
-      warnings.push(`${actor} attempted a self-authorized ${actionType}: a worker never re-staffs itself, changes its own harness/model, or spins a sibling`);
+      warnings.push(
+        actorIsExec
+          ? `${actor} self-authorized a roster mutation (${actionType}): a taking-over EXEC inherits the roster LOCKED and reports up — it does not re-staff a dead seat on its own initiative`
+          : `${actor} attempted a self-authorized ${actionType}: a worker never re-staffs itself, changes its own harness/model, or spins a sibling`
+      );
     } else if (!authorizedIsExec) {
       invalid.push("authorized_by");
       warnings.push(`roster mutation authorized by "${authorizedBy}": roster mutation belongs solely to the operator or a Team-A EXEC`);
@@ -2618,6 +2754,104 @@ export function evaluateSliceHealth(input: {
   return signals;
 }
 
+/** EPIC-031 per-sentinel signal in the holdout's classification/action shape. */
+export interface SentinelSignal {
+  classification: "OVERSIZED_SLICE" | "QA_WINDOW_TOO_SMALL" | "SPEC_DEFECT";
+  action: "SURFACE_TO_PM";
+  slice_ref: string;
+  details: string;
+  recommended_response: string;
+}
+
+/**
+ * EPIC-031 per-sentinel façade (holdout input shape { slice_ref, dnf_agents }).
+ * Surfaces the OVERSIZED_SLICE sentinel when the same slice DNFs two or more
+ * INDEPENDENT agents; returns null for a single-agent DNF (that is agent-weak,
+ * not this sentinel). PM-bound signal: never auto-retries the same scope.
+ */
+export function evaluateOversizedSliceSentinel(input: {
+  slice_ref?: unknown;
+  dnf_agents?: unknown;
+}): SentinelSignal | null {
+  const sliceRef = typeof input.slice_ref === "string" ? input.slice_ref : "";
+  const agents = Array.isArray(input.dnf_agents)
+    ? input.dnf_agents.filter((agent): agent is string => typeof agent === "string" && agent.trim() !== "")
+    : [];
+  if (new Set(agents).size < 2) return null;
+  const signal = evaluateSliceHealth({
+    dnfEvents: agents.map((agent) => ({ slice_ref: sliceRef, agent }))
+  }).find((s) => s.sentinel_id === "OVERSIZED_SLICE");
+  if (!signal) return null;
+  return {
+    classification: "OVERSIZED_SLICE",
+    action: "SURFACE_TO_PM",
+    slice_ref: signal.slice_ref,
+    details: signal.details,
+    recommended_response: signal.recommended_response
+  };
+}
+
+/**
+ * EPIC-031 per-sentinel façade (holdout input shape
+ * { timeout_config: { base_seconds, per_file_seconds, max_seconds }, review_file_count }).
+ * Fires QA_WINDOW_TOO_SMALL when a FLAT window (per_file_seconds <= 0) is applied
+ * to a review materially larger than the sizing basis; returns null once the
+ * window scales with review size (per_file_seconds > 0). max_seconds caps the
+ * scaled window but does not itself trigger the sentinel.
+ */
+export function evaluateQaTimeoutSentinel(input: {
+  timeout_config?: unknown;
+  review_file_count?: unknown;
+}): SentinelSignal | null {
+  const cfg = input.timeout_config && typeof input.timeout_config === "object" && !Array.isArray(input.timeout_config)
+    ? (input.timeout_config as Record<string, unknown>)
+    : {};
+  const perFile = typeof cfg.per_file_seconds === "number" ? cfg.per_file_seconds : 0;
+  const base = typeof cfg.base_seconds === "number" ? cfg.base_seconds : 0;
+  const count = typeof input.review_file_count === "number" ? input.review_file_count : 0;
+  if (perFile > 0) return null;
+  const signal = evaluateSliceHealth({
+    qaReview: { slice_ref: "qa-review", reviewed_file_count: count, flat_timeout_seconds: base, sized_for_file_count: 1 }
+  }).find((s) => s.sentinel_id === "QA_WINDOW_TOO_SMALL");
+  if (!signal) return null;
+  return {
+    classification: "QA_WINDOW_TOO_SMALL",
+    action: "SURFACE_TO_PM",
+    slice_ref: signal.slice_ref,
+    details: signal.details,
+    recommended_response: signal.recommended_response
+  };
+}
+
+/**
+ * EPIC-031 per-sentinel façade (holdout input shape { prohibited_path, convergent_agents }).
+ * Fires SPEC_DEFECT when two or more INDEPENDENT agents converge on writing the
+ * SAME WRITE-PROHIBITED path — unsatisfiable acceptance criteria until proven
+ * otherwise; returns null for a single agent (that is a scope violation, not
+ * this sentinel). PM-bound signal: the PM investigates, the sentinel never auto-fails.
+ */
+export function evaluateSpecDefectSentinel(input: {
+  prohibited_path?: unknown;
+  convergent_agents?: unknown;
+}): SentinelSignal | null {
+  const path = typeof input.prohibited_path === "string" ? input.prohibited_path : "";
+  const agents = Array.isArray(input.convergent_agents)
+    ? input.convergent_agents.filter((agent): agent is string => typeof agent === "string" && agent.trim() !== "")
+    : [];
+  if (new Set(agents).size < 2) return null;
+  const signal = evaluateSliceHealth({
+    prohibitedPathWrites: agents.map((agent) => ({ path, agent }))
+  }).find((s) => s.sentinel_id === "SPEC_DEFECT");
+  if (!signal) return null;
+  return {
+    classification: "SPEC_DEFECT",
+    action: "SURFACE_TO_PM",
+    slice_ref: signal.slice_ref,
+    details: signal.details,
+    recommended_response: signal.recommended_response
+  };
+}
+
 // ---------------------------------------------------------------------------
 // EPIC-025 — Pod bring-up & ground-truth safety. Field origin: RFC-v2.3 sweep
 // §3.2 — launching a pod in the target repo fired that repo's SessionStart
@@ -2703,9 +2937,14 @@ export function createProtocolService(repository: ProtocolRepository = createFil
     validateClosureIndependence,
     validateCommitGate,
     validateControlRecipe,
+    validateHarnessControlRecipe,
+    validateDeliveryVerification,
     validateAuthorityAction,
     evaluateBlockedPodRollover,
     evaluateSliceHealth,
+    evaluateOversizedSliceSentinel,
+    evaluateQaTimeoutSentinel,
+    evaluateSpecDefectSentinel,
     validateBringUpPlan
   };
 }

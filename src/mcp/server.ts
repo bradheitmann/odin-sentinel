@@ -22,11 +22,16 @@ import {
   evaluateEscalationGate,
   evaluateBlockedPodRollover,
   evaluateSliceHealth,
+  evaluateOversizedSliceSentinel,
+  evaluateQaTimeoutSentinel,
+  evaluateSpecDefectSentinel,
   validateAuthorityAction,
   validateBootReceipt,
   validateBringUpPlan,
   validateClosureIndependence,
   validateControlRecipe,
+  validateHarnessControlRecipe,
+  validateDeliveryVerification,
   validateCommitGate,
   validateFallbackContract,
   validateOutageHandoff,
@@ -76,7 +81,12 @@ import {
   blockedPodRolloverInputShape,
   escalationGateInputShape,
   remediationPacketInputShape,
-  sliceHealthInputShape
+  sliceHealthInputShape,
+  deliveryVerificationInputShape,
+  harnessControlRecipeInputShape,
+  oversizedSliceSentinelInputShape,
+  qaTimeoutSentinelInputShape,
+  specDefectSentinelInputShape
 } from "../protocol/schemas.js";
 
 function jsonText(value: unknown) {
@@ -204,6 +214,14 @@ function registerProtocolResources(server: McpServer) {
       description: "OVERSIZED_SLICE, QA_WINDOW_TOO_SMALL, and SPEC_DEFECT heuristics that surface planning defects to the PM without auto-blocking.",
       mimeType: "application/yaml",
       read: () => yamlResource(loadProtocolData().sliceHealthSentinels)
+    },
+    {
+      name: "pod-bringup",
+      uri: "odin://protocol/pod-bringup",
+      title: "Pod Bring-Up & Ground-Truth Safety",
+      description: "Pod bring-up doctrine: capture ground-truth AFTER boot (SessionStart hooks mutate the repo), count-agnostic preserve framing, TARGET_ARTIFACT_WRONG as the sole stop trigger.",
+      mimeType: "application/yaml",
+      read: () => yamlResource(loadProtocolData().podBringUp)
     },
     {
       name: "boot-receipt",
@@ -563,6 +581,61 @@ export function createServer(): McpServer {
       inputSchema: sliceHealthInputShape
     },
     (input) => jsonText(evaluateSliceHealth(input))
+  );
+
+  server.registerTool(
+    "odin.validate_harness_control_recipe",
+    {
+      title: "Validate Harness Control Recipe",
+      description:
+        "Validate a harness control recipe in the holdout field shape ({ recipe, harness_version }): the recipe must be arrow/nav-token-free and the harness_version an exact verified pin (not latest/any). Thin surface over the control-recipe rules.",
+      inputSchema: harnessControlRecipeInputShape
+    },
+    (input) => jsonText(validateHarnessControlRecipe(input))
+  );
+
+  server.registerTool(
+    "odin.validate_delivery_verification",
+    {
+      title: "Validate Delivery Verification",
+      description:
+        "Validate a delivery-verification method for a surface type. Alt-screen TUIs (no scrollback, e.g. Crush) REQUIRE behavioral verification — marker-grep-only is rejected as structurally unreliable. Scrollback-capable surfaces accept scrollback_grep, timed_reread, or behavioral.",
+      inputSchema: deliveryVerificationInputShape
+    },
+    (input) => jsonText(validateDeliveryVerification(input))
+  );
+
+  server.registerTool(
+    "odin.evaluate_oversized_slice_sentinel",
+    {
+      title: "Evaluate Oversized-Slice Sentinel",
+      description:
+        "Per-sentinel façade over slice health: surface the OVERSIZED_SLICE signal when the same slice DNFs two or more INDEPENDENT agents ({ slice_ref, dnf_agents }); returns null for a single-agent DNF. PM-bound signal (SURFACE_TO_PM), never auto-retries.",
+      inputSchema: oversizedSliceSentinelInputShape
+    },
+    (input) => jsonText(evaluateOversizedSliceSentinel(input))
+  );
+
+  server.registerTool(
+    "odin.evaluate_qa_timeout_sentinel",
+    {
+      title: "Evaluate QA-Timeout Sentinel",
+      description:
+        "Per-sentinel façade over slice health: surface the QA_WINDOW_TOO_SMALL signal when a FLAT timeout (per_file_seconds <= 0) is applied to a review larger than the sizing basis ({ timeout_config: { base_seconds, per_file_seconds, max_seconds }, review_file_count }); returns null once the window scales with review size. PM-bound signal (SURFACE_TO_PM).",
+      inputSchema: qaTimeoutSentinelInputShape
+    },
+    (input) => jsonText(evaluateQaTimeoutSentinel(input))
+  );
+
+  server.registerTool(
+    "odin.evaluate_spec_defect_sentinel",
+    {
+      title: "Evaluate Spec-Defect Sentinel",
+      description:
+        "Per-sentinel façade over slice health: surface the SPEC_DEFECT signal when two or more INDEPENDENT agents converge on writing the SAME WRITE-PROHIBITED path ({ prohibited_path, convergent_agents }); returns null for a single agent (a scope violation, not this sentinel). PM investigates; the sentinel never auto-fails. PM-bound signal (SURFACE_TO_PM).",
+      inputSchema: specDefectSentinelInputShape
+    },
+    (input) => jsonText(evaluateSpecDefectSentinel(input))
   );
 
   server.registerTool(

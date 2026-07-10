@@ -151,7 +151,11 @@ export const harnessProbeObservationSchema = z.object({
   deliveryState: z.string().optional(),
   livenessState: z.string().optional(),
   permissionBlocked: z.boolean().optional(),
-  idleStalled: z.boolean().optional()
+  idleStalled: z.boolean().optional(),
+  // EPIC-028: control recipes are probe-visible in the matrix output.
+  controlRecipe: z.string().optional(),
+  quitVerb: z.string().optional(),
+  modelSetRecipe: z.string().optional()
 });
 
 export const harnessProbeInputShape = {
@@ -726,3 +730,50 @@ export interface QaTimeoutPolicy {
   per_file_seconds: number;
   max_seconds: number;
 }
+
+/** EPIC-028 — delivery verification tier enum for the harness control matrix.
+ * Deep-scrollback grep is primary for scrollback-capable harnesses; timed re-read
+ * is a weaker second pass; behavioral (screen advanced + input-bar head absent)
+ * is mandatory for alt-screen TUIs with no scrollback (Crush). */
+export const deliveryVerificationTierSchema = z.enum([
+  "scrollback_grep",
+  "timed_reread",
+  "behavioral"
+]);
+export type DeliveryVerificationTier = z.infer<typeof deliveryVerificationTierSchema>;
+
+// EPIC-028/031 — MCP input shapes for the holdout-facing validator surfaces.
+/** validateDeliveryVerification({ surface_type, method }). */
+export const deliveryVerificationInputShape = {
+  surface_type: z.string(),
+  method: z.string()
+} as const;
+
+/** validateHarnessControlRecipe({ recipe, harness_version }). */
+export const harnessControlRecipeInputShape = {
+  recipe: z.string().optional(),
+  harness_version: z.string().optional(),
+  version_pin: z.string().optional()
+} as const;
+
+/** evaluateOversizedSliceSentinel({ slice_ref, dnf_agents }). */
+export const oversizedSliceSentinelInputShape = {
+  slice_ref: z.string(),
+  dnf_agents: z.array(z.string()).optional()
+} as const;
+
+/** evaluateQaTimeoutSentinel({ timeout_config, review_file_count }). */
+export const qaTimeoutSentinelInputShape = {
+  timeout_config: z.object({
+    base_seconds: z.number().optional(),
+    per_file_seconds: z.number().optional(),
+    max_seconds: z.number().optional()
+  }).optional(),
+  review_file_count: z.number().int().min(0).optional()
+} as const;
+
+/** evaluateSpecDefectSentinel({ prohibited_path, convergent_agents }). */
+export const specDefectSentinelInputShape = {
+  prohibited_path: z.string().optional(),
+  convergent_agents: z.array(z.string()).optional()
+} as const;
