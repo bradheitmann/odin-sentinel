@@ -476,6 +476,11 @@ export interface HarnessPacingEvent {
   submitted?: boolean;             // Enter-delivered vs input-bar-only, per event
   submit_behavior?: string;        // observed submit semantics (e.g. "submits_on_every_newline")
   message_format?: HarnessMessageFormat;
+  // STORY-FIELD-E037 / AC2 canonical format fields (legacy events without them remain valid).
+  // Public contract: separator_token (emitters avoid secret-looking assignment shapes).
+  delivery_format?: string;        // e.g. submit profile name or free-form delivery format label
+  separator_token?: string;        // multi-field message separator (non-empty when present)
+  modal_gate_assist?: boolean;     // whether modal-gate assist was used for this event
 }
 
 export interface DeliveryReceiptPacingExtension {

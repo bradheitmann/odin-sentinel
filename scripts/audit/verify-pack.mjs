@@ -170,6 +170,24 @@ function walkFiles(dir) {
   });
 }
 
+/**
+ * Mechanically derive dist seed JSON paths from current source seeds only.
+ * Each src/harness-pacing/seeds/<name>.json maps solely to
+ * dist/src/harness-pacing/seeds/<name>.json — no hardcoded seed names.
+ */
+function expectedGeneratedDistSeedJsonFiles() {
+  const expected = new Set();
+  const seedDir = join("src", "harness-pacing", "seeds");
+  if (!existsSync(seedDir)) return expected;
+  for (const entry of readdirSync(seedDir)) {
+    if (!entry.endsWith(".json")) continue;
+    const srcPath = join(seedDir, entry);
+    if (!statSync(srcPath).isFile()) continue;
+    expected.add(`dist/src/harness-pacing/seeds/${entry}`);
+  }
+  return expected;
+}
+
 function expectedGeneratedDistFiles() {
   const expected = new Set();
   for (const file of walkFiles("src")) {
@@ -178,6 +196,9 @@ function expectedGeneratedDistFiles() {
     expected.add(jsFile);
     expected.add(`${jsFile}.map`);
     expected.add(jsFile.replace(/\.js$/, ".d.ts"));
+  }
+  for (const seedPath of expectedGeneratedDistSeedJsonFiles()) {
+    expected.add(seedPath);
   }
   return expected;
 }

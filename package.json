@@ -41,7 +41,7 @@
   ],
   "scripts": {
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
-    "build": "pnpm run clean && tsc -p tsconfig.build.json",
+    "build": "pnpm run clean && tsc -p tsconfig.build.json && node -e \"const fs=require('node:fs');const path=require('node:path');const src=path.join('src','harness-pacing','seeds');const dest=path.join('dist','src','harness-pacing','seeds');fs.mkdirSync(dest,{recursive:true});for(const f of fs.readdirSync(src)){if(f.endsWith('.json'))fs.copyFileSync(path.join(src,f),path.join(dest,f));}\"",
     "dev": "tsx src/bin/index.ts",
     "audit:public": "node scripts/audit/public-surface.mjs",
     "prepack": "pnpm run build",

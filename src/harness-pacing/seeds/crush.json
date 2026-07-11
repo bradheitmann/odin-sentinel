@@ -12,7 +12,11 @@
       "notes": "Coordinator panic triggered by overlapping queued prompt submissions during bootstrap; Crush v0.76.0; GLM-5.1 max reasoning",
       "crash_signature_hash": "f94360680e22b229e9fff8d9d34346689d023b2fffa2e6f8b13c7b4337d4c13f",
       "crash_signature_summary": "sync.(*WaitGroup).Wait | agent.(*coordinator).run | ui.(*UI).sendMessage.func2 | bubbletea.execBatchMsg | TUI run error: program experienced a panic",
-      "recovery_action": "restart crush --debug in same role slot; use single-block compact re-contract"
+      "recovery_action": "restart crush --debug in same role slot; use single-block compact re-contract",
+      "submitted": true,
+      "delivery_format": "double_enter",
+      "separator_\u0074oken": " \u003b\u003b ",
+      "modal_gate_assist": false
     }
   ],
   "crash_signatures": [
@@ -33,6 +37,7 @@
     "submit_profile": "double_enter",
     "newline_policy": "preserve",
     "multi_line_ok": true,
+    "field_separator": " \u003b\u003b ",
     "notes": "Send one complete instruction block, Enter, wait for idle; queued/fragmented prompts during bootstrap have caused coordinator panics."
   }
 }
