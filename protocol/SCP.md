@@ -34,6 +34,24 @@ Public repo, npm package, plugin, bootstrap skill, templates, and docs must be u
 Fresh startup creates an executive office and one development pod unless the
 user or a handoff requests another topology.
 
+## ODIN Liveness Duty
+
+ODIN roles use engine-push over agent-poll: the engine observes and pushes
+liveness findings to the responsible visible role; worker agents do not run
+self-poll loops. Liveness is established by artifact advancement, not animated
+pixels. ODIN must inspect the current attempt directory for recent payloads
+before classifying an unchanged quiet surface as idle, and must poll runner
+liveness with a bounded `pgrep` probe. Spinner-active text with an unchanged
+screen hash beyond the stale threshold and zero artifact advancement is a
+`LIVENESS_MIMIC`, distinct from `WORKING`, and wakes ODIN for inspection.
+The runner probe accepts only a complete normalized LF-separated list of
+positive decimal PIDs, bounded to 4,096 UTF-8 bytes and 256 PIDs. Freshness
+timestamps must be finite, non-negative, and within the JavaScript Date range;
+the freshness window is bounded to 86,400,000 milliseconds. Mixed probe prose,
+oversized output, invalid timestamps/windows, future payload timestamps, and
+empty or non-normalized artifact revisions fail closed to a waking diagnostic
+state and can never produce `WORKING` with `wake=0`.
+
 ## Surface Layout
 
 CMUX surface organization is contractually fixed by `surface_layout` in

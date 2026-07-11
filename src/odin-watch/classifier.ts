@@ -1,4 +1,9 @@
-import type { WakeVerdict, PromptBudgetClass } from "../protocol/schemas.js";
+import type { PromptBudgetClass } from "../protocol/schemas.js";
+import type {
+  LivenessSignals,
+  LivenessVerdict,
+  WakeVerdict,
+} from "./types.js";
 
 export interface ClassifierInput {
   text: string;
@@ -12,6 +17,7 @@ export interface ClassifierInput {
   dirty_paths: string[];
   last_verdict: WakeVerdict | null;
   last_mandatory_audit_ts: number | null;
+  liveness?: LivenessSignals;
 }
 
 export interface ClassifierResult {
@@ -21,6 +27,7 @@ export interface ClassifierResult {
   prompt_budget_class: PromptBudgetClass;
   dirty_out_of_scope: string[];
   last_marker: string | undefined;
+  liveness_verdict?: LivenessVerdict;
 }
 
 // Approval markers: exact strings and regex for numbered interactive options
@@ -89,6 +96,7 @@ export function classify(input: ClassifierInput): ClassifierResult {
     dirty_paths,
     last_verdict,
     last_mandatory_audit_ts,
+    liveness,
   } = input;
 
   const dirty_out_of_scope: string[] = [];
@@ -201,23 +209,86 @@ export function classify(input: ClassifierInput): ClassifierResult {
     };
   }
 
-  // Rule 7: Stale hash (unchanged content beyond stale threshold)
-  if (
+  const unchangedPastStale =
     prev_hash !== null &&
     prev_hash === hash &&
-    elapsed_ms > stale_threshold_ms
+    elapsed_ms > stale_threshold_ms;
+  const artifactAdvanced = liveness?.artifact_advanced ?? false;
+  const recentAttemptPayload = liveness?.recent_attempt_payload ?? false;
+
+  // Malformed external observations fail closed. They cannot manufacture a
+  // WORKING verdict or suppress an ODIN wake.
+  if (liveness?.observation_valid === false) {
+    return {
+      verdict: "UNKNOWN_NEEDS_READ",
+      wake: 1,
+      reason_codes: [
+        "INVALID_LIVENESS_OBSERVATION",
+        ...liveness.diagnostic_reason_codes,
+      ],
+      prompt_budget_class: "diagnostic",
+      dirty_out_of_scope,
+      last_marker: undefined,
+    };
+  }
+
+  // Rule 7: A spinner without artifact advancement is a liveness mimic, not
+  // proof of work. Wake ODIN so the engine can inspect or intervene.
+  if (
+    liveness !== undefined &&
+    unchangedPastStale &&
+    WORKING_RE.test(text) &&
+    !artifactAdvanced &&
+    !recentAttemptPayload
   ) {
+    return {
+      verdict: "UNKNOWN_NEEDS_READ",
+      liveness_verdict: "LIVENESS_MIMIC",
+      wake: 1,
+      reason_codes: [
+        "LIVENESS_MIMIC",
+        ...(liveness?.runner_alive === true
+          ? ["RUNNER_ALIVE_NO_ARTIFACT_ADVANCEMENT"]
+          : []),
+      ],
+      prompt_budget_class: "diagnostic",
+      dirty_out_of_scope,
+      last_marker: undefined,
+    };
+  }
+
+  // Rule 8: Artifact progress is stronger liveness evidence than pixels. A
+  // recent attempt payload keeps a quiet, unchanged surface out of IDLE.
+  if (artifactAdvanced || recentAttemptPayload) {
+    return {
+      verdict: "WORKING",
+      wake: 0,
+      reason_codes: [
+        ...(artifactAdvanced ? ["ARTIFACT_ADVANCED"] : []),
+        ...(recentAttemptPayload ? ["RECENT_ATTEMPT_PAYLOAD"] : []),
+      ],
+      prompt_budget_class: "silent",
+      dirty_out_of_scope,
+      last_marker: undefined,
+    };
+  }
+
+  // Rule 9: Stale hash (unchanged content beyond stale threshold)
+  if (unchangedPastStale) {
     return {
       verdict: "IDLE",
       wake: 1,
-      reason_codes: ["STALE_HASH"],
+      reason_codes: [
+        "STALE_HASH",
+        ...(liveness?.runner_alive === false ? ["RUNNER_NOT_ALIVE"] : []),
+      ],
       prompt_budget_class: "compact",
       dirty_out_of_scope,
       last_marker: undefined,
     };
   }
 
-  // Rule 8: All clear — WORKING requires positive evidence
+  // Rule 10: All clear — WORKING requires positive evidence
   // Positive evidence: text contains active working indicators
   if (WORKING_RE.test(text)) {
     return {
