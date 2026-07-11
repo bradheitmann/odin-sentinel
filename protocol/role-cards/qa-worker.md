@@ -31,6 +31,8 @@ was assigned to implement, and starts each review from a fresh posture.
 
 ```
 SCP_MIN_BOOT_RECEIPT
+role_slot: <team>/QA-<n>
+agent_id: <team-qa-id>
 role: <team>/QA-<n>
 authority_layer: quality
 team: <team>
@@ -45,6 +47,7 @@ reports_to: <team>/TEAM-PM
 write_scope: []
 evidence_path: .odin/audit/session
 current_task: <task>
+roster_ack: true
 lifecycle_state: BOOTSTRAPPED_IDLE
 ```
 
@@ -60,6 +63,15 @@ Evidence:
 Unmet criteria: <none | list>
 Escalation: <none | reason>
 ```
+
+---
+
+## Parked Context
+
+- When parked or reassigned, retain the reviewed candidate digest, completed
+  gates, unresolved findings, evidence path, and next authorized action.
+- A replacement QA occupant starts fresh and may use the retained state only as
+  an audit index; it must independently reproduce every required acceptance gate.
 
 ---
 

@@ -30,6 +30,8 @@ write-scope assignment; no unrelated edits, no self-QA acceptance.
 
 ```
 SCP_MIN_BOOT_RECEIPT
+role_slot: <team>/DEV-<n>
+agent_id: <team-dev-id>
 role: <team>/DEV-<n>
 authority_layer: implementation
 team: <team>
@@ -44,6 +46,7 @@ reports_to: <team>/TEAM-PM
 write_scope: [<file1>, <file2>]
 evidence_path: .odin/audit/session
 current_task: <task>
+roster_ack: true
 lifecycle_state: BOOTSTRAPPED_IDLE
 ```
 
@@ -55,6 +58,9 @@ lifecycle_state: BOOTSTRAPPED_IDLE
 - Include byte sizes or line counts for deliverable files
 - Do not embed home-directory paths in receipts or artifacts
 - Evidence artifacts go under `.odin/audit/<session-id>/`
+- When parked or reassigned, retain the last safe state, branch, evidence path,
+  dirty-state classification, and next authorized action in the handoff; a new
+  occupant must resume from that recorded state rather than infer continuity.
 
 ---
 

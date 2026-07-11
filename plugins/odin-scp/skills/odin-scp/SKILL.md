@@ -70,6 +70,26 @@ SCP is a standing control loop, not a one-time boot banner. Read or re-invoke th
 
 If an agent cannot state its current SCP role, authority layer, `may_implement`, `may_qa_accept`, reports-to chain, and next receipt type, it must stop and re-emit `SCP_BOOT_RECEIPT`.
 
+### Immediate SCP_MIN_BOOT_RECEIPT Copy-Paste Block
+
+Use this bounded receipt to acknowledge an idle role slot. Replace every angle-
+bracketed value; this receipt does not authorize implementation or QA acceptance.
+
+```
+SCP_MIN_BOOT_RECEIPT
+agent_id: <team-role-id>
+team: <team>
+role: <role-slot>
+reports_to: <responsible-pm>
+cwd: <repo-root>
+branch: <branch>
+head_sha: <full-sha>
+permission_mode: <read-only-or-workspace-write>
+may_implement: false
+may_qa_accept: false
+current_state: BOOTSTRAPPED_IDLE
+```
+
 ### Tiered Protocol Uptake
 
 Full SCP skill load is required for control-plane roles only:

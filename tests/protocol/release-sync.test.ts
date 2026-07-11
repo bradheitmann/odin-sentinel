@@ -57,6 +57,9 @@ const expectedRequiredPackageFiles = [
   "protocol/role-cards/dev-worker.md",
   "protocol/role-cards/qa-worker.md",
   "protocol/role-cards/exec-asst.md",
+  "protocol/role-cards/crush-stability.md",
+  "protocol/role-cards/mission-droid.md",
+  "protocol/role-cards/shadow.md",
   "protocol/mission-frontrun/orchestrator-contract.md",
   "protocol/mission-frontrun/worker-contract.md",
   "protocol/mission-frontrun/scrutiny-validator-contract.md",
@@ -174,6 +177,18 @@ describe("release sync audit helpers", () => {
 
   it("keeps the required package file allowlist anchored to an independent fixture", () => {
     expect(verifyPack.requiredPackageFiles).toEqual(expectedRequiredPackageFiles);
+  });
+
+  it("rejects an unexpected fourth E035 role card from both exact release anchors", () => {
+    const unexpectedRoleCard = "protocol/role-cards/unexpected-fourth.md";
+    expect(verifyPack.requiredPackageFiles).not.toContain(unexpectedRoleCard);
+    expect(expectedRequiredPackageFiles).not.toContain(unexpectedRoleCard);
+    expect(
+      verifyPack.validatePackFileList([
+        ...requiredPaths.map((entry: { path: string }) => entry.path),
+        unexpectedRoleCard,
+      ]),
+    ).toContain(`Package includes unexpected files: ${unexpectedRoleCard}`);
   });
 
   it("rejects private planning and local evidence paths in package contents", () => {
