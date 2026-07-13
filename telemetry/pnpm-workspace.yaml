@@ -3,8 +3,12 @@ allowBuilds:
   sharp: true
   workerd: true
 
+# ws  >= 8.21.0: GHSA memory-exhaustion DoS fix (was pinned 8.20.1)
+# undici >= 7.28.0: TLS validation bypass, WebSocket DoS, cross-origin
+#                   routing, header injection, and related advisories
 overrides:
-  ws: 8.20.1
+  ws: "^8.21.0"
+  undici: "^7.28.0"
 
 # Both esbuild advisories are unreachable here: esbuild is wrangler's
 # bundled build tool (Node-only; the high is Deno-specific, the low is
