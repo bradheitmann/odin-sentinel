@@ -9,8 +9,8 @@
   "files": [
     {
       "path": "protocol/bootstrap-skill.md",
-      "bytes": 110305,
-      "sha256": "8f2a0514ea6e8f14ef79ad13e2dcf4a082ada88b9ee101b858afb807229ca7d1"
+      "bytes": 114537,
+      "sha256": "eeffe81c1b730029c60f6da6985d70cf1f8b6dbcf2b5ff0b264147b1a51b702f"
     },
     {
       "path": "protocol/closeout.yaml",
@@ -159,8 +159,8 @@
     },
     {
       "path": "protocol/SCP.md",
-      "bytes": 12289,
-      "sha256": "0c188acd6a74ac2986b374e0939f287b9dc1ee1263a66e88c1015371e96b715d"
+      "bytes": 16521,
+      "sha256": "b73511eb43dbb2e1b4a7a4da92c36faab1fe9be13718690f46bfd6ab43434d81"
     },
     {
       "path": "protocol/skill-references/boot-receipt-examples.md",
