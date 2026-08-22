@@ -5,7 +5,7 @@
     "src/protocol",
     "src/mcp"
   ],
-  "file_count": 45,
+  "file_count": 46,
   "files": [
     {
       "path": "protocol/bootstrap-skill.md",
@@ -191,6 +191,11 @@
       "path": "src/mcp/server.ts",
       "bytes": 33830,
       "sha256": "e1ca61993b3462dadc516a7be94be526e12b072162495313dc113041810bc330"
+    },
+    {
+      "path": "src/protocol/event-registry/diagnostic.ts",
+      "bytes": 2642,
+      "sha256": "5e4c83818bbb59c3cdb8cc241093bb2de00c080a8f6c90f94a8b0a3117f0103f"
     },
     {
       "path": "src/protocol/event-registry/types.ts",
