@@ -1,4 +1,14 @@
 import { z } from "zod";
+import {
+  ATTEMPT_EVENT_TYPES,
+  ATTEMPT_TRIGGERS,
+  BREAK_GLASS_EVENT_TYPES,
+  BUDGET_EVENT_TYPES,
+  BUDGET_KINDS,
+  FINDING_EVENT_TYPES,
+  GOVDISP_EVENT_SCHEMA_VERSION,
+  TERMINAL_EVENT_TYPES
+} from "./event-registry/types.js";
 
 export const startupPacketInputShape = {
   role: z.string().optional(),
@@ -782,3 +792,73 @@ export const specDefectSentinelInputShape = {
   prohibited_path: z.string().optional(),
   convergent_agents: z.array(z.string()).optional()
 } as const;
+
+// ---------------------------------------------------------------------------
+// EPIC-052 Wave-0 — governance-displacement event schemas (types + JSON/Zod
+// only; no runtime wiring). These are the additive JSON-schema equivalents of
+// src/protocol/event-registry/types.ts. Do not import this module's new
+// event-registry path from runtime hosts (service.ts / mcp/server.ts).
+// ---------------------------------------------------------------------------
+
+export const stableObjectiveIdSchema = z.string().min(1);
+export type StableObjectiveId = z.infer<typeof stableObjectiveIdSchema>;
+
+export const govdispContentHashSchema = z.object({
+  path: z.string().min(1),
+  sha256: z.string().min(1)
+}).strict();
+
+const govdispEventBaseShape = {
+  schema_version: z.literal(GOVDISP_EVENT_SCHEMA_VERSION),
+  event_id: z.string().min(1),
+  ts: z.string().min(1),
+  stable_objective_id: stableObjectiveIdSchema,
+  actor_role: z.string().min(1).optional()
+} as const;
+
+export const attemptEventSchema = z.object({
+  ...govdispEventBaseShape,
+  event_class: z.literal("ATTEMPT"),
+  event_type: z.enum(ATTEMPT_EVENT_TYPES),
+  attempt_index: z.number().int().min(1).optional(),
+  trigger: z.enum(ATTEMPT_TRIGGERS).optional()
+}).strict();
+
+export const findingEventSchema = z.object({
+  ...govdispEventBaseShape,
+  event_class: z.literal("FINDING"),
+  event_type: z.enum(FINDING_EVENT_TYPES),
+  finding_id: z.string().min(1),
+  owner_role: z.string().min(1).optional()
+}).strict();
+
+export const breakGlassEventSchema = z.object({
+  ...govdispEventBaseShape,
+  event_class: z.literal("BREAK_GLASS"),
+  event_type: z.enum(BREAK_GLASS_EVENT_TYPES),
+  authorizing_human: z.string().min(1),
+  contradiction_ref: z.string().min(1)
+}).strict();
+
+export const budgetEventSchema = z.object({
+  ...govdispEventBaseShape,
+  event_class: z.literal("BUDGET"),
+  event_type: z.enum(BUDGET_EVENT_TYPES),
+  budget_kind: z.enum(BUDGET_KINDS)
+}).strict();
+
+export const terminalEventSchema = z.object({
+  ...govdispEventBaseShape,
+  event_class: z.literal("TERMINAL"),
+  event_type: z.enum(TERMINAL_EVENT_TYPES),
+  content_hashes: z.array(govdispContentHashSchema).min(1)
+}).strict();
+
+export const govdispEventSchema = z.discriminatedUnion("event_class", [
+  attemptEventSchema,
+  findingEventSchema,
+  breakGlassEventSchema,
+  budgetEventSchema,
+  terminalEventSchema
+]);
+export type GovdispEvent = z.infer<typeof govdispEventSchema>;
