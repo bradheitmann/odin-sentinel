@@ -1,0 +1,45 @@
+{
+  "schema_version": "govdisp.displacement.case.v1",
+  "case_id": "GDR-20260808-001",
+  "registry_id": "GDR-20260808-001",
+  "repository": "edge_agentic_orchestration_system-migration-lab-fresh",
+  "run_id": "MANAGEMENT-ROLLUP-EXEC-PM-20260808",
+  "snapshot_time": "2026-08-08T19:00:00-06:00",
+  "run_file_count": 605,
+  "run_bytes": 3116764,
+  "manifest_fail_state_count": 19,
+  "manifest_execution_state": "LAYER_SYNTHESIS_DD_LANE_ATTEMPT_5_CONTEXT_SOFT_STOP_EXEC_ODIN_RESET_OR_RESTAFF_AUDIT_ACTIVE_ADVERSARY_HELD",
+  "manifest_final_state": "ROLLUP_PARTIAL_USABLE",
+  "manifest_final_state_is_provisional": true,
+  "manifest_new_work_allowed": false,
+  "required_terminal_outputs_present": false,
+  "required_terminal_outputs_missing": [
+    "exec_pm_canonical_rollup.md",
+    "layers/exec-odin/synthesis.md",
+    "validation_report.md",
+    "resume_packet.md"
+  ],
+  "attempt_count": 5,
+  "governance_growth_without_outcome_movement": true,
+  "non_signatures_present": {
+    "GD-NS-001": true,
+    "GD-NS-002": true,
+    "GD-NS-003": true,
+    "GD-NS-004": true
+  },
+  "fingerprints": {
+    "GD-FP-001": true,
+    "GD-FP-002": true,
+    "GD-FP-003": true,
+    "GD-FP-004": true,
+    "GD-FP-005": true,
+    "GD-FP-006": true,
+    "GD-FP-007": false,
+    "GD-FP-008": true,
+    "GD-FP-009": true,
+    "GD-FP-010": false,
+    "GD-FP-011": false,
+    "GD-FP-012": false,
+    "GD-FP-013": false
+  }
+}

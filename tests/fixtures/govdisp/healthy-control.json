@@ -1,0 +1,40 @@
+{
+  "schema_version": "govdisp.displacement.case.v1",
+  "case_id": "HEALTHY-CONTROL-001",
+  "registry_id": null,
+  "repository": "healthy-agentic-orchestration-system",
+  "run_id": "ORDINARY-ROLLUP-20260815",
+  "snapshot_time": "2026-08-15T10:00:00-06:00",
+  "run_file_count": 320,
+  "run_bytes": 1800000,
+  "manifest_fail_state_count": 0,
+  "manifest_execution_state": "COMPLETED",
+  "manifest_final_state": "COMPLETED",
+  "manifest_final_state_is_provisional": false,
+  "manifest_new_work_allowed": true,
+  "required_terminal_outputs_present": true,
+  "required_terminal_outputs_missing": [],
+  "attempt_count": 1,
+  "governance_growth_without_outcome_movement": false,
+  "non_signatures_present": {
+    "GD-NS-001": true,
+    "GD-NS-002": true,
+    "GD-NS-003": true,
+    "GD-NS-004": true
+  },
+  "fingerprints": {
+    "GD-FP-001": false,
+    "GD-FP-002": false,
+    "GD-FP-003": false,
+    "GD-FP-004": false,
+    "GD-FP-005": false,
+    "GD-FP-006": false,
+    "GD-FP-007": false,
+    "GD-FP-008": false,
+    "GD-FP-009": false,
+    "GD-FP-010": false,
+    "GD-FP-011": false,
+    "GD-FP-012": false,
+    "GD-FP-013": false
+  }
+}
