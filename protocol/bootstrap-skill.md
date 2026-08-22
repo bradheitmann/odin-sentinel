@@ -931,6 +931,10 @@ Per-agent context thresholds, enforced by the supervising ODIN:
 
 Context-budget violations are halt-eligible. Workers approaching the soft threshold should not silently continue.
 
+<!-- BEGIN SCP-AMENDMENT RET-010-REL-005 -->
+**Doctrine amendment (RET-010/REL-005): risk-tiered handoff depth.** Handoff depth scales with the unique knowledge and authority at risk, not with a uniform template. A handoff is HIGH-RISK when the sender holds unique, authoritative, or unreconstructed context (sole knowledge of a decision rationale, uncommitted state, live credential scope, or an in-flight irreversible action). HIGH-RISK handoffs must carry full decision rationale, open loops, exact resume or reproduction commands, and named blockers. Routine, reversible handoffs over recoverable context may use the standard minimal handoff format. Sending a minimal handoff for HIGH-RISK context is a handoff defect charged to the sender.
+<!-- END SCP-AMENDMENT RET-010-REL-005 -->
+
 ## Runtime Receipts
 
 Every participating pane must leave searchable, pane-native receipts. These are required even when the agent is read-only or blocked.
@@ -1128,6 +1132,10 @@ Emit for protocol improvement observations during bootstrap, active monitoring, 
 Use the same severity discipline as QA: `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`. Preliminary feedback must say what was and was not validated. Feedback does not authorize product work; it only proposes governance improvements.
 
 Audit and feedback reports must declare coverage. `[SCP-FEEDBACK]` for audit output must include `audit_id`, `audit_authority`, `executed_scope`, `not_executed_scope`, `data_basis`, `evidence_completeness: FULL|PARTIAL|INSUFFICIENT`, `partial_reason`, `truncation_reason`, `surfaces_with_insufficient_evidence`, `secrets_emitted`, and per-finding `evidence_basis`. `PARTIAL` output cannot be treated as complete coverage, QA acceptance, or closure support unless the synthesis explicitly downgrades scope and names missing inputs. Full synthesis is prohibited when any required report is missing, partial, unread, malformed, or noncompliant unless the scope is downgraded to `PARTIAL`.
+
+<!-- BEGIN SCP-AMENDMENT RET-011 -->
+**Doctrine amendment (RET-011): typed partial terminal record.** A failed synthesis layer must emit one typed partial terminal record, declaring executed scope, missing inputs, and partial reason, before any remediation retry is attempted.
+<!-- END SCP-AMENDMENT RET-011 -->
 
 ### `[SCP-IDLE]`
 
@@ -1367,6 +1375,10 @@ Future local-server, Qwen, DeepSeek, Gemma, Amazon-family, and other local agent
 Metrics collection should prefer deterministic commands and artifacts over reasoning: CMUX surface inventory/capture, `rg` over transcripts/artifacts, git status/branch checks, sync log hashes, manifest receipts, delivery receipts including `enter_sent`, and harness token reports. Reasoning synthesis happens only after metrics capture and must cite basis.
 
 For skill/protocol changes, preserve one curated session-level decision trace per SCP session, not one per patch or back-and-forth. If multiple skill/protocol changes happen in the same session, append or summarize them together in the same session decision trace because the narrative unit is the session. Raw CMUX logs, proposal artifacts, and sync logs remain local audit evidence unless explicitly promoted.
+
+<!-- BEGIN SCP-AMENDMENT DIS-001 -->
+**Doctrine amendment (DIS-001): evidence economy.** No role may create one document or file per control-plane interaction; evidence accrues to one curated artifact per unit of work (session decision trace, slice evidence bundle, or audit ledger), appended or summarized, never fanned out per message. In-pane receipts (boot receipts, delivery proofs, dispatch acknowledgments) are control-plane signals, not documents, and remain required exactly as specified.
+<!-- END SCP-AMENDMENT DIS-001 -->
 
 Decision trace fields:
 
@@ -1610,6 +1622,10 @@ If repo mechanics require moving a DEV slice to `done/` before independent QA, t
 - Missing evidence bundle, untracked required evidence, missing `before/`, missing `after/`, missing `verify.log`, or validator exit 1 means `QA_INCOMPLETE` or `BLOCKED`; the same QA pane must not create missing evidence and continue to PASS in the same context.
 - Plan-only gates, liveness checks, summaries, and "looks good" are not adversarial QA.
 
+<!-- BEGIN SCP-AMENDMENT RET-006 -->
+**Doctrine amendment (RET-006): owner-queue admission criteria.** A decision enters the human owner's queue only when it crosses at least one admission threshold: architecture or public-protocol shape change; irreversible or hard-to-reverse effect (deletion, publication, force-push, schema or lifecycle migration); acceptance of a security or privacy risk; credential, secret, billing, or quota change; or a GO decision over a live corpus or production surface. Reversible, in-scope routing, sequencing, and staffing-internal coordination below those thresholds are decided by the responsible PM without queueing the owner. PMs must neither push below-threshold decisions onto the owner queue nor hold above-threshold decisions in their own lane.
+<!-- END SCP-AMENDMENT RET-006 -->
+
 ## Hook, Validator, And Permission Decision Table
 
 - Any hook output containing `blocking error` requires `[SCP-FREEZE]` unless a named `HOOK-EXCEPTION` is recorded.
@@ -1658,6 +1674,10 @@ Submit semantics are per-harness, and Enter alone is not enough. Each harness de
 ### Full-Instruction-Read Proof
 
 Before implementation, QA acceptance, or ACTIVE_WATCH work, an activated role must emit a full-instruction-read proof: for each required instruction file, its path, byte or line count, and a SHA-256 digest. `head`, first-screen-only reads, and partial `sed` ranges are insufficient unless paired with full file counts and digests proving complete coverage. Generate and verify proofs with `scripts/protocol/verify-instruction-read.mjs` (`--record` to generate, default mode to verify against local files), install the precheck hook with `scripts/protocol/install-activation-hooks.mjs`, and read the consolidated requirements from `odin.get_activation_gates`. Validate proof shape with `odin.validate_instruction_read_proof`.
+
+<!-- BEGIN SCP-AMENDMENT DIS-004 -->
+**Doctrine amendment (DIS-004): digest-scope boundary.** SHA-256 digest binding applies to instruction and canonical files only (boot contracts, slice definitions, protocol texts, manifests, and declared evidence artifacts). Conversational artifacts (chat prose, transcripts, screen captures, rendered panes) must not be hashed, recounted, or treated as release binaries.
+<!-- END SCP-AMENDMENT DIS-004 -->
 
 ## Harness Readiness Probes
 
@@ -1717,6 +1737,14 @@ In organizational work:
 - ODIN agents are the QA of org strategy. They audit whether `A/EXEC-PM`'s org orders are executed correctly, whether surface custodianship is honored, whether protocol adherence holds, whether context windows are healthy, and whether contracts remain accountable.
 
 This recursion is why the same protocol governs both code work and organizational work without growing new vocabulary. A pod committing a DEV/QA breach and an executive office committing a staffing-gate breach are the same shape of violation, escalated through the same intervention authority.
+
+<!-- BEGIN SCP-AMENDMENT DIS-003 -->
+**Doctrine amendment (DIS-003): single audit per concern.** A settled judgment receives at most one independent audit per concern; re-auditing the same concern without a named, concrete contradiction in the prior audit is prohibited. Guard: the dual-verdict closure rule in protocol/resources/qa-independence.yaml is not a duplicate audit. SLICE_QA_PASS and HOLDOUT_ACCEPTED are audits of different concerns (slice hygiene: scope, evidence, lifecycle, branch and gate hygiene, acceptance criteria; versus sealed story behavior), they are structurally distinct, and both remain required for closure. This rule must not be read to merge, weaken, or substitute either verdict.
+<!-- END SCP-AMENDMENT DIS-003 -->
+
+<!-- BEGIN SCP-AMENDMENT DIS-008 -->
+**Doctrine amendment (DIS-008): bounded meta-governance.** An audit of an audit is break-glass only: it requires ALL THREE of (1) a machine-recorded break-glass event in the durable audit ledger before the meta-audit opens, (2) explicit human authority approval, and (3) a named, concrete contradiction in the prior audit's findings or process. When any condition is absent, audit recursion terminates at the first completed audit; this is the terminating condition on the recursion described in this section.
+<!-- END SCP-AMENDMENT DIS-008 -->
 
 ## Reference Files
 

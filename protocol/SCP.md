@@ -29,6 +29,22 @@ Public repo, npm package, plugin, bootstrap skill, templates, and docs must be u
 - Delegation is native to the server and must not require an external extension.
 - Staffing and surface custodianship are the sole authority of A/EXEC-PM.
 
+<!-- BEGIN SCP-AMENDMENT RET-006 -->
+**Doctrine amendment (RET-006): owner-queue admission criteria.** A decision enters the human owner's queue only when it crosses at least one admission threshold: architecture or public-protocol shape change; irreversible or hard-to-reverse effect (deletion, publication, force-push, schema or lifecycle migration); acceptance of a security or privacy risk; credential, secret, billing, or quota change; or a GO decision over a live corpus or production surface. Reversible, in-scope routing, sequencing, and staffing-internal coordination below those thresholds are decided by the responsible PM without queueing the owner. PMs must neither push below-threshold decisions onto the owner queue nor hold above-threshold decisions in their own lane.
+<!-- END SCP-AMENDMENT RET-006 -->
+
+<!-- BEGIN SCP-AMENDMENT RET-010-REL-005 -->
+**Doctrine amendment (RET-010/REL-005): risk-tiered handoff depth.** Handoff depth scales with the unique knowledge and authority at risk, not with a uniform template. A handoff is HIGH-RISK when the sender holds unique, authoritative, or unreconstructed context (sole knowledge of a decision rationale, uncommitted state, live credential scope, or an in-flight irreversible action). HIGH-RISK handoffs must carry full decision rationale, open loops, exact resume or reproduction commands, and named blockers. Routine, reversible handoffs over recoverable context may use the standard minimal handoff format. Sending a minimal handoff for HIGH-RISK context is a handoff defect charged to the sender.
+<!-- END SCP-AMENDMENT RET-010-REL-005 -->
+
+<!-- BEGIN SCP-AMENDMENT RET-011 -->
+**Doctrine amendment (RET-011): typed partial terminal record.** A failed synthesis layer must emit one typed partial terminal record, declaring executed scope, missing inputs, and partial reason, before any remediation retry is attempted.
+<!-- END SCP-AMENDMENT RET-011 -->
+
+<!-- BEGIN SCP-AMENDMENT DIS-001 -->
+**Doctrine amendment (DIS-001): evidence economy.** No role may create one document or file per control-plane interaction; evidence accrues to one curated artifact per unit of work (session decision trace, slice evidence bundle, or audit ledger), appended or summarized, never fanned out per message. In-pane receipts (boot receipts, delivery proofs, dispatch acknowledgments) are control-plane signals, not documents, and remain required exactly as specified.
+<!-- END SCP-AMENDMENT DIS-001 -->
+
 ## Startup Defaults
 
 Fresh startup creates an executive office and one development pod unless the
@@ -123,6 +139,10 @@ are insufficient. Verify a proof against local files with
 `scripts/protocol/install-activation-hooks.mjs`, and read the consolidated requirements from
 `odin.get_activation_gates`. Validate proof shape with `odin.validate_instruction_read_proof`.
 
+<!-- BEGIN SCP-AMENDMENT DIS-004 -->
+**Doctrine amendment (DIS-004): digest-scope boundary.** SHA-256 digest binding applies to instruction and canonical files only (boot contracts, slice definitions, protocol texts, manifests, and declared evidence artifacts). Conversational artifacts (chat prose, transcripts, screen captures, rendered panes) must not be hashed, recounted, or treated as release binaries.
+<!-- END SCP-AMENDMENT DIS-004 -->
+
 ## Harness Readiness Probes
 
 Installed is not provisioned. Before assigning a governed role, probe each harness and record
@@ -197,3 +217,11 @@ is itself a protocol breach.
 
 This recursion is why the same protocol governs both code work and
 organizational work without growing new vocabulary.
+
+<!-- BEGIN SCP-AMENDMENT DIS-003 -->
+**Doctrine amendment (DIS-003): single audit per concern.** A settled judgment receives at most one independent audit per concern; re-auditing the same concern without a named, concrete contradiction in the prior audit is prohibited. Guard: the dual-verdict closure rule in protocol/resources/qa-independence.yaml is not a duplicate audit. SLICE_QA_PASS and HOLDOUT_ACCEPTED are audits of different concerns (slice hygiene: scope, evidence, lifecycle, branch and gate hygiene, acceptance criteria; versus sealed story behavior), they are structurally distinct, and both remain required for closure. This rule must not be read to merge, weaken, or substitute either verdict.
+<!-- END SCP-AMENDMENT DIS-003 -->
+
+<!-- BEGIN SCP-AMENDMENT DIS-008 -->
+**Doctrine amendment (DIS-008): bounded meta-governance.** An audit of an audit is break-glass only: it requires ALL THREE of (1) a machine-recorded break-glass event in the durable audit ledger before the meta-audit opens, (2) explicit human authority approval, and (3) a named, concrete contradiction in the prior audit's findings or process. When any condition is absent, audit recursion terminates at the first completed audit; this is the terminating condition on the recursion described in this section.
+<!-- END SCP-AMENDMENT DIS-008 -->
