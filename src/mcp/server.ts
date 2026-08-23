@@ -1,7 +1,9 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import YAML from "yaml";
+import { z } from "zod";
 import {
   VERSION,
+  appendGovdispEvent,
   evaluateReadinessGate,
   exportProtocolSnapshot,
   getActivationGates,
@@ -19,6 +21,7 @@ import {
   getStartupPacket,
   getVersionMetadata,
   loadProtocolData,
+  queryGovdispEvents,
   evaluateEscalationGate,
   evaluateBlockedPodRollover,
   evaluateSliceHealth,
@@ -41,6 +44,10 @@ import {
   validateDelegationPacket,
   validateInstructionReadProof,
   validateTeamManifest
+} from "../protocol/service.js";
+import type {
+  GovdispRegistryQuery,
+  GovdispRegistryStoreLike
 } from "../protocol/service.js";
 import {
   computeSurfaceLayout,
@@ -344,7 +351,144 @@ function registerProtocolResources(server: McpServer) {
   }
 }
 
-export function createServer(): McpServer {
+// ---------------------------------------------------------------------------
+// EPIC-052 Wave-2 — flag-gated governance-registry MCP compatibility surface.
+// INERT BY DEFAULT: the two compat tools and the registry resource are
+// registered ONLY when the compatibility flag is enabled; with the flag off
+// the tool/resource inventory and all behavior are byte-identical to baseline.
+// The flag reuses the existing opt-in env convention (an ODIN_* env var read
+// through an injectable env reader, exactly like ODIN_TELEMETRY_ENDPOINT) —
+// no new config system. GD-DEC-012 guard: MCP tools/resource only — no
+// network listener, no daemon, no rendered view.
+// ---------------------------------------------------------------------------
+
+/** Env flag enabling the governance-registry compatibility surface. */
+export const GOVDISP_REGISTRY_MCP_ENV_VAR = "ODIN_GOVDISP_REGISTRY_MCP";
+
+const GOVDISP_REGISTRY_MCP_TRUTHY = new Set(["1", "true", "yes", "on"]);
+
+export type GovdispRegistryMcpFlagConfig = {
+  enabled: boolean;
+  source: "env" | "default";
+};
+
+/**
+ * Read the compatibility flag, mirroring readTelemetryConfig's injectable-env
+ * shape. Enabled only by an explicit truthy value (1/true/yes/on, case- and
+ * whitespace-insensitive); unset, empty, or any other value is OFF, so a
+ * mistaken "0"/"false" can never half-activate the surface.
+ */
+export function readGovdispRegistryMcpFlag(env: NodeJS.ProcessEnv = process.env): GovdispRegistryMcpFlagConfig {
+  const raw = env[GOVDISP_REGISTRY_MCP_ENV_VAR];
+  const normalized = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+  if (normalized.length === 0) {
+    return { enabled: false, source: "default" };
+  }
+  return { enabled: GOVDISP_REGISTRY_MCP_TRUTHY.has(normalized), source: "env" };
+}
+
+/** Options for the flag-gated governance-registry compatibility surface. */
+export type GovdispRegistryMcpOptions = {
+  /** Explicit on/off override; when omitted the env flag decides. */
+  enabled?: boolean;
+  /**
+   * Registry store injected through the protocol service seam
+   * (GovdispRegistryStoreLike). This module never imports the staged registry
+   * storage module directly — the caller binds it, preserving the Wave-0
+   * runtime-isolation contract. Flag on without a store fails closed: the
+   * tools surface the service layer's named store_unavailable rejection.
+   */
+  store?: GovdispRegistryStoreLike;
+  /** Registry base path override; defaults to the store's own default base. */
+  base?: string;
+  /** Env source for the flag; defaults to process.env (telemetry convention). */
+  env?: NodeJS.ProcessEnv;
+};
+
+export type CreateServerOptions = {
+  govdispRegistry?: GovdispRegistryMcpOptions;
+};
+
+// Input shapes live in this module (the shared schema module is frozen for
+// this slice). event and query pass through as unknown so the staged store
+// stays THE single validation choke point: MCP-level parsing never strips or
+// genericizes a malformed payload before the store can reject it by name.
+const appendEventToolInputShape = {
+  scope: z.string(),
+  event: z.unknown()
+} as const;
+
+const queryEventsToolInputShape = {
+  scope: z.string(),
+  query: z.unknown().optional()
+} as const;
+
+function registryToolResult(result: { ok: boolean }) {
+  const body = jsonText(result);
+  return result.ok ? body : { ...body, isError: true as const };
+}
+
+function registerGovdispRegistrySurface(server: McpServer, options: GovdispRegistryMcpOptions) {
+  // Deliberate cast: a missing store flows into the service layer's
+  // fail-closed store_unavailable rejection instead of throwing here.
+  const store = options.store as GovdispRegistryStoreLike;
+  const base = options.base;
+
+  server.registerTool(
+    "odin_append_event",
+    {
+      title: "Append Governance Registry Event (compatibility surface)",
+      description:
+        `Append one governance event to the append-only registry log for a scope. Registered only under the ${GOVDISP_REGISTRY_MCP_ENV_VAR} compatibility flag. The staged store is the single validation choke point: valid events are appended (one line-atomic JSONL record); malformed events fail closed and the store's named rejections (field, event_class, code, detail) are propagated verbatim in the tool result — never swallowed or genericized. Append-only: no mutation or deletion surface exists.`,
+      inputSchema: appendEventToolInputShape
+    },
+    (input) => registryToolResult(appendGovdispEvent(store, input.scope, input.event, base))
+  );
+
+  server.registerTool(
+    "odin_query_events",
+    {
+      title: "Query Governance Registry Events (compatibility surface)",
+      description:
+        `Deterministically query the append-only registry log for a scope. Registered only under the ${GOVDISP_REGISTRY_MCP_ENV_VAR} compatibility flag. Optional query filters — stable_objective_id, event_class, event_type, and inclusive ISO-8601 from_ts/to_ts bounds — AND together; results are in append order. Invalid query shapes fail closed with the store's named rejections and no partial results.`,
+      inputSchema: queryEventsToolInputShape
+    },
+    (input) =>
+      registryToolResult(
+        queryGovdispEvents(store, input.scope, input.query as GovdispRegistryQuery | undefined, base)
+      )
+  );
+
+  server.registerResource(
+    "govdisp-registry-events",
+    new ResourceTemplate("odin://registry/{scope}/events", { list: undefined }),
+    {
+      title: "Governance Registry State (compatibility surface)",
+      description:
+        `Read-only registry state for one scope: every event in the scope's append-only log, in append order. Registered only under the ${GOVDISP_REGISTRY_MCP_ENV_VAR} compatibility flag. Read-only by construction — the registry exposes no mutation or deletion API. Reads fail closed on corrupt log content, naming the offending line.`,
+      mimeType: "application/json"
+    },
+    (uri, variables) => {
+      const rawScope = variables.scope;
+      const scope = Array.isArray(rawScope) ? rawScope[0] : rawScope;
+      const result = queryGovdispEvents(store, scope, {}, base);
+      if (!result.ok) {
+        throw new Error(`registry read failed closed: ${JSON.stringify(result.rejections)}`);
+      }
+      return {
+        contents: [
+          {
+            uri: uri.href,
+            mimeType: "application/json",
+            text: JSON.stringify({ scope, event_count: result.events.length, events: result.events }, null, 2)
+          }
+        ]
+      };
+    }
+  );
+}
+
+export function createServer(options: CreateServerOptions = {}): McpServer {
   const server = new McpServer({
     name: "odin-sentinel",
     version: VERSION
@@ -856,6 +1000,14 @@ export function createServer(): McpServer {
     },
     (input) => jsonText(getMissionFrontrunPack(input))
   );
+
+  // Compatibility surface is registered LAST and only when the flag resolves
+  // on; the default path above is untouched and byte-identical to baseline.
+  const govdispRegistry = options.govdispRegistry ?? {};
+  const govdispRegistryEnabled = govdispRegistry.enabled ?? readGovdispRegistryMcpFlag(govdispRegistry.env).enabled;
+  if (govdispRegistryEnabled) {
+    registerGovdispRegistrySurface(server, govdispRegistry);
+  }
 
   return server;
 }
