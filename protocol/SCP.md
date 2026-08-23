@@ -45,6 +45,38 @@ Public repo, npm package, plugin, bootstrap skill, templates, and docs must be u
 **Doctrine amendment (DIS-001): evidence economy.** No role may create one document or file per control-plane interaction; evidence accrues to one curated artifact per unit of work (session decision trace, slice evidence bundle, or audit ledger), appended or summarized, never fanned out per message. In-pane receipts (boot receipts, delivery proofs, dispatch acknowledgments) are control-plane signals, not documents, and remain required exactly as specified.
 <!-- END SCP-AMENDMENT DIS-001 -->
 
+<!-- BEGIN SCP-AMENDMENT JUR-001 -->
+**Doctrine amendment (JUR-001): Two-phase resequencing (source: Amendment 34).** Any resequencing of in-flight orders is two-phase: first a bare HOLD to the affected seat and an acknowledgment from its responsible PM, then the resequencing order itself. Resequencing orders that race un-acknowledged holds are void.
+<!-- END SCP-AMENDMENT JUR-001 -->
+
+<!-- BEGIN SCP-AMENDMENT JUR-002 -->
+**Doctrine amendment (JUR-002): Originals, not excerpts (source: Amendment 37).** Provisioning grants verifiable ORIGINALS — byte-identical copies or explicit read-path grants — never control-plane-authored excerpts or summaries as authority. Every packet names which checkout each cited path lives in. A seat refusing unverifiable authority and offering an honest alternative is executing doctrine, not obstructing it.
+<!-- END SCP-AMENDMENT JUR-002 -->
+
+<!-- BEGIN SCP-AMENDMENT JUR-003 -->
+**Doctrine amendment (JUR-003): Control-plane packet discipline (source: Amendment 38 addenda).** Before transmission, the control plane executes every mandated packet command verbatim from the packet's stated cwd, and satisfiability-reviews every fill-field and precondition. Receivers who find a requirement unsatisfiable FLAG it back; satisfying it cosmetically (stale evidence, placeholder values) is a violation.
+<!-- END SCP-AMENDMENT JUR-003 -->
+
+<!-- BEGIN SCP-AMENDMENT JUR-008 -->
+**Doctrine amendment (JUR-008): Verbatim binds evidence, not choreography (source: Amendment 38 addenda).** Byte-verbatim discipline binds EVIDENCE-BEARING artifacts: receipts, summaries, gate outputs, verdicts. Choreography relay and trigger lines tolerate terminal-punctuation normalization only; any word, ordering, or content change in a preauthorized relay requires a ruling before delivery.
+<!-- END SCP-AMENDMENT JUR-008 -->
+
+<!-- BEGIN SCP-AMENDMENT JUR-009 -->
+**Doctrine amendment (JUR-009): GATES_INVALIDATED_BY_EDIT (source: W0B ruling, Amendment 38).** Any edit after a gate's output invalidates that gate. The seat declares GATES_INVALIDATED_BY_EDIT and re-runs the full gate sequence bound to the new digest before any readiness claim.
+<!-- END SCP-AMENDMENT JUR-009 -->
+
+<!-- BEGIN SCP-AMENDMENT JUR-010 -->
+**Doctrine amendment (JUR-010): Tolerated-deviation boundary (source: Amendment 38 addenda).** On a seat's own non-mandated exploratory commands, appended read-only diagnostic suffixes that preserve semantics are tolerated. Any deviation that alters a command's semantics is a deviation requiring a ruling.
+<!-- END SCP-AMENDMENT JUR-010 -->
+
+<!-- BEGIN SCP-AMENDMENT JUR-011 -->
+**Doctrine amendment (JUR-011): Exactness includes output plumbing (source: Amendment 39 addenda).** On MANDATED commands, exact means exact: no prefix, suffix, pipe, or plumbing of any kind — including exit-echo suffixes that print the status while masking the invocation's return code. Visibility in text is not a substitute for the status channel the stop-rule rides on.
+<!-- END SCP-AMENDMENT JUR-011 -->
+
+<!-- BEGIN SCP-AMENDMENT JUR-013 -->
+**Doctrine amendment (JUR-013): Relay blocks are self-contained (source: Amendment 39 addenda).** Every relayed instruction block carries its own gating and stop conditions. The control plane never relies on outer-instruction context the receiving seat cannot see.
+<!-- END SCP-AMENDMENT JUR-013 -->
+
 ## Startup Defaults
 
 Fresh startup creates an executive office and one development pod unless the
@@ -143,6 +175,26 @@ are insufficient. Verify a proof against local files with
 **Doctrine amendment (DIS-004): digest-scope boundary.** SHA-256 digest binding applies to instruction and canonical files only (boot contracts, slice definitions, protocol texts, manifests, and declared evidence artifacts). Conversational artifacts (chat prose, transcripts, screen captures, rendered panes) must not be hashed, recounted, or treated as release binaries.
 <!-- END SCP-AMENDMENT DIS-004 -->
 
+<!-- BEGIN SCP-AMENDMENT JUR-004 -->
+**Doctrine amendment (JUR-004): RECEIPT_IS_A_TURN (source: Amendment 38 addenda).** The boot receipt is an entire turn: on turn-gated harnesses, a response containing the fenced receipt and nothing else — zero tool calls — followed by an explicit wait; on tool-inclusive-turn harnesses, no actions beyond the mandated pre-receipt steps, the receipt as turn-terminal output, and no work until the proceed relay. Turn-gated harnesses use the three-relay form: activation packet, receipt trigger, proceed relay — all relay texts preauthorized verbatim.
+<!-- END SCP-AMENDMENT JUR-004 -->
+
+<!-- BEGIN SCP-AMENDMENT JUR-005 -->
+**Doctrine amendment (JUR-005): Same-run model verification (source: Amendment 38 addenda).** Where raw model identity is only observable after a first response, the packet carries the EXPECTED model literal and the receipt is verified against its own response's raw responseModel. Harness footers and metadata are not the truth standard; raw traces are. A mismatch is a no-fault re-emission with a corrected literal, not a seat fault.
+<!-- END SCP-AMENDMENT JUR-005 -->
+
+<!-- BEGIN SCP-AMENDMENT JUR-006 -->
+**Doctrine amendment (JUR-006): Raw trace governs (source: Amendment 38 addenda).** On any conflict between an agent's self-report and the raw session trace, the trace adjudicates. Stale freezes are rescindable by timestamp order: a freeze arriving after the seat's own correction is stale-by-timestamp and carries no attempt accounting.
+<!-- END SCP-AMENDMENT JUR-006 -->
+
+<!-- BEGIN SCP-AMENDMENT JUR-012 -->
+**Doctrine amendment (JUR-012): Exam-tier context isolation (source: Amendment 39 addenda).** Exam and worker-tier activation packets explicitly preempt the skill-read reflex: the provisioned contract is the seat's ENTIRE protocol context; SKILL.md, role cards, and protocol source reads are control-plane-tier only. The skill's read-at-boot cadence does not apply to sealed exam seats.
+<!-- END SCP-AMENDMENT JUR-012 -->
+
+<!-- BEGIN SCP-AMENDMENT JUR-014 -->
+**Doctrine amendment (JUR-014): Launch roots and lane lifecycle (source: Amendment 39-40 addenda).** Occupant cycling never refreshes a harness's launch cwd: when a seat's lane changes or its launch root is removed, the occupant is relaunched from the lane root, not cycled in place. While any seat actively holds a lane, observers verify via passive file reads and raw-trace inspection only; git commands against that lane's index wait for seat idle.
+<!-- END SCP-AMENDMENT JUR-014 -->
+
 ## Harness Readiness Probes
 
 Installed is not provisioned. Before assigning a governed role, probe each harness and record
@@ -225,3 +277,7 @@ organizational work without growing new vocabulary.
 <!-- BEGIN SCP-AMENDMENT DIS-008 -->
 **Doctrine amendment (DIS-008): bounded meta-governance.** An audit of an audit is break-glass only: it requires ALL THREE of (1) a machine-recorded break-glass event in the durable audit ledger before the meta-audit opens, (2) explicit human authority approval, and (3) a named, concrete contradiction in the prior audit's findings or process. When any condition is absent, audit recursion terminates at the first completed audit; this is the terminating condition on the recursion described in this section.
 <!-- END SCP-AMENDMENT DIS-008 -->
+
+<!-- BEGIN SCP-AMENDMENT JUR-007 -->
+**Doctrine amendment (JUR-007): QA index protection (source: Amendment 38 addenda).** QA contracts carry three mandatory sections: an INDEX IS EVIDENCE preamble (the candidate already exists as the staged index; the QA seat verifies and never creates, completes, or repairs it; all index- and worktree-mutating git forms are prohibited by name; git write-tree is the sole permitted index reader), an exhaustive READ ALLOWLIST, and a scratch policy (scratch lives in the QA evidence directory or in pipes; out-of-repo scratch of lane-derived non-secret data is tolerated-with-note at most).
+<!-- END SCP-AMENDMENT JUR-007 -->

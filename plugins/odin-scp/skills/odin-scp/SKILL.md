@@ -183,6 +183,10 @@ Before activating a fleet of Claude-occupied roles:
 3. Place the stable role card content before the volatile dispatch tail to
    maximize the length of the cacheable prefix.
 
+<!-- BEGIN SCP-AMENDMENT JUR-012 -->
+**Doctrine amendment (JUR-012): Exam-tier context isolation (source: Amendment 39 addenda).** Exam and worker-tier activation packets explicitly preempt the skill-read reflex: the provisioned contract is the seat's ENTIRE protocol context; SKILL.md, role cards, and protocol source reads are control-plane-tier only. The skill's read-at-boot cadence does not apply to sealed exam seats.
+<!-- END SCP-AMENDMENT JUR-012 -->
+
 ## Generic Role Model And Control Topology
 
 SCP role names are generic. Do not bind authority to model names, harness names, pane names, or vendor brands. Every assignment must separate:
@@ -612,6 +616,22 @@ Hidden/internal subagent output produced during active SCP is non-governed and a
 
 When `delegate` is invoked during active SCP, SCP topology rules override generic delegation behavior. `delegate` may compose instruction bundles and harness commands, but launch targets must be existing visible SCP role slots unless the user authorizes topology expansion. `delegate` must not create hidden subagents, non-CMUX background workers, or off-ledger research capacity during active SCP.
 
+<!-- BEGIN SCP-AMENDMENT JUR-001 -->
+**Doctrine amendment (JUR-001): Two-phase resequencing (source: Amendment 34).** Any resequencing of in-flight orders is two-phase: first a bare HOLD to the affected seat and an acknowledgment from its responsible PM, then the resequencing order itself. Resequencing orders that race un-acknowledged holds are void.
+<!-- END SCP-AMENDMENT JUR-001 -->
+
+<!-- BEGIN SCP-AMENDMENT JUR-002 -->
+**Doctrine amendment (JUR-002): Originals, not excerpts (source: Amendment 37).** Provisioning grants verifiable ORIGINALS — byte-identical copies or explicit read-path grants — never control-plane-authored excerpts or summaries as authority. Every packet names which checkout each cited path lives in. A seat refusing unverifiable authority and offering an honest alternative is executing doctrine, not obstructing it.
+<!-- END SCP-AMENDMENT JUR-002 -->
+
+<!-- BEGIN SCP-AMENDMENT JUR-003 -->
+**Doctrine amendment (JUR-003): Control-plane packet discipline (source: Amendment 38 addenda).** Before transmission, the control plane executes every mandated packet command verbatim from the packet's stated cwd, and satisfiability-reviews every fill-field and precondition. Receivers who find a requirement unsatisfiable FLAG it back; satisfying it cosmetically (stale evidence, placeholder values) is a violation.
+<!-- END SCP-AMENDMENT JUR-003 -->
+
+<!-- BEGIN SCP-AMENDMENT JUR-013 -->
+**Doctrine amendment (JUR-013): Relay blocks are self-contained (source: Amendment 39 addenda).** Every relayed instruction block carries its own gating and stop conditions. The control plane never relies on outer-instruction context the receiving seat cannot see.
+<!-- END SCP-AMENDMENT JUR-013 -->
+
 ## Role Occupant Fallback Ladders
 
 Fallback applies to the agent occupant inside an existing role slot. It does not authorize adding panes, workers, or hidden agents.
@@ -806,6 +826,10 @@ role_slot:
    substitution_trigger:
  topology_mutable: false
 ```
+
+<!-- BEGIN SCP-AMENDMENT JUR-014 -->
+**Doctrine amendment (JUR-014): Launch roots and lane lifecycle (source: Amendment 39-40 addenda).** Occupant cycling never refreshes a harness's launch cwd: when a seat's lane changes or its launch root is removed, the occupant is relaunched from the lane root, not cycled in place. While any seat actively holds a lane, observers verify via passive file reads and raw-trace inspection only; git commands against that lane's index wait for seat idle.
+<!-- END SCP-AMENDMENT JUR-014 -->
 
 ## Self-Bootstrap Team Lifecycle
 
@@ -1136,6 +1160,10 @@ Audit and feedback reports must declare coverage. `[SCP-FEEDBACK]` for audit out
 <!-- BEGIN SCP-AMENDMENT RET-011 -->
 **Doctrine amendment (RET-011): typed partial terminal record.** A failed synthesis layer must emit one typed partial terminal record, declaring executed scope, missing inputs, and partial reason, before any remediation retry is attempted.
 <!-- END SCP-AMENDMENT RET-011 -->
+
+<!-- BEGIN SCP-AMENDMENT JUR-004 -->
+**Doctrine amendment (JUR-004): RECEIPT_IS_A_TURN (source: Amendment 38 addenda).** The boot receipt is an entire turn: on turn-gated harnesses, a response containing the fenced receipt and nothing else — zero tool calls — followed by an explicit wait; on tool-inclusive-turn harnesses, no actions beyond the mandated pre-receipt steps, the receipt as turn-terminal output, and no work until the proceed relay. Turn-gated harnesses use the three-relay form: activation packet, receipt trigger, proceed relay — all relay texts preauthorized verbatim.
+<!-- END SCP-AMENDMENT JUR-004 -->
 
 ### `[SCP-IDLE]`
 
@@ -1626,6 +1654,10 @@ If repo mechanics require moving a DEV slice to `done/` before independent QA, t
 **Doctrine amendment (RET-006): owner-queue admission criteria.** A decision enters the human owner's queue only when it crosses at least one admission threshold: architecture or public-protocol shape change; irreversible or hard-to-reverse effect (deletion, publication, force-push, schema or lifecycle migration); acceptance of a security or privacy risk; credential, secret, billing, or quota change; or a GO decision over a live corpus or production surface. Reversible, in-scope routing, sequencing, and staffing-internal coordination below those thresholds are decided by the responsible PM without queueing the owner. PMs must neither push below-threshold decisions onto the owner queue nor hold above-threshold decisions in their own lane.
 <!-- END SCP-AMENDMENT RET-006 -->
 
+<!-- BEGIN SCP-AMENDMENT JUR-007 -->
+**Doctrine amendment (JUR-007): QA index protection (source: Amendment 38 addenda).** QA contracts carry three mandatory sections: an INDEX IS EVIDENCE preamble (the candidate already exists as the staged index; the QA seat verifies and never creates, completes, or repairs it; all index- and worktree-mutating git forms are prohibited by name; git write-tree is the sole permitted index reader), an exhaustive READ ALLOWLIST, and a scratch policy (scratch lives in the QA evidence directory or in pipes; out-of-repo scratch of lane-derived non-secret data is tolerated-with-note at most).
+<!-- END SCP-AMENDMENT JUR-007 -->
+
 ## Hook, Validator, And Permission Decision Table
 
 - Any hook output containing `blocking error` requires `[SCP-FREEZE]` unless a named `HOOK-EXCEPTION` is recorded.
@@ -1661,6 +1693,22 @@ git diff --cached --name-status
 
 If a closure/evidence hook fails after a lifecycle move or verdict attempt, mark `TAINTED_CLOSURE_ATTEMPT`. Default action is quarantine and fresh route reassignment. Do not repair evidence, commit, push, or close from that route unless `EXEC PM` explicitly reactivates it and labels reconstructed evidence as lower-trust.
 
+<!-- BEGIN SCP-AMENDMENT JUR-008 -->
+**Doctrine amendment (JUR-008): Verbatim binds evidence, not choreography (source: Amendment 38 addenda).** Byte-verbatim discipline binds EVIDENCE-BEARING artifacts: receipts, summaries, gate outputs, verdicts. Choreography relay and trigger lines tolerate terminal-punctuation normalization only; any word, ordering, or content change in a preauthorized relay requires a ruling before delivery.
+<!-- END SCP-AMENDMENT JUR-008 -->
+
+<!-- BEGIN SCP-AMENDMENT JUR-009 -->
+**Doctrine amendment (JUR-009): GATES_INVALIDATED_BY_EDIT (source: W0B ruling, Amendment 38).** Any edit after a gate's output invalidates that gate. The seat declares GATES_INVALIDATED_BY_EDIT and re-runs the full gate sequence bound to the new digest before any readiness claim.
+<!-- END SCP-AMENDMENT JUR-009 -->
+
+<!-- BEGIN SCP-AMENDMENT JUR-010 -->
+**Doctrine amendment (JUR-010): Tolerated-deviation boundary (source: Amendment 38 addenda).** On a seat's own non-mandated exploratory commands, appended read-only diagnostic suffixes that preserve semantics are tolerated. Any deviation that alters a command's semantics is a deviation requiring a ruling.
+<!-- END SCP-AMENDMENT JUR-010 -->
+
+<!-- BEGIN SCP-AMENDMENT JUR-011 -->
+**Doctrine amendment (JUR-011): Exactness includes output plumbing (source: Amendment 39 addenda).** On MANDATED commands, exact means exact: no prefix, suffix, pipe, or plumbing of any kind — including exit-echo suffixes that print the status while masking the invocation's return code. Visibility in text is not a substitute for the status channel the stop-rule rides on.
+<!-- END SCP-AMENDMENT JUR-011 -->
+
 ## Activation Gates
 
 Two activation gates harden SCP against repeatable failures: unsubmitted CMUX text and partial instruction reads.
@@ -1682,6 +1730,14 @@ Before implementation, QA acceptance, or ACTIVE_WATCH work, an activated role mu
 ## Harness Readiness Probes
 
 Installed is not provisioned. Probe harnesses before governed launch and record multi-dimensional readiness (`installed_binary`, `authenticated`, `mcp_configured`, `mcp_tool_hydration`, `governed_role_ready`) via `odin.get_harness_probe_matrix`. Classify permission, login, API-key/auth, and local-inference stalls before assigning roles. A harness lacking MCP, native SCP skill, or full injected protocol text is `NON_GOVERNED_ONE_SHOT_ONLY` and must not hold a persistent governed role. Skill-capable harnesses should install the odin-scp skill before governed launch. Droid: read-only `droid exec` needs no write authority, but mission/high-autonomy requires `--auto high`, and `droid mcp` is required for governed readiness. Crush: no MCP management command (`MCP_UNAVAILABLE`) and auth-header failures (`unauthorized: Authentication parameter not received in Header`) are auth blockers.
+
+<!-- BEGIN SCP-AMENDMENT JUR-005 -->
+**Doctrine amendment (JUR-005): Same-run model verification (source: Amendment 38 addenda).** Where raw model identity is only observable after a first response, the packet carries the EXPECTED model literal and the receipt is verified against its own response's raw responseModel. Harness footers and metadata are not the truth standard; raw traces are. A mismatch is a no-fault re-emission with a corrected literal, not a seat fault.
+<!-- END SCP-AMENDMENT JUR-005 -->
+
+<!-- BEGIN SCP-AMENDMENT JUR-006 -->
+**Doctrine amendment (JUR-006): Raw trace governs (source: Amendment 38 addenda).** On any conflict between an agent's self-report and the raw session trace, the trace adjudicates. Stale freezes are rescindable by timestamp order: a freeze arriving after the seat's own correction is stale-by-timestamp and carries no attempt accounting.
+<!-- END SCP-AMENDMENT JUR-006 -->
 
 ## Core Workflow
 

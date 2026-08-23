@@ -107,3 +107,46 @@ describe("doctrine amendments (SLICE-AMEND-PROTO-DEV-001)", () => {
     }
   });
 });
+
+// Session jurisprudence fold-in (SLICE-AMEND-JUR-DEV-001): JUR-001..014 land as
+// identifier-tagged additive regions in all three doctrine copies; the two tests
+// below extend identifier-presence and mirror sha-identity coverage to them.
+const JUR_AMENDMENTS = [
+  "JUR-001",
+  "JUR-002",
+  "JUR-003",
+  "JUR-004",
+  "JUR-005",
+  "JUR-006",
+  "JUR-007",
+  "JUR-008",
+  "JUR-009",
+  "JUR-010",
+  "JUR-011",
+  "JUR-012",
+  "JUR-013",
+  "JUR-014",
+] as const;
+
+describe("session jurisprudence amendments (SLICE-AMEND-JUR-DEV-001)", () => {
+  it("tags all fourteen JUR amendments with their identifiers in all three copies", () => {
+    for (const path of DOCTRINE_COPIES) {
+      const text = readRepoFile(path);
+      for (const id of JUR_AMENDMENTS) {
+        expect(text.includes(id), `${path} missing amendment identifier ${id}`).toBe(true);
+      }
+    }
+  });
+
+  it("keeps every mirrored JUR region byte-identical across the three copies", () => {
+    for (const regionId of JUR_AMENDMENTS) {
+      const hashes = DOCTRINE_COPIES.map((path) =>
+        sha256(extractRegion(readRepoFile(path), regionId, path)),
+      );
+      expect(
+        new Set(hashes).size,
+        `mirrored region ${regionId} diverged across ${DOCTRINE_COPIES.join(", ")}`,
+      ).toBe(1);
+    }
+  });
+});
