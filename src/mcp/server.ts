@@ -3,6 +3,7 @@ import YAML from "yaml";
 import { z } from "zod";
 import {
   VERSION,
+  GOVDISP_REGISTRY_AUTHORITY_FLAG_ENV_VAR,
   appendGovdispEvent,
   evaluateReadinessGate,
   exportProtocolSnapshot,
@@ -22,6 +23,7 @@ import {
   getVersionMetadata,
   loadProtocolData,
   queryGovdispEvents,
+  readGovdispRegistryMode,
   evaluateEscalationGate,
   evaluateBlockedPodRollover,
   evaluateSliceHealth,
@@ -46,6 +48,7 @@ import {
   validateTeamManifest
 } from "../protocol/service.js";
 import type {
+  GovdispRegistryModeConfig,
   GovdispRegistryQuery,
   GovdispRegistryStoreLike
 } from "../protocol/service.js";
@@ -353,38 +356,35 @@ function registerProtocolResources(server: McpServer) {
 
 // ---------------------------------------------------------------------------
 // EPIC-052 Wave-2 — flag-gated governance-registry MCP compatibility surface.
-// INERT BY DEFAULT: the two compat tools and the registry resource are
-// registered ONLY when the compatibility flag is enabled; with the flag off
-// the tool/resource inventory and all behavior are byte-identical to baseline.
-// The flag reuses the existing opt-in env convention (an ODIN_* env var read
-// through an injectable env reader, exactly like ODIN_TELEMETRY_ENDPOINT) —
-// no new config system. GD-DEC-012 guard: MCP tools/resource only — no
-// network listener, no daemon, no rendered view.
+// ACTIVE BY DEFAULT as of 0.6.0 (Amendment 46, operator order): the two compat
+// tools and the registry resource are registered unless the flag is explicitly
+// opted out; with an explicit opt-out (a non-truthy flag value or
+// enabled: false) the tool/resource inventory and all behavior are
+// byte-identical to baseline. The flag reuses the existing env convention (an
+// ODIN_* env var read through an injectable env reader, exactly like
+// ODIN_TELEMETRY_ENDPOINT) — no new config system — and the read itself is
+// unified in the protocol service layer (readGovdispRegistryMode) so every
+// consumer shares one inversion point. GD-DEC-012 guard: MCP tools/resource
+// only — no network listener, no daemon, no rendered view.
 // ---------------------------------------------------------------------------
 
-/** Env flag enabling the governance-registry compatibility surface. */
-export const GOVDISP_REGISTRY_MCP_ENV_VAR = "ODIN_GOVDISP_REGISTRY_MCP";
+/** Env flag gating the governance-registry compatibility surface. */
+export const GOVDISP_REGISTRY_MCP_ENV_VAR = GOVDISP_REGISTRY_AUTHORITY_FLAG_ENV_VAR;
 
-const GOVDISP_REGISTRY_MCP_TRUTHY = new Set(["1", "true", "yes", "on"]);
-
-export type GovdispRegistryMcpFlagConfig = {
-  enabled: boolean;
-  source: "env" | "default";
-};
+export type GovdispRegistryMcpFlagConfig = GovdispRegistryModeConfig;
 
 /**
  * Read the compatibility flag, mirroring readTelemetryConfig's injectable-env
- * shape. Enabled only by an explicit truthy value (1/true/yes/on, case- and
- * whitespace-insensitive); unset, empty, or any other value is OFF, so a
- * mistaken "0"/"false" can never half-activate the surface.
+ * shape. Delegates to the unified reader (readGovdispRegistryMode in the
+ * protocol service layer) so the Amendment 46 inversion lives in exactly one
+ * place: ACTIVE BY DEFAULT (unset/empty resolves ON, source "default_on"); an
+ * explicit truthy value (1/true/yes/on, case- and whitespace-insensitive)
+ * resolves ON; any other non-empty value (0/false/off/no/...) is the explicit
+ * opt-out and resolves OFF — a mistaken "0"/"false" fully disables the
+ * surface, never half-activates it.
  */
 export function readGovdispRegistryMcpFlag(env: NodeJS.ProcessEnv = process.env): GovdispRegistryMcpFlagConfig {
-  const raw = env[GOVDISP_REGISTRY_MCP_ENV_VAR];
-  const normalized = typeof raw === "string" ? raw.trim().toLowerCase() : "";
-  if (normalized.length === 0) {
-    return { enabled: false, source: "default" };
-  }
-  return { enabled: GOVDISP_REGISTRY_MCP_TRUTHY.has(normalized), source: "env" };
+  return readGovdispRegistryMode(env);
 }
 
 /** Options for the flag-gated governance-registry compatibility surface. */
@@ -1001,8 +1001,10 @@ export function createServer(options: CreateServerOptions = {}): McpServer {
     (input) => jsonText(getMissionFrontrunPack(input))
   );
 
-  // Compatibility surface is registered LAST and only when the flag resolves
-  // on; the default path above is untouched and byte-identical to baseline.
+  // Compatibility surface is registered LAST whenever the flag resolves on —
+  // which is the DEFAULT as of 0.6.0 (Amendment 46); an explicit opt-out
+  // (non-truthy env value or enabled: false) leaves the default path above
+  // untouched and byte-identical to baseline.
   const govdispRegistry = options.govdispRegistry ?? {};
   const govdispRegistryEnabled = govdispRegistry.enabled ?? readGovdispRegistryMcpFlag(govdispRegistry.env).enabled;
   if (govdispRegistryEnabled) {

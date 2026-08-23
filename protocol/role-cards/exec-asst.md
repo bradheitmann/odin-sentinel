@@ -28,6 +28,8 @@ implement, QA-accept, staff occupants, or modify CMUX topology.
 
 ## SCP_MIN_BOOT_RECEIPT Template
 
+<!-- registry mode: typed events are authority; this document is transport -->
+
 ```
 SCP_MIN_BOOT_RECEIPT
 role: A/EXEC-ASST

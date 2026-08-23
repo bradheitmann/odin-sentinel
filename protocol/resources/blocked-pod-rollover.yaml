@@ -1,4 +1,4 @@
-version: 0.5.0
+version: 0.6.0
 blocked_pod_rollover:
   doctrine: >-
     When a pod is BLOCKED awaiting operator input, pause it and spin up the

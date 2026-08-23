@@ -29,6 +29,8 @@ topology, or close lifecycle unless EXEC PM explicitly delegates that authority.
 
 ## SCP_MIN_BOOT_RECEIPT Template
 
+<!-- registry mode: typed events are authority; this document is transport -->
+
 ```
 SCP_MIN_BOOT_RECEIPT
 role: <team>/TEAM-PM

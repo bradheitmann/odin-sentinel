@@ -98,7 +98,7 @@ const expectedRequiredPackageFiles = [
 ];
 const packageJson = {
   name: "@bradheitmann/odin-sentinel",
-  version: "0.4.9",
+  version: "0.6.0",
   repository: { type: "git", url: "git+https://github.com/bradheitmann/odin-sentinel.git" },
   homepage: "https://github.com/bradheitmann/odin-sentinel#readme",
   bugs: { url: "https://github.com/bradheitmann/odin-sentinel/issues" },
@@ -111,27 +111,27 @@ const packageJson = {
     yaml: "2.8.4",
     zod: "4.4.3"
   },
-  odin: { publicVersion: "0.4.9", minimumCompatibleChildMcpVersion: "0.4.5" }
+  odin: { publicVersion: "0.6.0", minimumCompatibleChildMcpVersion: "0.4.5" }
 };
 
-const scpText = "SCP_PUBLIC_VERSION: 0.4.9\nMIN_COMPATIBLE_CHILD_MCP: 0.4.5\n";
+const scpText = "SCP_PUBLIC_VERSION: 0.6.0\nMIN_COMPATIBLE_CHILD_MCP: 0.4.5\n";
 const bootstrapText = `${scpText}\nMCP server native skill full prompt fallback CMUX auth/account readiness local inference role compatibility`;
 
 function runWith(overrides: Record<string, unknown> = {}) {
   const publicVersionFiles = {
-    "README.md": "0.4.9",
-    "docs/guides/quick-start.md": "0.4.9",
-    "docs/guides/quickstart-prompts.md": "0.4.9",
+    "README.md": "0.6.0",
+    "docs/guides/quick-start.md": "0.6.0",
+    "docs/guides/quickstart-prompts.md": "0.6.0",
     "docs/reference/client-compatibility.md": "Node.js >=22.13.0",
-    "docs/reference/distribution.md": "0.4.9",
-    "docs/reference/public-surface-audit.md": "0.4.9",
-    "src/protocol/version.ts": 'export const PROTOCOL_SCHEMA_VERSION = "0.4.9";\nexport const MINIMUM_COMPATIBLE_MCP_VERSION = "0.4.5";\nexport const PUBLIC_LATEST_VERSION = "0.4.9";',
+    "docs/reference/distribution.md": "0.6.0",
+    "docs/reference/public-surface-audit.md": "0.6.0",
+    "src/protocol/version.ts": 'export const PROTOCOL_SCHEMA_VERSION = "0.6.0";\nexport const MINIMUM_COMPATIBLE_MCP_VERSION = "0.4.5";\nexport const PUBLIC_LATEST_VERSION = "0.6.0";',
     ".claude-plugin/marketplace.json": JSON.stringify({
       plugins: [
         {
           name: "odin-scp",
           source: "./plugins/odin-scp",
-          version: "0.4.9"
+          version: "0.6.0"
         }
       ]
     }),
@@ -139,11 +139,11 @@ function runWith(overrides: Record<string, unknown> = {}) {
     "protocol/bootstrap-skill.md": bootstrapText,
     "plugins/odin-scp/.claude-plugin/plugin.json": JSON.stringify({
       name: "odin-scp",
-      version: "0.4.9",
+      version: "0.6.0",
       mcpServers: {
         "odin-sentinel": {
           command: "pnpm",
-          args: ["dlx", "--package", "@bradheitmann/odin-sentinel@0.4.9", "odin-sentinel-mcp"]
+          args: ["dlx", "--package", "@bradheitmann/odin-sentinel@0.6.0", "odin-sentinel-mcp"]
         }
       }
     }),
@@ -162,12 +162,12 @@ function runWith(overrides: Record<string, unknown> = {}) {
   delete rest.publicVersionFiles;
 
   return verifyPack.runVerifyPack({
-    pack: { files: requiredPaths, filename: "odin-sentinel-0.4.9.tgz" },
+    pack: { files: requiredPaths, filename: "odin-sentinel-0.6.0.tgz" },
     packageJson,
     publicVersionFiles,
     packFileTextByPath: {
       ...Object.fromEntries(requiredPaths.map((entry: { path: string }) => [entry.path, "safe packaged text"])),
-      "dist/src/protocol/version.js": 'export const PROTOCOL_SCHEMA_VERSION = "0.4.9";\nexport const MINIMUM_COMPATIBLE_MCP_VERSION = "0.4.5";\nexport const PUBLIC_LATEST_VERSION = "0.4.9";'
+      "dist/src/protocol/version.js": 'export const PROTOCOL_SCHEMA_VERSION = "0.6.0";\nexport const MINIMUM_COMPATIBLE_MCP_VERSION = "0.4.5";\nexport const PUBLIC_LATEST_VERSION = "0.6.0";'
     },
     costPrivacyText: "Optional telemetry tools are user-invoked and not automatic.",
     ...rest
@@ -176,7 +176,7 @@ function runWith(overrides: Record<string, unknown> = {}) {
 
 describe("release sync audit helpers", () => {
   it("accepts synchronized public package artifacts without inspecting private skill copies", () => {
-    expect(runWith().version).toBe("0.4.9");
+    expect(runWith().version).toBe("0.6.0");
   });
 
   it("keeps the required package file allowlist anchored to an independent fixture", () => {
@@ -241,7 +241,7 @@ describe("release sync audit helpers", () => {
   });
 
   it("rejects repo-internal public protocol drift", () => {
-    expect(() => runWith({ publicVersionFiles: { "protocol/bootstrap-skill.md": bootstrapText.replace("SCP_PUBLIC_VERSION: 0.4.9", "SCP_PUBLIC_VERSION: 0.4.8") } })).toThrow(/protocol\/bootstrap-skill\.md missing SCP_PUBLIC_VERSION: 0\.4\.9/);
+    expect(() => runWith({ publicVersionFiles: { "protocol/bootstrap-skill.md": bootstrapText.replace("SCP_PUBLIC_VERSION: 0.6.0", "SCP_PUBLIC_VERSION: 0.4.8") } })).toThrow(/protocol\/bootstrap-skill\.md missing SCP_PUBLIC_VERSION: 0\.6\.0/);
   });
 
   it("rejects stale public version references", () => {
@@ -279,7 +279,7 @@ describe("release sync audit helpers", () => {
         "plugins/odin-scp/skills/odin-scp/SKILL.md": "SCP_PUBLIC_VERSION: 0.4.5\n",
         "plugins/odin-scp/README.md": "MCP tools: 17 odin tools"
       }
-    })).toThrow(/Claude plugin manifest version 0\.4\.5 must match package version 0\.4\.9/);
+    })).toThrow(/Claude plugin manifest version 0\.4\.5 must match package version 0\.6\.0/);
   });
 
   it("rejects Claude plugin MCP arg reordering or extras", () => {

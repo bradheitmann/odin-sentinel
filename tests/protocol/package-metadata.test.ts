@@ -8,6 +8,11 @@ import { createServer } from "../../src/mcp/server.js";
 const verifyPack = await import("../../scripts/audit/verify-pack.mjs");
 
 async function liveSurfaceCounts() {
+  // Amendment 46 (SLICE-GOVDISP-DEFAULT-DEV-001): the advertised counts pin
+  // the DEFAULT posture — registry mode active (48 tools). Pin the flag unset
+  // so a developer shell cannot flip the live count.
+  const savedFlag = process.env.ODIN_GOVDISP_REGISTRY_MCP;
+  delete process.env.ODIN_GOVDISP_REGISTRY_MCP;
   const server = createServer();
   const client = new Client({ name: "pkg-metadata-test", version: "1.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -20,6 +25,7 @@ async function liveSurfaceCounts() {
   } finally {
     await client.close();
     await server.close();
+    if (savedFlag !== undefined) process.env.ODIN_GOVDISP_REGISTRY_MCP = savedFlag;
   }
 }
 
@@ -46,8 +52,9 @@ describe("public package metadata matches the live MCP surface", () => {
     expect(firstNumber(readme, /(\d+)\s+tools,/)).toBe(tools);
     expect(firstNumber(readme, /Provided MCP Tools \((\d+)\)/)).toBe(tools);
     expect(firstNumber(readme, /Provided MCP Resources \((\d+)\)/)).toBe(resources);
-    // The enumerated tool list must be complete, not just the headline count.
-    expect((readme.match(/^- `odin\.[a-z_]+`/gm) ?? []).length).toBe(tools);
+    // The enumerated tool list must be complete, not just the headline count
+    // (the registry compat tools use the `odin_*` spelling — both prefixes count).
+    expect((readme.match(/^- `odin[._][a-z_]+`/gm) ?? []).length).toBe(tools);
 
     const audit = repoText("docs/reference/public-surface-audit.md");
     expect(firstNumber(audit, /MCP tools:\s*(\d+)/)).toBe(tools);

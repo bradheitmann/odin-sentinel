@@ -1,4 +1,4 @@
-version: 0.5.0
+version: 0.6.0
 meta_governance_depth:
   doctrine: >-
     GD-DEC-001 caps meta-governance at ONE audited layer. An AUDIT-class

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0 - 2026-08-23
+
+- Registry compatibility mode is ACTIVE BY DEFAULT (Amendment 46, operator order): an unset ODIN_GOVDISP_REGISTRY_MCP enables the registry MCP surface (48 tools plus the odin://registry/{scope}/events resource template), the registry-mode validator branches, and the odin-watch FINDING_OPENED emission; ODIN_GOVDISP_REGISTRY_MCP=0 (or any non-truthy value) is the explicit opt-out returning byte-baseline behavior. The WAVE-4 deferral now applies to prose retirement only, not to registry activation.
+- Fold session jurisprudence JUR-015..020 and the GOVDISP-REGISTRY-AUTHORITY re-scoping region into the three doctrine copies (additive, byte-identical mirrored regions).
+- Bump SCP public version to 0.6.0 across doctrine headers, package metadata, plugin manifests, and docs; MIN_COMPATIBLE_CHILD_MCP unchanged at 0.4.5.
+- Minimal registry-mode annotations on receipt schemas and role cards ("typed events are authority; this document is transport").
+
 ## 0.5.0 - 2026-06-12
 
 - Added role cards for all five roles (exec-pm, team-pm, dev-worker, qa-worker, exec-asst) with tiered uptake support and `odin.get_role_card` MCP tool.

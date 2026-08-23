@@ -1,4 +1,4 @@
-version: 0.5.0
+version: 0.6.0
 recipe_capture:
   purpose: >-
     Solve-hard-once, scale-cheap: when a tier above tier 0 cracks a hard CLASS

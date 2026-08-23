@@ -1,4 +1,4 @@
-version: 0.5.0
+version: 0.6.0
 governance_overhead_budget:
   doctrine: >-
     GD-DEC-002: governance overhead must terminate in exactly ONE blocked event

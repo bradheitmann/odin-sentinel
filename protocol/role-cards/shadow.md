@@ -25,6 +25,8 @@ and evidence without implementing fixes or issuing QA acceptance.
 
 ## SCP_MIN_BOOT_RECEIPT Template
 
+<!-- registry mode: typed events are authority; this document is transport -->
+
 ```
 SCP_MIN_BOOT_RECEIPT
 role_slot: <team>/SHADOW-<n>

@@ -1,3 +1,4 @@
+# Registry mode: typed events are authority; this document is transport.
 required_fields:
   - role
   - authority_layer

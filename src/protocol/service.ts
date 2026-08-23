@@ -815,7 +815,7 @@ const ACTIVATION_GATE_ROLE_WORK = ["implementation", "QA acceptance", "ACTIVE_WA
  * with Enter and verifies processing on the target surface; text left in an input bar is
  * INPUT_BAR_ONLY, not delivery. A submitted=false proof or an INPUT_BAR_ONLY state fails.
  */
-export function validateCmuxDeliveryProof(proof: Record<string, unknown>): ValidationResult {
+function validateCmuxDeliveryProofProse(proof: Record<string, unknown>): ValidationResult {
   const dryRun = proof.dry_run === true;
   // A pre-dispatch dry-run validates the PLAN (payload/format compatibility)
   // before anything is sent, so submission/processing fields are not yet due.
@@ -881,12 +881,32 @@ export function validateCmuxDeliveryProof(proof: Record<string, unknown>): Valid
 }
 
 /**
+ * STORY-GOVDISP-005 registry-mode branch (flag ODIN_GOVDISP_REGISTRY_MCP, ON by
+ * default as of 0.6.0 — Amendment 46; a non-truthy value is the explicit
+ * opt-out). Flag OFF (explicit opt-out): byte-compatible with the
+ * prose-authority baseline. Flag ON (the default):
+ * a payload carrying registry_authority: { scope, event_id } is adjudicated
+ * against the registry alone — a resolved reference is the single authority
+ * (prose is transport/history; GD-FP-013), an unresolvable reference is rejected
+ * by name (registry_authority_unresolved) with no silent prose fallback — and a
+ * prose-only payload validates as before with authority: "prose_transport".
+ */
+export function validateCmuxDeliveryProof(
+  proof: Record<string, unknown>,
+  options: RegistryAuthorityOptions = {}
+): RegistryModeValidationResult {
+  const adjudicated = adjudicateRegistryAuthority("cmux_delivery_proof", proof, options);
+  if (adjudicated !== null) return adjudicated;
+  return withProseTransportAdvisory(validateCmuxDeliveryProofProse(proof), options);
+}
+
+/**
  * Validate the shape of a full-instruction-read proof: a role, a generation timestamp, and
  * a non-empty files[] list where each entry carries a path, a byte or line count, and a
  * sha256 digest. Disk verification (does the digest still match the file?) is performed by
  * scripts/protocol/verify-instruction-read.mjs.
  */
-export function validateInstructionReadProof(proof: Record<string, unknown>): ValidationResult {
+function validateInstructionReadProofProse(proof: Record<string, unknown>): ValidationResult {
   const missing = validateRequiredFields(proof, INSTRUCTION_READ_PROOF_REQUIRED_FIELDS);
   const invalid = validateFieldTypes(proof, { role: "string", generated_at: "string" });
   const warnings: string[] = [];
@@ -915,6 +935,26 @@ export function validateInstructionReadProof(proof: Record<string, unknown>): Va
   }
 
   return buildValidationResult(missing, invalid, warnings);
+}
+
+/**
+ * STORY-GOVDISP-005 registry-mode branch (flag ODIN_GOVDISP_REGISTRY_MCP, ON by
+ * default as of 0.6.0 — Amendment 46; a non-truthy value is the explicit
+ * opt-out). Flag OFF (explicit opt-out): byte-compatible with the
+ * prose-authority baseline. Flag ON (the default):
+ * a payload carrying registry_authority: { scope, event_id } is adjudicated
+ * against the registry alone — a resolved reference is the single authority
+ * (prose is transport/history; GD-FP-013), an unresolvable reference is rejected
+ * by name (registry_authority_unresolved) with no silent prose fallback — and a
+ * prose-only payload validates as before with authority: "prose_transport".
+ */
+export function validateInstructionReadProof(
+  proof: Record<string, unknown>,
+  options: RegistryAuthorityOptions = {}
+): RegistryModeValidationResult {
+  const adjudicated = adjudicateRegistryAuthority("instruction_read_proof", proof, options);
+  if (adjudicated !== null) return adjudicated;
+  return withProseTransportAdvisory(validateInstructionReadProofProse(proof), options);
 }
 
 /**
@@ -1031,9 +1071,10 @@ export function getDelegationPacket(input: DelegationPacketInput): Record<string
   };
 }
 
-export function validateDelegationPacket(
+function validateDelegationPacketProse(
   packet: Record<string, unknown>,
-  repository: ProtocolRepository = getDefaultRepository()
+  repository: ProtocolRepository = getDefaultRepository(),
+  options: RegistryAuthorityOptions = {}
 ): ValidationResult {
   const data = loadProtocolData(repository);
   const contract = requireRecord(data.delegation.delegation_contract, "delegation.delegation_contract");
@@ -1104,7 +1145,7 @@ export function validateDelegationPacket(
 
   const deliveryProof = packet.delivery_proof;
   if (deliveryProof !== undefined && deliveryProof !== null) {
-    const deliveryResult = validateCmuxDeliveryProof(asRecord(deliveryProof));
+    const deliveryResult = validateCmuxDeliveryProof(asRecord(deliveryProof), options);
     for (const field of deliveryResult.missing) missing.push(`delivery_proof.${field}`);
     for (const field of deliveryResult.invalid) invalid.push(`delivery_proof.${field}`);
     warnings.push(...deliveryResult.warnings);
@@ -1117,7 +1158,30 @@ export function validateDelegationPacket(
   return buildValidationResult(missing, invalid, warnings);
 }
 
-export function validateBootReceipt(
+/**
+ * STORY-GOVDISP-005 registry-mode branch (flag ODIN_GOVDISP_REGISTRY_MCP, ON by
+ * default as of 0.6.0 — Amendment 46; a non-truthy value is the explicit
+ * opt-out). Flag OFF (explicit opt-out): byte-compatible with the
+ * prose-authority baseline. Flag ON (the default):
+ * a payload carrying registry_authority: { scope, event_id } is adjudicated
+ * against the registry alone — a resolved reference is the single authority
+ * (prose is transport/history; GD-FP-013), an unresolvable reference is rejected
+ * by name (registry_authority_unresolved) with no silent prose fallback — and a
+ * prose-only payload validates as before with authority: "prose_transport". The
+ * embedded delivery_proof of a prose-transport packet is adjudicated by the same
+ * branch (options pass through to the delivery-proof validator).
+ */
+export function validateDelegationPacket(
+  packet: Record<string, unknown>,
+  repository: ProtocolRepository = getDefaultRepository(),
+  options: RegistryAuthorityOptions = {}
+): RegistryModeValidationResult {
+  const adjudicated = adjudicateRegistryAuthority("delegation_packet", packet, options);
+  if (adjudicated !== null) return adjudicated;
+  return withProseTransportAdvisory(validateDelegationPacketProse(packet, repository, options), options);
+}
+
+function validateBootReceiptProse(
   receipt: Record<string, unknown>,
   repository: ProtocolRepository = getDefaultRepository()
 ): ValidationResult {
@@ -1222,7 +1286,28 @@ export function validateBootReceipt(
   return buildValidationResult(missing, invalid, warnings);
 }
 
-export function validateTeamManifest(
+/**
+ * STORY-GOVDISP-005 registry-mode branch (flag ODIN_GOVDISP_REGISTRY_MCP, ON by
+ * default as of 0.6.0 — Amendment 46; a non-truthy value is the explicit
+ * opt-out). Flag OFF (explicit opt-out): byte-compatible with the
+ * prose-authority baseline. Flag ON (the default):
+ * a payload carrying registry_authority: { scope, event_id } is adjudicated
+ * against the registry alone — a resolved reference is the single authority
+ * (prose is transport/history; GD-FP-013), an unresolvable reference is rejected
+ * by name (registry_authority_unresolved) with no silent prose fallback — and a
+ * prose-only payload validates as before with authority: "prose_transport".
+ */
+export function validateBootReceipt(
+  receipt: Record<string, unknown>,
+  repository: ProtocolRepository = getDefaultRepository(),
+  options: RegistryAuthorityOptions = {}
+): RegistryModeValidationResult {
+  const adjudicated = adjudicateRegistryAuthority("boot_receipt", receipt, options);
+  if (adjudicated !== null) return adjudicated;
+  return withProseTransportAdvisory(validateBootReceiptProse(receipt, repository), options);
+}
+
+function validateTeamManifestProse(
   manifest: Record<string, unknown>,
   repository: ProtocolRepository = getDefaultRepository()
 ): ValidationResult {
@@ -1311,6 +1396,27 @@ export function validateTeamManifest(
   }
 
   return buildValidationResult(missing, invalid, warnings);
+}
+
+/**
+ * STORY-GOVDISP-005 registry-mode branch (flag ODIN_GOVDISP_REGISTRY_MCP, ON by
+ * default as of 0.6.0 — Amendment 46; a non-truthy value is the explicit
+ * opt-out). Flag OFF (explicit opt-out): byte-compatible with the
+ * prose-authority baseline. Flag ON (the default):
+ * a payload carrying registry_authority: { scope, event_id } is adjudicated
+ * against the registry alone — a resolved reference is the single authority
+ * (prose is transport/history; GD-FP-013), an unresolvable reference is rejected
+ * by name (registry_authority_unresolved) with no silent prose fallback — and a
+ * prose-only payload validates as before with authority: "prose_transport".
+ */
+export function validateTeamManifest(
+  manifest: Record<string, unknown>,
+  repository: ProtocolRepository = getDefaultRepository(),
+  options: RegistryAuthorityOptions = {}
+): RegistryModeValidationResult {
+  const adjudicated = adjudicateRegistryAuthority("team_manifest", manifest, options);
+  if (adjudicated !== null) return adjudicated;
+  return withProseTransportAdvisory(validateTeamManifestProse(manifest, repository), options);
 }
 
 export function getRoleCompatibilitySmokeTest(): Record<string, unknown> {
@@ -1701,7 +1807,7 @@ const ONBOARDING_NO_SECRETS_NOTICE =
 function onboardingGuidedSteps(): string[] {
   return [
     "Confirm Node.js >= 22.13.0 and the installed @bradheitmann/odin-sentinel package version.",
-    "Prefer the pinned pnpm command (pnpm dlx --package @bradheitmann/odin-sentinel@0.5.0 odin-sentinel-mcp); npm global install and npx are supported when pinned to the same release.",
+    "Prefer the pinned pnpm command (pnpm dlx --package @bradheitmann/odin-sentinel@0.6.0 odin-sentinel-mcp); npm global install and npx are supported when pinned to the same release.",
     "Add the odin-sentinel-mcp stdio command to each selected harness MCP config and restart the harness.",
     "Provide SCP context: install the native odin-scp skill where supported, otherwise inject full protocol text via odin.get_bootstrap_skill, or export a snapshot via odin.export_protocol_snapshot for non-MCP clients.",
     "Deploy the activation hooks with `node scripts/protocol/install-activation-hooks.mjs` so the full-instruction-read precheck runs before governed edits.",
@@ -3002,6 +3108,236 @@ export function validateBringUpPlan(plan: Record<string, unknown>): ValidationRe
   }
 
   return buildValidationResult(missing, invalid, warnings);
+}
+
+// ---------------------------------------------------------------------------
+// STORY-GOVDISP-005 — registry-mode branches for the prose-receipt validators
+// (GD-FP-013: never two independently-editable authorities for one fact).
+//
+// Behind the compatibility flag ODIN_GOVDISP_REGISTRY_MCP (ON by default as of
+// 0.6.0 — Amendment 46: unset = active; a non-truthy value such as 0/false/off
+// is the explicit opt-out), each prose-receipt validator accepts a TYPED
+// REGISTRY EVENT REFERENCE as
+// authority: a payload may carry registry_authority: { scope, event_id } in
+// place of (or alongside) prose fields. The validator resolves the referenced
+// event through the injected store (the GovdispRegistryStoreLike seam
+// precedent below), verifies the event exists and matches the artifact class,
+// and treats the PROSE as transport/history. A payload carrying a reference
+// that FAILS to resolve is rejected by name (registry_authority_unresolved) —
+// never a silent fall back to prose — and a prose-only payload still
+// validates, with the result carrying authority: "prose_transport" instead of
+// authority: "registry" (an advisory distinction, NOT a rejection; prose
+// retirement is Wave-4 scope). Under the explicit opt-out every validator in
+// this module is byte-compatible with the prose-authority baseline: the flag
+// is read first and the baseline result object is returned untouched (no added
+// keys, no added warnings).
+// ---------------------------------------------------------------------------
+
+/**
+ * Env flag gating the registry-mode branches. This is the SAME flag as the
+ * MCP registry compatibility surface and the odin-watch FINDING_OPENED
+ * emission; as of Amendment 46 the UNIFIED reader lives here
+ * (readGovdispRegistryMode) and every consumer delegates to it, so the
+ * default inverts in exactly one place.
+ */
+export const GOVDISP_REGISTRY_AUTHORITY_FLAG_ENV_VAR = "ODIN_GOVDISP_REGISTRY_MCP";
+
+const GOVDISP_REGISTRY_AUTHORITY_TRUTHY = new Set(["1", "true", "yes", "on"]);
+
+/** The resolved registry-mode flag state. */
+export type GovdispRegistryModeConfig = {
+  enabled: boolean;
+  source: "env" | "default_on";
+};
+
+/**
+ * Read the registry-mode flag — THE unified reader every consumer delegates
+ * to (the MCP compatibility surface, these registry-mode validator branches,
+ * and the odin-watch FINDING_OPENED emission). ACTIVE BY DEFAULT as of 0.6.0
+ * (Amendment 46, operator order): an unset or empty value resolves ON with
+ * source "default_on". An explicit truthy value (1/true/yes/on, case- and
+ * whitespace-insensitive) resolves ON; any other non-empty value
+ * (0/false/off/no/...) is the explicit opt-out and resolves OFF — the
+ * baseline-compatibility escape hatch. A mistaken "0"/"false" can never
+ * half-activate a registry-mode branch; it fully disables it.
+ */
+export function readGovdispRegistryMode(env: NodeJS.ProcessEnv = process.env): GovdispRegistryModeConfig {
+  const raw = env[GOVDISP_REGISTRY_AUTHORITY_FLAG_ENV_VAR];
+  const normalized = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+  if (normalized.length === 0) {
+    return { enabled: true, source: "default_on" };
+  }
+  return { enabled: GOVDISP_REGISTRY_AUTHORITY_TRUTHY.has(normalized), source: "env" };
+}
+
+/**
+ * Boolean form of the unified read (Amendment 46): registry mode is ON unless
+ * an explicit non-truthy opt-out value is set.
+ */
+export function isGovdispRegistryAuthorityEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return readGovdispRegistryMode(env).enabled;
+}
+
+/** Named-rejection code: a registry authority reference failed to resolve. */
+export const REGISTRY_AUTHORITY_UNRESOLVED_CODE = "registry_authority_unresolved" as const;
+
+/**
+ * The registry event classes accepted as receipt authority. A receipt's
+ * registry authority is a TERMINAL-class event: terminal events are the
+ * registry's outcome records and the only class that persists content hashes
+ * (a proof-by-hash binding to the artifact body — the registry never stores
+ * raw proof bodies). ATTEMPT, FINDING, BREAK_GLASS, BUDGET, and AUDIT events
+ * record governance machinery, not artifact authority, so they never resolve
+ * a receipt authority reference.
+ */
+export const REGISTRY_RECEIPT_AUTHORITY_EVENT_CLASSES = ["TERMINAL"] as const;
+
+/** Injected seams for the registry-mode branches (flag-gated). */
+export interface RegistryAuthorityOptions {
+  /**
+   * Injected registry store (the GovdispRegistryStoreLike seam), bound by the
+   * caller. Flag on with a reference present but no usable store fails closed:
+   * the reference is rejected by name (registry_authority_unresolved, detail
+   * citing the store_unavailable fault).
+   */
+  store?: GovdispRegistryStoreLike;
+  /** Registry base path override; defaults to the store's own default base. */
+  base?: string;
+  /** Env source for the compatibility flag; defaults to process.env. */
+  env?: NodeJS.ProcessEnv;
+}
+
+/** The adjudicated authority source carried by a mode-ON result. */
+export type RegistryAuthorityInfo =
+  | { status: "resolved"; scope: string; event_id: string; event_class: string }
+  | { status: "unresolved"; code: typeof REGISTRY_AUTHORITY_UNRESOLVED_CODE; detail: string; scope?: string; event_id?: string };
+
+/**
+ * A validator result under the registry-mode branches. With the flag OFF the
+ * result is the baseline ValidationResult with NO added keys
+ * (byte-compatible). With the flag ON the result additionally carries
+ * authority — "registry" when a resolved registry event is the single
+ * authority, "prose_transport" when no reference was supplied and the prose
+ * itself was validated (advisory; NOT a rejection) — and, for a reference
+ * that failed to resolve, a structured registry_authority record naming
+ * registry_authority_unresolved.
+ */
+export type RegistryModeValidationResult = ValidationResult & {
+  authority?: "registry" | "prose_transport";
+  registry_authority?: RegistryAuthorityInfo;
+};
+
+type RegistryAuthorityResolution =
+  | { ok: true; scope: string; eventId: string; event: GovdispEvent }
+  | { ok: false; scope?: string; eventId?: string; detail: string };
+
+/**
+ * Resolve a payload's registry authority reference through the injected store.
+ * Pure resolution plus artifact-class match; the event's own append-time
+ * validation was the registry's choke point and is reused, never re-run.
+ */
+function resolveRegistryAuthority(
+  artifactLabel: string,
+  reference: unknown,
+  options: RegistryAuthorityOptions
+): RegistryAuthorityResolution {
+  if (reference === null || typeof reference !== "object" || Array.isArray(reference)) {
+    return { ok: false, detail: `registry_authority must be an object { scope, event_id } naming the registry event that carries authority for this ${artifactLabel}` };
+  }
+  const record = asRecord(reference);
+  const scope = typeof record.scope === "string" && record.scope.trim() !== "" ? record.scope : undefined;
+  const eventId = typeof record.event_id === "string" && record.event_id.trim() !== "" ? record.event_id : undefined;
+  if (scope === undefined) {
+    return { ok: false, detail: "registry_authority.scope must be a non-empty string naming the registry scope" };
+  }
+  if (eventId === undefined) {
+    return { ok: false, scope, detail: "registry_authority.event_id must be a non-empty string naming the authority event" };
+  }
+  // Deliberate cast (the odin-watch writers seam precedent): a missing store
+  // flows into the fail-closed store_unavailable rejection instead of throwing.
+  const store = options.store as GovdispRegistryStoreLike;
+  const storeFault = requireRegistryStore(store, "queryRegistryEvents");
+  if (storeFault) {
+    return { ok: false, scope, eventId, detail: `${storeFault.code}: ${storeFault.detail}` };
+  }
+  const queried = store.queryRegistryEvents(scope, {}, options.base);
+  if (!queried.ok) {
+    const codes = queried.rejections.map((rejection) => `${rejection.code}(${rejection.field})`).join(", ");
+    return { ok: false, scope, eventId, detail: `registry query for scope "${scope}" failed closed: ${codes}` };
+  }
+  const event = queried.events.find((candidate) => candidate.event_id === eventId);
+  if (event === undefined) {
+    return { ok: false, scope, eventId, detail: `no registry event with event_id "${eventId}" exists in scope "${scope}"` };
+  }
+  if (!(REGISTRY_RECEIPT_AUTHORITY_EVENT_CLASSES as readonly string[]).includes(event.event_class)) {
+    return { ok: false, scope, eventId, detail: `registry event "${eventId}" is class ${event.event_class}, which is not a receipt-authority class for a ${artifactLabel} (accepted: ${REGISTRY_RECEIPT_AUTHORITY_EVENT_CLASSES.join(" | ")}) — the event exists but does not match the artifact class` };
+  }
+  return { ok: true, scope, eventId, event };
+}
+
+/**
+ * The registry-mode branch shared by the five prose-receipt validators.
+ * Returns null when the branch does not apply (flag OFF, or flag ON with no
+ * registry_authority on the payload) so the caller runs the baseline prose
+ * path. When the branch applies, the registry alone adjudicates: a resolved
+ * reference is the single authority (prose fields are transport/history and
+ * are NOT re-validated as authority — GD-FP-013), and an unresolvable
+ * reference is rejected by name (registry_authority_unresolved) with no
+ * silent prose fallback.
+ */
+function adjudicateRegistryAuthority(
+  artifactLabel: string,
+  payload: Record<string, unknown>,
+  options: RegistryAuthorityOptions
+): RegistryModeValidationResult | null {
+  if (!isGovdispRegistryAuthorityEnabled(options.env)) return null;
+  const reference = payload.registry_authority;
+  if (reference === undefined || reference === null) return null;
+
+  const resolution = resolveRegistryAuthority(artifactLabel, reference, options);
+  if (!resolution.ok) {
+    return {
+      valid: false,
+      missing: [],
+      invalid: ["registry_authority"],
+      warnings: [
+        `${REGISTRY_AUTHORITY_UNRESOLVED_CODE}: ${resolution.detail} — a registry authority reference that fails to resolve is rejected by name; the prose fields are never silently promoted to authority (GD-FP-013)`
+      ],
+      registry_authority: {
+        status: "unresolved",
+        code: REGISTRY_AUTHORITY_UNRESOLVED_CODE,
+        detail: resolution.detail,
+        ...(resolution.scope !== undefined ? { scope: resolution.scope } : {}),
+        ...(resolution.eventId !== undefined ? { event_id: resolution.eventId } : {})
+      }
+    };
+  }
+
+  const { scope, eventId, event } = resolution;
+  return {
+    valid: true,
+    missing: [],
+    invalid: [],
+    warnings: [
+      `registry authority resolved: ${event.event_class} event "${eventId}" in scope "${scope}" is the single authority for this ${artifactLabel} (GD-FP-013); the prose fields are transport/history and were not re-validated as authority`
+    ],
+    authority: "registry",
+    registry_authority: { status: "resolved", scope, event_id: eventId, event_class: event.event_class }
+  };
+}
+
+/**
+ * Mode-ON advisory for a prose-only payload: the baseline prose validation
+ * stands (prose retirement is Wave-4 scope, NOT a rejection here), and the
+ * result carries authority: "prose_transport" to distinguish it from
+ * registry-backed authority. Flag OFF returns the baseline object untouched.
+ */
+function withProseTransportAdvisory(
+  base: ValidationResult,
+  options: RegistryAuthorityOptions
+): RegistryModeValidationResult {
+  if (!isGovdispRegistryAuthorityEnabled(options.env)) return base;
+  return { ...base, authority: "prose_transport" };
 }
 
 // ---------------------------------------------------------------------------

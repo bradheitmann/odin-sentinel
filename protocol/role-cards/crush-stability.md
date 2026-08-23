@@ -26,6 +26,8 @@ or lifecycle authority.
 
 ## SCP_MIN_BOOT_RECEIPT Template
 
+<!-- registry mode: typed events are authority; this document is transport -->
+
 ```
 SCP_MIN_BOOT_RECEIPT
 role_slot: <team>/CRUSH-<n>

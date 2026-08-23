@@ -15,6 +15,10 @@ import {
 // SLICE-GOVDISP-REG-DEV-002 — server-registration-level coverage of the
 // flag-gated governance-registry compatibility surface: flag off inventory,
 // flag on append valid/invalid, query filters, resource read.
+// SLICE-GOVDISP-DEFAULT-DEV-001 (Amendment 46): postures inverted — the flag
+// is ACTIVE BY DEFAULT (unset = registry surface present: 48 tools + the
+// resource template); the 46-tool baseline inventory is asserted under
+// explicit opt-out postures (=0 / =off / enabled:false).
 // ---------------------------------------------------------------------------
 
 const REGISTRY_TOOL_NAMES = ["odin_append_event", "odin_query_events"];
@@ -103,12 +107,43 @@ type QueryToolResult =
   | { ok: false; rejections: RegistryRejection[] };
 
 // ---------------------------------------------------------------------------
-// AC1 — flag OFF (default): inventory is registry-free, behavior unchanged
+// AC1 — DEFAULT ON (Amendment 46): the registry surface is present unless
+// explicitly opted out; explicit opt-out restores the byte-baseline inventory
 // ---------------------------------------------------------------------------
 
-describe("flag off (default): no registry surface", () => {
-  it("registers no registry tools, resources, or resource templates by default", async () => {
-    const { client, server } = await connectClient({ govdispRegistry: { env: {} } });
+describe("default on (unset flag): registry surface present", () => {
+  it("registers the registry surface by default: 48 tools + the registry resource template", async () => {
+    const { client, server } = await connectClient({ govdispRegistry: { env: {}, store: realStore, base: makeTmpBase() } });
+
+    try {
+      const tools = await client.listTools();
+      const resources = await client.listResources();
+      const templates = await client.listResourceTemplates();
+
+      const names = tools.tools.map((tool) => tool.name);
+      for (const name of REGISTRY_TOOL_NAMES) {
+        expect(names).toContain(name);
+      }
+      // Amendment 46 default posture: the 46-tool baseline plus the two
+      // registry compat tools; the registry state surface is a resource
+      // TEMPLATE, so the static resource inventory is unchanged.
+      expect(tools.tools).toHaveLength(48);
+      expect(resources.resources.some((resource) => resource.uri.includes(REGISTRY_URI_FRAGMENT))).toBe(false);
+      expect(templates.resourceTemplates.map((template) => template.uriTemplate)).toContain("odin://registry/{scope}/events");
+
+      // A baseline tool still answers.
+      const version = parseTextResult(await client.callTool({ name: "odin.get_version", arguments: {} })) as { name?: string };
+      expect(version.name).toBe("odin-sentinel");
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
+});
+
+describe("explicit opt-out: no registry surface (byte-baseline inventory)", () => {
+  it("registers no registry tools, resources, or resource templates under explicit opt-out (=0): the 46-tool baseline", async () => {
+    const { client, server } = await connectClient({ govdispRegistry: { env: { [FLAG_ENV_VAR]: "0" } } });
 
     try {
       const tools = await client.listTools();
@@ -118,6 +153,7 @@ describe("flag off (default): no registry surface", () => {
       for (const name of REGISTRY_TOOL_NAMES) {
         expect(tools.tools.some((tool) => tool.name === name)).toBe(false);
       }
+      expect(tools.tools).toHaveLength(46);
       expect(resources.resources.some((resource) => resource.uri.includes(REGISTRY_URI_FRAGMENT))).toBe(false);
       expect(templates.resourceTemplates.some((template) => template.uriTemplate.includes(REGISTRY_URI_FRAGMENT))).toBe(false);
 
@@ -130,8 +166,8 @@ describe("flag off (default): no registry surface", () => {
     }
   });
 
-  it("stays inert for explicit non-truthy flag values", async () => {
-    for (const value of ["0", "false", "off", "no", ""]) {
+  it("stays inert for every explicit non-truthy opt-out value", async () => {
+    for (const value of ["0", "false", "off", "no"]) {
       const { client, server } = await connectClient({ govdispRegistry: { env: { [FLAG_ENV_VAR]: value } } });
       try {
         const tools = await client.listTools();
@@ -143,13 +179,14 @@ describe("flag off (default): no registry surface", () => {
     }
   });
 
-  it("lets an explicit enabled:false option override a truthy env flag", async () => {
+  it("lets an explicit enabled:false option override a truthy env flag and pin the 46-tool baseline", async () => {
     const { client, server } = await connectClient({
       govdispRegistry: { enabled: false, env: { [FLAG_ENV_VAR]: "1" }, store: realStore, base: makeTmpBase() }
     });
     try {
       const tools = await client.listTools();
       expect(tools.tools.some((tool) => REGISTRY_TOOL_NAMES.includes(tool.name))).toBe(false);
+      expect(tools.tools).toHaveLength(46);
     } finally {
       await client.close();
       await server.close();

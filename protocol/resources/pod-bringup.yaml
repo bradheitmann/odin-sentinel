@@ -1,4 +1,4 @@
-version: 0.5.0
+version: 0.6.0
 pod_bringup:
   doctrine: >-
     Ground truth is captured AFTER the pod boots in the target repo, and

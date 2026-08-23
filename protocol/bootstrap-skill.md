@@ -7,7 +7,7 @@ updated: 2026-05-11
 
 # Sentinel Coordination Protocol
 
-SCP_PUBLIC_VERSION: 0.5.0
+SCP_PUBLIC_VERSION: 0.6.0
 MIN_COMPATIBLE_CHILD_MCP: 0.4.5
 
 Public install readiness: configure the ODIN MCP server, install native skill context where supported or use full prompt fallback, keep governed team roles in CMUX, verify auth/account readiness without printing secrets, smoke-test local inference if used, and validate role compatibility before launch. Private local skill copies may differ intentionally; public release checks compare repo-internal public artifacts only.
@@ -186,6 +186,10 @@ Before activating a fleet of Claude-occupied roles:
 <!-- BEGIN SCP-AMENDMENT JUR-012 -->
 **Doctrine amendment (JUR-012): Exam-tier context isolation (source: Amendment 39 addenda).** Exam and worker-tier activation packets explicitly preempt the skill-read reflex: the provisioned contract is the seat's ENTIRE protocol context; SKILL.md, role cards, and protocol source reads are control-plane-tier only. The skill's read-at-boot cadence does not apply to sealed exam seats.
 <!-- END SCP-AMENDMENT JUR-012 -->
+
+<!-- BEGIN SCP-AMENDMENT GOVDISP-REGISTRY-AUTHORITY -->
+**Doctrine amendment (GOVDISP-REGISTRY-AUTHORITY): registry authority under compatibility mode (source: STORY-GOVDISP-005; Amendment 46: default-ON as of 0.6.0).** Registry compatibility mode is ACTIVE BY DEFAULT as of 0.6.0 (Amendment 46, operator order): an unset ODIN_GOVDISP_REGISTRY_MCP activates the registry MCP surface, the registry-mode validator branches, and the odin-watch FINDING_OPENED emission; setting ODIN_GOVDISP_REGISTRY_MCP=0 (or any non-truthy value) is the explicit opt-out and returns byte-baseline behavior. Under registry compatibility mode, typed registry events are AUTHORITY for governance facts (blockers, attempts, verdicts, receipts); in-pane prose receipts are transport and history. A single fact is never independently editable in two authorities (GD-FP-013). Rendered registry views are PROHIBITED by default — an explicit human request binds requested_by plus the registry digest — and live CMUX surfaces remain the default human view (GD-DEC-012). The WAVE-4 deferral applies to PROSE RETIREMENT only (still deferred: prose retirement occurs only after WAVE-4 independent PASS and an owner activation event); registry ACTIVATION is not deferred — it is the default as of 0.6.0.
+<!-- END SCP-AMENDMENT GOVDISP-REGISTRY-AUTHORITY -->
 
 ## Generic Role Model And Control Topology
 
@@ -631,6 +635,30 @@ When `delegate` is invoked during active SCP, SCP topology rules override generi
 <!-- BEGIN SCP-AMENDMENT JUR-013 -->
 **Doctrine amendment (JUR-013): Relay blocks are self-contained (source: Amendment 39 addenda).** Every relayed instruction block carries its own gating and stop conditions. The control plane never relies on outer-instruction context the receiving seat cannot see.
 <!-- END SCP-AMENDMENT JUR-013 -->
+
+<!-- BEGIN SCP-AMENDMENT JUR-015 -->
+**Doctrine amendment (JUR-015): Pinned-bundle immutability (source: Amendment 39 addenda).** A pinned input bundle is IMMUTABLE from the moment its activation packet issues. Any post-dispatch addition requires a correction packet carrying the new entry count and the manifest hash, delivered before the seat's next pin action. A seat whose pin check mismatches the packet's stated count stops and reports; the mismatch is a control-plane fault by default.
+<!-- END SCP-AMENDMENT JUR-015 -->
+
+<!-- BEGIN SCP-AMENDMENT JUR-016 -->
+**Doctrine amendment (JUR-016): Explicit hold supersession (source: Amendment 39 addenda).** While an observer hold is active on a seat, a control-plane instruction to that seat requires either an explicit, named lift of that hold acknowledged by the observer, or a declared single-authority mode whose declaration reaches the observer before the next seat contact. Supersession is never implicit. When authority-plane packet races cause repeated freeze/lift thrash on one seat, single-authority mode is the prescribed resolution: one choreography authority until the work unit completes, observers passive except for hard-integrity events.
+<!-- END SCP-AMENDMENT JUR-016 -->
+
+<!-- BEGIN SCP-AMENDMENT JUR-017 -->
+**Doctrine amendment (JUR-017): Quote-safe packets; command evidence as pinned files (source: Amendment 39-40 addenda).** Mesh packets are composed and relayed through shells: embedded backticks, dollar-paren substitution, and unescaped expansions are live injection vectors at every relay hop. Command literals in packets travel in quote-safe form only. Verbatim command evidence — anything whose exact bytes matter — travels as pinned files with hashes, never inline: transport renderings of inline literals are not authoritative and have been observed to corrupt in both directions.
+<!-- END SCP-AMENDMENT JUR-017 -->
+
+<!-- BEGIN SCP-AMENDMENT JUR-018 -->
+**Doctrine amendment (JUR-018): Full-validate closure gate; allowlists travel with anchors (source: Amendments 43 addenda).** Closure merges verify with the repository's FULL validation pipeline — including packaging and release-sync checks — not a test-and-audit subset; a latent release-blocking drift survived three closure merges under the subset gate and was caught only by a sealed exam. Corollary at authoring time: enumerating artifacts (allowlists, class lists, family enumerations) travel together with their anchor fixtures and negative fixtures — any contract extending one pre-includes the others.
+<!-- END SCP-AMENDMENT JUR-018 -->
+
+<!-- BEGIN SCP-AMENDMENT JUR-019 -->
+**Doctrine amendment (JUR-019): Completion pings (source: Amendment 45-era addenda).** Completion is push-based: every activation packet ends with a completion-ping step — on reaching readiness, verdict, or a stop-report, the seat itself notifies the control plane's surface directly with a one-line [DONE] message. Report-in-pane-and-wait is transport history, not notification; pull-based supervision (polls, ticks) is the backstop, never the clock.
+<!-- END SCP-AMENDMENT JUR-019 -->
+
+<!-- BEGIN SCP-AMENDMENT JUR-020 -->
+**Doctrine amendment (JUR-020): Raw trace precedes exam freezes (source: Amendment 39-40 addenda).** Screen inference alone is insufficient grounds to freeze a sealed-exam seat. Raw-trace verification precedes any exam-seat freeze except an index or worktree mutation visibly in progress. Observer false alarms are corrected without fault — aggressive-but-correcting is the right failure direction — but the trace-first order makes the false positive cost a trace read instead of an interrupted exam.
+<!-- END SCP-AMENDMENT JUR-020 -->
 
 ## Role Occupant Fallback Ladders
 

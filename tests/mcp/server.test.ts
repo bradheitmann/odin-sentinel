@@ -1,10 +1,10 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { describe, expect, it } from "vitest";
-import { createServer } from "../../src/mcp/server.js";
+import { createServer, type CreateServerOptions } from "../../src/mcp/server.js";
 
-async function connectClient() {
-  const server = createServer();
+async function connectClient(options?: CreateServerOptions) {
+  const server = createServer(options);
   const client = new Client({
     name: "odin-sentinel-test",
     version: "1.0.0"
@@ -28,12 +28,18 @@ function parseTextResult(result: Awaited<ReturnType<Client["callTool"]>>): unkno
 }
 
 describe("ODIN MCP server", () => {
-  it("registers the expected tools and resources", async () => {
+  it("registers the expected tools and resources (default posture: registry surface active, 48 tools)", async () => {
+    // Amendment 46 (SLICE-GOVDISP-DEFAULT-DEV-001): registry mode is ACTIVE BY
+    // DEFAULT — pin the flag unset so a developer shell cannot flip this
+    // default-posture assertion.
+    const savedFlag = process.env.ODIN_GOVDISP_REGISTRY_MCP;
+    delete process.env.ODIN_GOVDISP_REGISTRY_MCP;
     const { client, server } = await connectClient();
 
     try {
       const tools = await client.listTools();
       const resources = await client.listResources();
+      const templates = await client.listResourceTemplates();
 
       expect(tools.tools.map((tool) => tool.name).sort()).toEqual([
         "odin.compile_session_report",
@@ -81,7 +87,9 @@ describe("ODIN MCP server", () => {
         "odin.validate_outage_handoff",
         "odin.validate_remediation_packet",
         "odin.validate_successor_contract",
-        "odin.validate_team_manifest"
+        "odin.validate_team_manifest",
+        "odin_append_event",
+        "odin_query_events"
       ]);
       expect(resources.resources.map((resource) => resource.uri).sort()).toEqual([
         "odin://protocol/authority-chain",
@@ -112,9 +120,35 @@ describe("ODIN MCP server", () => {
         "odin://protocol/step-up-ladder",
         "odin://protocol/topology"
       ]);
+      // The registry state surface is a resource TEMPLATE (default-ON,
+      // Amendment 46); the static resource inventory above is unchanged.
+      expect(templates.resourceTemplates.map((template) => template.uriTemplate)).toContain("odin://registry/{scope}/events");
     } finally {
       await client.close();
       await server.close();
+      if (savedFlag !== undefined) process.env.ODIN_GOVDISP_REGISTRY_MCP = savedFlag;
+    }
+  });
+
+  it("registers the 46-tool baseline inventory under explicit opt-out postures (enabled:false / =0)", async () => {
+    // Amendment 46 (SLICE-GOVDISP-DEFAULT-DEV-001): the pre-0.6.0 byte-baseline
+    // inventory is the EXPLICIT OPT-OUT posture, not the default.
+    const optOutPostures: CreateServerOptions[] = [
+      { govdispRegistry: { enabled: false } },
+      { govdispRegistry: { env: { ODIN_GOVDISP_REGISTRY_MCP: "0" } } }
+    ];
+    for (const options of optOutPostures) {
+      const { client, server } = await connectClient(options);
+      try {
+        const tools = await client.listTools();
+        const templates = await client.listResourceTemplates();
+        expect(tools.tools).toHaveLength(46);
+        expect(tools.tools.some((tool) => tool.name === "odin_append_event" || tool.name === "odin_query_events")).toBe(false);
+        expect(templates.resourceTemplates.some((template) => template.uriTemplate.includes("odin://registry/"))).toBe(false);
+      } finally {
+        await client.close();
+        await server.close();
+      }
     }
   });
 

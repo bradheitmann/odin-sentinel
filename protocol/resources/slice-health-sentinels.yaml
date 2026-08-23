@@ -1,4 +1,4 @@
-version: 0.5.0
+version: 0.6.0
 slice_health_sentinels:
   doctrine: >-
     Heuristic sentinels that SURFACE planning defects to the PM — they never

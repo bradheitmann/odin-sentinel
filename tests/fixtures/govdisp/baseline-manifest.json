@@ -9,18 +9,18 @@
   "files": [
     {
       "path": "protocol/bootstrap-skill.md",
-      "bytes": 121102,
-      "sha256": "fd848f08400c014e7aaea9eb44f52232d1c15b090d44fdb3dd277982a9737a7a"
+      "bytes": 126135,
+      "sha256": "ad21f2b374636717fac1260e2b3ddaae4848ad8df5a2b97e4efdb0eba2556aaa"
     },
     {
       "path": "protocol/closeout.yaml",
       "bytes": 770,
-      "sha256": "23a78c0f832873510e3cadac10c9ffada766248963abd3e598dd6a4a6a5eca18"
+      "sha256": "eeb0055e126fbe07e84cb09b1dfd20ca1ece540874ec96f8595d4f05729fd8f2"
     },
     {
       "path": "protocol/delegation.yaml",
       "bytes": 4073,
-      "sha256": "fdef5c07b2c95d1679769abe09b3c44cb42d55bd07a46c220c711fb0699c37b7"
+      "sha256": "5a36812835b87a3624375cb94aa3a216ec02e1f54667395c1c30d134a80bd783"
     },
     {
       "path": "protocol/mission-frontrun/droids-scrutiny-feature-reviewer.md",
@@ -50,132 +50,132 @@
     {
       "path": "protocol/model-profiles.yaml",
       "bytes": 5895,
-      "sha256": "1d041a3827cbc20ca8a0a4b9fab95ad69e2468807606af19154b3de44b9d8be7"
+      "sha256": "c5bc0de089db50e6425ce835b1afca8e4b9598d0355db47a2052b32fdf42367e"
     },
     {
       "path": "protocol/receipts/boot-receipt.yaml",
-      "bytes": 5305,
-      "sha256": "b0516b35e107af4de183227725549e04964371f048e1caa46010868a43abda02"
+      "bytes": 5378,
+      "sha256": "270321d661d3dded630898c5bad4dfcd503f044387619360ad5c05f81a453486"
     },
     {
       "path": "protocol/receipts/harness-probe-matrix.yaml",
-      "bytes": 4060,
-      "sha256": "bcdb0cac92b1538caa72869989240e05da4f90ac9fa28d37d4d157439a46f2d8"
+      "bytes": 4133,
+      "sha256": "08e6883bc0988c55b90bda7c92ff1adfe82493b6a9b23cd3e7e9ce2c8a228c7d"
     },
     {
       "path": "protocol/receipts/team-manifest.yaml",
-      "bytes": 2335,
-      "sha256": "5b8eff3d93109b8fe149febdf54d86e37a2f8a0f6f99e27a434a9ce6131f7c87"
+      "bytes": 2408,
+      "sha256": "3047c59f40704a4e813d478d3c1b82dcc01550d355a575826432fe4257d346e0"
     },
     {
       "path": "protocol/resources/authority-chain.yaml",
       "bytes": 1107,
-      "sha256": "befbad89b4d25040754f4cc6477297bf391a237022e3ae83fad4bf1be77cd811"
+      "sha256": "2807724bab49e42d109c8c0e99a5bf1a791736d43d72b8a82be285f8aa0d71e7"
     },
     {
       "path": "protocol/resources/blocked-pod-rollover.yaml",
       "bytes": 975,
-      "sha256": "e4e9f0e0b0afdafc6d24abcd086b6702cc2fbf7c5201100e0c452c8fb0cd947e"
+      "sha256": "6dcf88685959b5bac60809588de2550e96b8987683d9a0e23a676a46920eb0c6"
     },
     {
       "path": "protocol/resources/commit-gate.yaml",
       "bytes": 1616,
-      "sha256": "557d70dd9cfd340ce48f1de39ba8d0c9078c482440c5a9b20920efb39159b59a"
+      "sha256": "611a073397545d2198752fb6b692d715de41ebee9d7ab7f2e6af15a4b3e1bf2c"
     },
     {
       "path": "protocol/resources/governance-overhead-budget.yaml",
       "bytes": 4715,
-      "sha256": "1e0e3353fff2d340a7c7087aa7218dbc02443171876d2ee33ce043b8da54e6cf"
+      "sha256": "95952962aa0c382b9bae3a897735b350442cc2cdd87d8c2b63cd12de478f4ba6"
     },
     {
       "path": "protocol/resources/harness-control-matrix.yaml",
       "bytes": 9259,
-      "sha256": "dd18b10e41e613caf64327fd2e3d85c00aa0bb2b101304d490af112a197c7138"
+      "sha256": "7ce981b53dae78a48769dca2adb2539e697b0faf88d211834b8a2f0258060096"
     },
     {
       "path": "protocol/resources/meta-governance-depth.yaml",
       "bytes": 2374,
-      "sha256": "82d31447c0dad6decaf2a9b5c1df3ac66e51148bad21884c5d71d6aeca5e9fe2"
+      "sha256": "38d824bc8e21a3a2e2142b97de5aaf1862fe1eb3297066e32add0586e6850506"
     },
     {
       "path": "protocol/resources/pod-bringup.yaml",
       "bytes": 2125,
-      "sha256": "fbc4ee09a994d9ff07a484fd9ede83ab020c68173ce293a9c9958bfb87558ee8"
+      "sha256": "3905759ae4b1b549f7d27beb0bbb38f4179f636fbb1ebb76ec352f4e324b3fd6"
     },
     {
       "path": "protocol/resources/proof-ttl.yaml",
       "bytes": 4018,
-      "sha256": "3468ca31c9424fbedfdfb7ee65df3b2a3421f6ded225bef3934ed15105589479"
+      "sha256": "a4d9f0d2fb12f390241fe1eecfc82de76cdd6461326c85b4834a4943ecb94f11"
     },
     {
       "path": "protocol/resources/qa-independence.yaml",
       "bytes": 2979,
-      "sha256": "c84c0620f26ce21b2c6a346587502f7ce3711d9e3d2f61ca441090ac14d969a7"
+      "sha256": "5c2d78736e7dc540563fd6488c6ca10217733337d9fb110ff1af1c3e9a1695db"
     },
     {
       "path": "protocol/resources/recipe-capture.yaml",
       "bytes": 1925,
-      "sha256": "d0cd40fa6543ef9ba448744aff13093b27394a470863c6b82a12123dc8e909e7"
+      "sha256": "59b0dd507b5b14c491288cdcc1caa0252eed37b1c37214398dea7212f1e3fa10"
     },
     {
       "path": "protocol/resources/slice-health-sentinels.yaml",
       "bytes": 2179,
-      "sha256": "dc85e5a236cd56d55d273add83cbe198803b7bcfd768e02867f0831e2177a593"
+      "sha256": "f6b1f5cf3325c66f18cdb157e802598be44b540e4e013a10e5da349ec05f237b"
     },
     {
       "path": "protocol/resources/step-up-ladder.yaml",
       "bytes": 6910,
-      "sha256": "c71762c67e127891e68ad49e89efe6d74e70dba7083c580eb9c25e1ca340033d"
+      "sha256": "0133a2f8412099b4bf6c7df59a851a2e39368369088b5e54e982f58a965049ad"
     },
     {
       "path": "protocol/role-cards/crush-stability.md",
-      "bytes": 1941,
-      "sha256": "c6ab32939304eaf0fb02b172f3440d162be62146ebb05d66d7bd2c1bad180067"
+      "bytes": 2021,
+      "sha256": "ea6c8a2d476807f9e87828cd3eabc076d4693c07e924d495e48f99e0aea7b556"
     },
     {
       "path": "protocol/role-cards/dev-worker.md",
-      "bytes": 2461,
-      "sha256": "187b7817869ff13193318986e994e0cf063175284992c91766a994ca16b00d55"
+      "bytes": 2541,
+      "sha256": "ed08cc3f50c599e707d432734970343ca2345837879531db9a31c2194de5ab65"
     },
     {
       "path": "protocol/role-cards/exec-asst.md",
-      "bytes": 2357,
-      "sha256": "ce0f2600c0d6b958afe4761fbe64b03338900112a6dc51295b8e0d2e2c7b2af7"
+      "bytes": 2437,
+      "sha256": "ba456eb9ce28ae8a08a6d0ca4e60f805d26858d5dc99062ac7d72539429d3b4a"
     },
     {
       "path": "protocol/role-cards/exec-pm.md",
-      "bytes": 1893,
-      "sha256": "38e82f82374e831f0d7aaaa301ad4608fec7a932590bd4b480d6e0cdf0743749"
+      "bytes": 1973,
+      "sha256": "130c6bf46bfb038d9cdfc4910eccede5369709c3815b59cc42365cd305b98e7d"
     },
     {
       "path": "protocol/role-cards/mission-droid.md",
-      "bytes": 1851,
-      "sha256": "7ff679383c6a495872c0a78c80ba8b30bad1819d7d7875da36206536952d34f9"
+      "bytes": 1931,
+      "sha256": "088e5d417f341923dd2843d8ba1e6a23661a011f8b0fbc990e9c9ce13f85a00c"
     },
     {
       "path": "protocol/role-cards/qa-worker.md",
-      "bytes": 2394,
-      "sha256": "dcb1d41f384c4ad4430e06caf4c96c3ebbb72690acee62668b9d8214c0ada2a6"
+      "bytes": 2474,
+      "sha256": "a57e0e00b837a279a802facfb52d187d5fd3084ba130992c6d8c1050e5c94dfd"
     },
     {
       "path": "protocol/role-cards/shadow.md",
-      "bytes": 1682,
-      "sha256": "69449078080378fc3bc0fc391f6abdc34e478000d6ffbdfd560a5a43b11ef75b"
+      "bytes": 1762,
+      "sha256": "00956689274c500b78cbef40b7012264b1174a350503733becb2fbb108c2c98a"
     },
     {
       "path": "protocol/role-cards/team-pm.md",
-      "bytes": 2378,
-      "sha256": "afb02332a6d03ea4e40c1707ca6c496690d284502b1c34a10da0e048abf52dcd"
+      "bytes": 2458,
+      "sha256": "7ace429fed29bf0615fd7d568df524130a844d21c70864b8917369a630781e39"
     },
     {
       "path": "protocol/roles.yaml",
       "bytes": 8385,
-      "sha256": "53d12e0741917440780301538e8450c4f2c354d32f82569799c03ef2e24ac305"
+      "sha256": "49f8dcd3e66084727d7bb67293066606a7faaf181f1cacebd628a25b3d166bff"
     },
     {
       "path": "protocol/SCP.md",
-      "bytes": 23086,
-      "sha256": "a2d6e32485bff349fe86ffd8df979d03c1ba8d04a119ecc949f91da34163d1de"
+      "bytes": 28119,
+      "sha256": "04c9f9e67bf36c53083bdec5e05e5eb556d598a99953a54e3672955a06f2844f"
     },
     {
       "path": "protocol/skill-references/boot-receipt-examples.md",
@@ -200,12 +200,12 @@
     {
       "path": "protocol/topology.yaml",
       "bytes": 4827,
-      "sha256": "c573b205cb75e07c19978a406c019508cde39a9b7240ee5059b099b9953f8dc1"
+      "sha256": "59e6f9aa5fdb218320c65d4fa769d44aca28dac423acb71c1d4e246508f72bbf"
     },
     {
       "path": "src/mcp/server.ts",
-      "bytes": 40932,
-      "sha256": "e870d34ab631f2b0a0ec69a8f5e7a74df234299b961ec08cab1783087ccafbad"
+      "bytes": 41318,
+      "sha256": "dfe24de377261c605bb9e671c97a8b84dfb7c01cae9193faae97f376dca8f0df"
     },
     {
       "path": "src/protocol/event-registry/compact.ts",
@@ -249,8 +249,8 @@
     },
     {
       "path": "src/protocol/service.ts",
-      "bytes": 214881,
-      "sha256": "f8b80e4a948f4e4414af97c59cd0ed004d2a3675824e2e297243d9c2db1fa66a"
+      "bytes": 232147,
+      "sha256": "18a3fa47ea25406db32263eff027ba9ebe505871a1f37bd0ef0ddb3651f64b38"
     },
     {
       "path": "src/protocol/surface-layout.ts",
@@ -265,7 +265,7 @@
     {
       "path": "src/protocol/version.ts",
       "bytes": 1142,
-      "sha256": "a81dc53aaeab426195b6d8b4441a42a02958aeb30da30130fdbe6d1cbf623d85"
+      "sha256": "abe1fb5fdfd6d2b5c1be526915e97b16eab8e1fee873e765e12e4b84d4619a14"
     }
   ]
 }

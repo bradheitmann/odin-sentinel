@@ -41,10 +41,10 @@ languages, or harnesses.
 
 ## Current Public Surface
 
-- Public package/server version: `0.5.0`
+- Public package/server version: `0.6.0`
 - Minimum compatible child MCP version: `0.4.5`
 - MCP resources: 27
-- MCP tools: 46
+- MCP tools: 48 (the governance-registry compatibility surface — the `odin_append_event` / `odin_query_events` tools plus one `odin://registry/{scope}/events` resource template — is ACTIVE BY DEFAULT as of 0.6.0; `ODIN_GOVDISP_REGISTRY_MCP=0` opts out and restores the 46-tool baseline)
 - Optional telemetry tools: user-invoked, not automatic collection
 
 ## Release Drift Rule

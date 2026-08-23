@@ -1,7 +1,12 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { WakeState } from "../protocol/schemas.js";
-import { appendGovdispEvent, type GovdispRegistryStoreLike } from "../protocol/service.js";
+import {
+  GOVDISP_REGISTRY_AUTHORITY_FLAG_ENV_VAR,
+  appendGovdispEvent,
+  isGovdispRegistryAuthorityEnabled,
+  type GovdispRegistryStoreLike
+} from "../protocol/service.js";
 
 /**
  * Write the three output files for a single poll result:
@@ -15,30 +20,31 @@ import { appendGovdispEvent, type GovdispRegistryStoreLike } from "../protocol/s
  * append path. The store is an injected seam (GovdispRegistryStoreLike)
  * bound by the caller — this module never imports the registry storage
  * module directly (the same injection precedent as the MCP server surface).
- * With the flag off (the default), behavior is byte-identical to the
- * pre-slice writer: exactly the three files above and no registry traffic.
+ * Under the explicit opt-out (a non-truthy flag value), behavior is
+ * byte-identical to the pre-slice writer: exactly the three files above and
+ * no registry traffic. As of 0.6.0 (Amendment 46, operator order) the flag is
+ * ACTIVE BY DEFAULT — an unset flag means the emission is attempted.
  */
 
 /**
  * The compatibility flag gating FINDING_OPENED emission. This is the SAME
  * flag as the MCP registry compatibility surface (src/mcp/server.ts); the
- * truthy convention is mirrored locally so the odin-watch binary stays free
- * of MCP-server imports.
+ * read is unified in the protocol service layer (readGovdispRegistryMode,
+ * src/protocol/service.ts) so every consumer shares one reader and the
+ * odin-watch binary stays free of MCP-server imports.
  */
-export const GOVDISP_REGISTRY_WATCH_FLAG_ENV_VAR = "ODIN_GOVDISP_REGISTRY_MCP";
-
-const GOVDISP_REGISTRY_FLAG_TRUTHY = new Set(["1", "true", "yes", "on"]);
+export const GOVDISP_REGISTRY_WATCH_FLAG_ENV_VAR = GOVDISP_REGISTRY_AUTHORITY_FLAG_ENV_VAR;
 
 /**
- * Read the emission flag: enabled only by an explicit truthy value
- * (1/true/yes/on, case- and whitespace-insensitive); unset, empty, or any
- * other value is OFF, so a mistaken "0"/"false" can never half-activate the
- * emission.
+ * Read the emission flag via the unified reader (Amendment 46): ACTIVE BY
+ * DEFAULT as of 0.6.0 — unset or empty resolves ON; an explicit truthy value
+ * (1/true/yes/on, case- and whitespace-insensitive) resolves ON; any other
+ * non-empty value (0/false/off/no/...) is the explicit opt-out and resolves
+ * OFF, so a mistaken "0"/"false" fully disables the emission, never
+ * half-activates it.
  */
 export function isGovdispWatchEmissionEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-  const raw = env[GOVDISP_REGISTRY_WATCH_FLAG_ENV_VAR];
-  const normalized = typeof raw === "string" ? raw.trim().toLowerCase() : "";
-  return normalized.length > 0 && GOVDISP_REGISTRY_FLAG_TRUTHY.has(normalized);
+  return isGovdispRegistryAuthorityEnabled(env);
 }
 
 /** Optional governance-emission seam for writeWakeFiles (flag-gated). */
@@ -118,8 +124,9 @@ export function writeWakeFiles(
     encoding: "utf8",
   });
 
-  // Flag-gated governance emission (default OFF): one FINDING_OPENED event
-  // via the injected service append seam; no files outside the registry base.
+  // Flag-gated governance emission (default ON as of 0.6.0 — Amendment 46; an
+  // explicit non-truthy opt-out disables): one FINDING_OPENED event via the
+  // injected service append seam; no files outside the registry base.
   if (isGovdispWatchEmissionEnabled(options.env)) {
     emitFindingOpened(label, state, options);
   }

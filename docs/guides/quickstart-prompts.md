@@ -13,7 +13,7 @@ Set up @bradheitmann/odin-sentinel for this machine.
 Rules:
 - Detect first; install only missing prerequisites.
 - Required runtime: Node.js >=22.13.0.
-- Install or use @bradheitmann/odin-sentinel@0.5.0.
+- Install or use @bradheitmann/odin-sentinel@0.6.0.
 - Configure only MCP hosts that already exist on this machine.
 - Do not ask me to paste API keys, tokens, or OAuth values.
 - Verify provider/auth status without printing secret values.
@@ -22,9 +22,9 @@ Rules:
 - Print configured hosts, skipped hosts, package version, and warnings.
 
 Smoke test:
-printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"probe","version":"0"}}}\n' | pnpm dlx --package @bradheitmann/odin-sentinel@0.5.0 odin-sentinel-mcp
+printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"probe","version":"0"}}}\n' | pnpm dlx --package @bradheitmann/odin-sentinel@0.6.0 odin-sentinel-mcp
 
-Expected version: 0.5.0.
+Expected version: 0.6.0.
 ```
 
 Restart any host whose MCP config changed.
@@ -37,7 +37,7 @@ Open CMUX first. Paste into the agent that will act as EXEC PM.
 You are A/EXEC-PM. Bootstrap a Sentinel Coordination Protocol governed team in this CMUX workspace.
 
 Procedure:
-1. Call odin.get_version and confirm version 0.5.0 or newer.
+1. Call odin.get_version and confirm version 0.6.0 or newer.
 2. Call odin.get_bootstrap_skill and read the public SCP contract.
 3. Confirm CMUX is active and you are in the same workspace as the team slots.
 4. Compute the target layout with odin.compute_surface_layout using profile=human_cmux_quad.

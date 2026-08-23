@@ -1,4 +1,4 @@
-version: 0.5.0
+version: 0.6.0
 harness_control_matrix:
   doctrine: >-
     Driving heterogeneous harnesses through a terminal multiplexer requires

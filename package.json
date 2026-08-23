@@ -1,10 +1,10 @@
 {
   "name": "@bradheitmann/odin-sentinel",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "publishConfig": {
     "access": "public"
   },
-  "description": "Portable MCP governance protocol for multi-agent terminal teams: 46 tools, 27 resources, readiness gates, ODIN watchers, receipts, delegation, and closeout over stdio.",
+  "description": "Portable MCP governance protocol for multi-agent terminal teams: 48 tools, 27 resources, readiness gates, ODIN watchers, receipts, delegation, and closeout over stdio.",
   "type": "module",
   "main": "./dist/src/protocol/index.js",
   "types": "./dist/src/protocol/index.d.ts",
@@ -87,7 +87,7 @@
     "url": "https://github.com/bradheitmann/odin-sentinel/issues"
   },
   "odin": {
-    "publicVersion": "0.5.0",
+    "publicVersion": "0.6.0",
     "minimumCompatibleChildMcpVersion": "0.4.5"
   }
 }

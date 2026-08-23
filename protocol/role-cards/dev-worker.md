@@ -28,6 +28,8 @@ write-scope assignment; no unrelated edits, no self-QA acceptance.
 
 ## SCP_MIN_BOOT_RECEIPT Template
 
+<!-- registry mode: typed events are authority; this document is transport -->
+
 ```
 SCP_MIN_BOOT_RECEIPT
 role_slot: <team>/DEV-<n>

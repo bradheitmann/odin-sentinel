@@ -1,4 +1,4 @@
-version: 0.5.0
+version: 0.6.0
 commit_gate:
   doctrine: >-
     Exec-gated commits: a pod stages and obtains independent QA, but the COMMIT

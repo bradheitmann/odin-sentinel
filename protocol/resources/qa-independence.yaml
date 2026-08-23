@@ -1,4 +1,4 @@
-version: 0.5.0
+version: 0.6.0
 qa_independence:
   doctrine: >-
     Closure requires a REAL, independent QA verdict. A control-plane role

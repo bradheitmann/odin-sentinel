@@ -150,3 +150,44 @@ describe("session jurisprudence amendments (SLICE-AMEND-JUR-DEV-001)", () => {
     }
   });
 });
+
+// Registry-authority re-scoping + second jurisprudence fold-in
+// (SLICE-GOVDISP-MIG-DEV-002): the GOVDISP-REGISTRY-AUTHORITY region and
+// JUR-015..020 land as identifier-tagged additive regions in all three
+// doctrine copies; the two tests below extend identifier-presence and mirror
+// sha-identity coverage to them.
+const JUR2_AMENDMENTS = [
+  "JUR-015",
+  "JUR-016",
+  "JUR-017",
+  "JUR-018",
+  "JUR-019",
+  "JUR-020",
+] as const;
+
+describe("registry authority and jurisprudence register 2 amendments (SLICE-GOVDISP-MIG-DEV-002)", () => {
+  it("tags the registry-authority amendment and JUR-015..020 with their identifiers in all three copies", () => {
+    for (const path of DOCTRINE_COPIES) {
+      const text = readRepoFile(path);
+      expect(
+        text.includes("GOVDISP-REGISTRY-AUTHORITY"),
+        `${path} missing amendment identifier GOVDISP-REGISTRY-AUTHORITY`,
+      ).toBe(true);
+      for (const id of JUR2_AMENDMENTS) {
+        expect(text.includes(id), `${path} missing amendment identifier ${id}`).toBe(true);
+      }
+    }
+  });
+
+  it("keeps every mirrored register-2 region byte-identical across the three copies", () => {
+    for (const regionId of ["GOVDISP-REGISTRY-AUTHORITY", ...JUR2_AMENDMENTS]) {
+      const hashes = DOCTRINE_COPIES.map((path) =>
+        sha256(extractRegion(readRepoFile(path), regionId, path)),
+      );
+      expect(
+        new Set(hashes).size,
+        `mirrored region ${regionId} diverged across ${DOCTRINE_COPIES.join(", ")}`,
+      ).toBe(1);
+    }
+  });
+});

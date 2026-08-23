@@ -28,6 +28,8 @@ scope, define acceptance criteria, and escalate to the human operator.
 
 ## SCP_MIN_BOOT_RECEIPT Template
 
+<!-- registry mode: typed events are authority; this document is transport -->
+
 ```
 SCP_MIN_BOOT_RECEIPT
 role: A/EXEC-PM

@@ -1,4 +1,5 @@
-version: 0.5.0
+version: 0.6.0
+# Registry mode: typed events are authority; this document is transport.
 # Harness Probe Matrix Receipt — EPIC-028
 # Per-harness version-pinned control recipes surfaced through the
 # odin.get_harness_probe_matrix tool output. Control recipes are probe-visible

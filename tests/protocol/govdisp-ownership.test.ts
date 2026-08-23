@@ -31,8 +31,10 @@ import { writeWakeFiles } from "../../src/odin-watch/writers.js";
 // missing prerequisites cited (registry negative control #9). The
 // intervention-duty guard counts only owner-bound findings with delivery
 // events. The odin-watch writer emits FINDING_OPENED through the injected
-// service append seam only under the ODIN_GOVDISP_REGISTRY_MCP compatibility
-// flag; flag off is byte-identical and cheap-open (DIS-001) guarantees the
+// service append seam under the ODIN_GOVDISP_REGISTRY_MCP compatibility flag
+// — ACTIVE BY DEFAULT as of 0.6.0 (Amendment 46; SLICE-GOVDISP-DEFAULT-DEV-001
+// inverted the postures: default now emits, mode-off cases pin an explicit
+// non-truthy opt-out) — and cheap-open (DIS-001) guarantees the
 // emission produces zero new files outside the registry base.
 //
 // These tests use the REAL registry storage module (temp-dir base) injected
@@ -464,24 +466,26 @@ describe("finding ownership per-finding isolation", () => {
 // ---------------------------------------------------------------------------
 
 describe("writeWakeFiles governance emission (flag-gated)", () => {
-  it("flag off is byte-identical with or without an injected store, and touches no registry", () => {
+  it("explicit opt-out is byte-identical with or without an injected store, and touches no registry", () => {
     const controlDir = join(makeTmpBase(), "flags-control");
     const storeDir = join(makeTmpBase(), "flags-store");
     const registryBase = join(makeTmpBase(), ".odin", "registry");
     const state = makeWakeState(1, ["AMBIGUOUS_STATE", "SCOPE_DRIFT"]);
 
-    // Control: no options at all. The process env is pinned flag-off for the
-    // duration so a developer shell cannot flip the control run.
+    // Control: no options at all. The process env is pinned to the explicit
+    // opt-out for the duration so a developer shell cannot flip the control
+    // run (Amendment 46: unset would be ON).
     const savedFlag = process.env.ODIN_GOVDISP_REGISTRY_MCP;
-    delete process.env.ODIN_GOVDISP_REGISTRY_MCP;
+    process.env.ODIN_GOVDISP_REGISTRY_MCP = "0";
     try {
       writeWakeFiles(controlDir, "dev-a", state);
     } finally {
       if (savedFlag !== undefined) process.env.ODIN_GOVDISP_REGISTRY_MCP = savedFlag;
+      else delete process.env.ODIN_GOVDISP_REGISTRY_MCP;
     }
 
-    // Flag explicitly off with a store injected: the seam stays inert.
-    writeWakeFiles(storeDir, "dev-a", state, { store, registryBase, env: {} });
+    // Explicitly opted out with a store injected: the seam stays inert.
+    writeWakeFiles(storeDir, "dev-a", state, { store, registryBase, env: { ODIN_GOVDISP_REGISTRY_MCP: "0" } });
 
     expect(wakeFileContents(storeDir, "dev-a")).toEqual(wakeFileContents(controlDir, "dev-a"));
     expect(readdirSync(storeDir).sort()).toEqual(["dev-a.flag", "dev-a.reason", "dev-a.state.json"]);
@@ -489,16 +493,18 @@ describe("writeWakeFiles governance emission (flag-gated)", () => {
     expect(existsSync(registryBase)).toBe(false);
   });
 
-  it("flag on emits one FINDING_OPENED through the injected service seam (cheap-open: zero new files outside the registry base)", () => {
+  it("default posture (flag unset) emits one FINDING_OPENED through the injected service seam (cheap-open: zero new files outside the registry base)", () => {
     const root = makeTmpBase();
     const flagDir = join(root, "flags");
     const registryBase = join(root, ".odin", "registry");
     const state = makeWakeState(1, ["AMBIGUOUS_STATE"]);
 
+    // Amendment 46: the flag is ACTIVE BY DEFAULT — an empty env (unset) now
+    // drives the emission; no truthy value is required.
     writeWakeFiles(flagDir, "dev-a", state, {
       store,
       registryBase,
-      env: { ODIN_GOVDISP_REGISTRY_MCP: "1" },
+      env: {},
       eventId: "evt-watch-1"
     });
 
@@ -538,7 +544,7 @@ describe("writeWakeFiles governance emission (flag-gated)", () => {
     const flagDir = join(makeTmpBase(), "flags-nostore");
     const state = makeWakeState(0, ["ALL_CLEAR"]);
 
-    writeWakeFiles(controlDir, "dev-a", state, { env: {} });
+    writeWakeFiles(controlDir, "dev-a", state, { env: { ODIN_GOVDISP_REGISTRY_MCP: "0" } });
 
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     let thrown: unknown;
@@ -554,7 +560,7 @@ describe("writeWakeFiles governance emission (flag-gated)", () => {
     expect(wakeFileContents(flagDir, "dev-a")).toEqual(wakeFileContents(controlDir, "dev-a"));
   });
 
-  it("a non-truthy flag value never half-activates the emission", () => {
+  it("an explicit non-truthy opt-out value fully disables the emission (never half-activates)", () => {
     const root = makeTmpBase();
     const flagDir = join(root, "flags");
     const registryBase = join(root, ".odin", "registry");

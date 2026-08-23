@@ -1,4 +1,4 @@
-version: 0.5.0
+version: 0.6.0
 authority_chain:
   doctrine: >-
     Standing Team-A authority model. Non-EXEC agents take orders only from the

@@ -29,6 +29,8 @@ was assigned to implement, and starts each review from a fresh posture.
 
 ## SCP_MIN_BOOT_RECEIPT Template
 
+<!-- registry mode: typed events are authority; this document is transport -->
+
 ```
 SCP_MIN_BOOT_RECEIPT
 role_slot: <team>/QA-<n>

@@ -1,4 +1,4 @@
-version: 0.5.0
+version: 0.6.0
 proof_ttl:
   doctrine: >-
     GD-DEC-006: the governance evidence footprint stays bounded. Raw proof
