@@ -5,7 +5,7 @@
     "src/protocol",
     "src/mcp"
   ],
-  "file_count": 46,
+  "file_count": 48,
   "files": [
     {
       "path": "protocol/bootstrap-skill.md",
@@ -189,13 +189,23 @@
     },
     {
       "path": "src/mcp/server.ts",
-      "bytes": 33830,
-      "sha256": "e1ca61993b3462dadc516a7be94be526e12b072162495313dc113041810bc330"
+      "bytes": 40932,
+      "sha256": "e870d34ab631f2b0a0ec69a8f5e7a74df234299b961ec08cab1783087ccafbad"
     },
     {
       "path": "src/protocol/event-registry/diagnostic.ts",
       "bytes": 2642,
       "sha256": "5e4c83818bbb59c3cdb8cc241093bb2de00c080a8f6c90f94a8b0a3117f0103f"
+    },
+    {
+      "path": "src/protocol/event-registry/index.ts",
+      "bytes": 370,
+      "sha256": "244a0cadc3c9e943752244aec85277f7229a2c82054dee2d0c2afa94c7338c67"
+    },
+    {
+      "path": "src/protocol/event-registry/storage.ts",
+      "bytes": 16653,
+      "sha256": "10376c88e65200525f235d5afd68dc98b8a5e49be047f040100d5ff7a86063e4"
     },
     {
       "path": "src/protocol/event-registry/types.ts",
@@ -219,8 +229,8 @@
     },
     {
       "path": "src/protocol/service.ts",
-      "bytes": 158388,
-      "sha256": "8ab35471265f873b9ae15a4b8be719493f01894315bdd30268e2228ab6582591"
+      "bytes": 162977,
+      "sha256": "5e4417f5f6b6fb42d5ab3c23af0231eff1f02aa4b979a002cca1cb6ba1cd66e9"
     },
     {
       "path": "src/protocol/surface-layout.ts",

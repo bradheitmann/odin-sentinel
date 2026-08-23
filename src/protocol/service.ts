@@ -6,7 +6,7 @@ import {
   type ProtocolRepository
 } from "./repository.js";
 import { EVIDENCE_CLASSES, VERDICT_CLASS_ARTIFACTS } from "./schemas.js";
-import type { CloseoutMode, DelegationPacketInput, EscalationGateInput, EscalationGateResult, MissionFrontrunInput, MissionFrontrunPack, RoleCard, StartupPacketInput } from "./schemas.js";
+import type { CloseoutMode, DelegationPacketInput, EscalationGateInput, EscalationGateResult, GovdispEvent, MissionFrontrunInput, MissionFrontrunPack, RoleCard, StartupPacketInput } from "./schemas.js";
 import {
   asRecord,
   buildValidationResult,
@@ -3003,6 +3003,124 @@ export function validateBringUpPlan(plan: Record<string, unknown>): ValidationRe
   return buildValidationResult(missing, invalid, warnings);
 }
 
+// ---------------------------------------------------------------------------
+// EPIC-052 Wave-1 — governance-displacement registry append/query service
+// functions. Dependency-injected by design: the concrete append-only store
+// ships in the Wave-1 registry storage module, and this surface binds only a
+// structural handle so the public service layer stays decoupled from that
+// module (the Wave-0 runtime-isolation contract forbids a direct import here).
+// The store owns the single validation choke point; these functions add
+// fail-closed named rejections for store/scope argument faults and pass the
+// store's named rejections through unchanged.
+// ---------------------------------------------------------------------------
+
+/** Named fail-closed rejection, mirroring the registry storage shape. */
+export interface GovdispRegistryRejection {
+  field: string;
+  event_class: string;
+  code: string;
+  detail: string;
+}
+
+/** Deterministic query filters (AND semantics; inclusive ISO ts bounds). */
+export interface GovdispRegistryQuery {
+  stable_objective_id?: string;
+  event_class?: string;
+  event_type?: string;
+  from_ts?: string;
+  to_ts?: string;
+}
+
+/** Structural handle over the append-only registry store. */
+export interface GovdispRegistryStoreLike {
+  appendRegistryEvent(
+    scope: string,
+    event: unknown,
+    base?: string
+  ):
+    | { ok: true; path: string; event: GovdispEvent }
+    | { ok: false; rejections: GovdispRegistryRejection[] };
+  queryRegistryEvents(
+    scope: string,
+    query?: GovdispRegistryQuery,
+    base?: string
+  ):
+    | { ok: true; events: GovdispEvent[] }
+    | { ok: false; rejections: GovdispRegistryRejection[] };
+}
+
+export type GovdispRegistryAppendResult =
+  | { ok: true; path: string; event: GovdispEvent }
+  | { ok: false; rejections: GovdispRegistryRejection[] };
+
+export type GovdispRegistryQueryResult =
+  | { ok: true; events: GovdispEvent[] }
+  | { ok: false; rejections: GovdispRegistryRejection[] };
+
+function registryArgumentRejection(field: string, code: string, detail: string): GovdispRegistryRejection {
+  return { field, event_class: "<store>", code, detail };
+}
+
+function requireRegistryStore(store: GovdispRegistryStoreLike, method: "appendRegistryEvent" | "queryRegistryEvents"): GovdispRegistryRejection | null {
+  if (store === null || typeof store !== "object" || typeof store[method] !== "function") {
+    return registryArgumentRejection(
+      "store",
+      "store_unavailable",
+      `a registry store with a ${method} function is required; construct one from the Wave-1 registry storage module and inject it`
+    );
+  }
+  return null;
+}
+
+function requireRegistryScope(scope: unknown): GovdispRegistryRejection | null {
+  if (typeof scope !== "string" || scope.trim() === "") {
+    return registryArgumentRejection(
+      "scope",
+      "invalid_scope",
+      "scope must be a non-empty string naming the registry scope (a single safe path segment)"
+    );
+  }
+  return null;
+}
+
+/**
+ * Append one governance event to the append-only registry log for a scope.
+ * The injected store performs the single choke-point validation; malformed
+ * events are rejected fail-closed with named field + event-class reasons.
+ * No mutation or deletion surface exists — this is an append-only channel.
+ */
+export function appendGovdispEvent(
+  store: GovdispRegistryStoreLike,
+  scope: string,
+  event: unknown,
+  base?: string
+): GovdispRegistryAppendResult {
+  const storeFault = requireRegistryStore(store, "appendRegistryEvent");
+  if (storeFault) return { ok: false, rejections: [storeFault] };
+  const scopeFault = requireRegistryScope(scope);
+  if (scopeFault) return { ok: false, rejections: [scopeFault] };
+  return store.appendRegistryEvent(scope, event, base);
+}
+
+/**
+ * Deterministically query the append-only registry log for a scope by
+ * stable_objective_id, event class, event type, and/or inclusive time range.
+ * Results are in append order; invalid queries or corrupt logs fail closed
+ * with named rejections and no partial results.
+ */
+export function queryGovdispEvents(
+  store: GovdispRegistryStoreLike,
+  scope: string,
+  query: GovdispRegistryQuery = {},
+  base?: string
+): GovdispRegistryQueryResult {
+  const storeFault = requireRegistryStore(store, "queryRegistryEvents");
+  if (storeFault) return { ok: false, rejections: [storeFault] };
+  const scopeFault = requireRegistryScope(scope);
+  if (scopeFault) return { ok: false, rejections: [scopeFault] };
+  return store.queryRegistryEvents(scope, query, base);
+}
+
 export function createProtocolService(repository: ProtocolRepository = createFileProtocolRepository()) {
   return {
     protocolPath: (...segments: string[]) => repository.path(...segments),
@@ -3049,6 +3167,8 @@ export function createProtocolService(repository: ProtocolRepository = createFil
     evaluateOversizedSliceSentinel,
     evaluateQaTimeoutSentinel,
     evaluateSpecDefectSentinel,
-    validateBringUpPlan
+    validateBringUpPlan,
+    appendGovdispEvent,
+    queryGovdispEvents
   };
 }
