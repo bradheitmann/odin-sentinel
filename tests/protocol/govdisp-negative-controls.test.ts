@@ -8,9 +8,13 @@ import {
 } from "../../src/protocol/event-registry/index.js";
 import {
   appendGovernanceOverheadEvent,
+  deriveFindingState,
   evaluateAttemptCeiling,
+  evaluateFindingClosure,
   evaluateMetaGovernanceDepth,
   evaluateOverheadBudget,
+  FINDING_NOT_ACTIVE_CODE,
+  FINDING_REFUSAL_NAME,
   GOVERNANCE_OVERHEAD_BUDGET,
   recordBudgetExhaustion,
   type GovdispRegistryStoreLike
@@ -275,12 +279,94 @@ describe("govdisp Wave-1 required negative controls (odin-scp-applicable)", () =
     }
   );
 
-  it.skip(
+  it(
     "Control 9: Finding without owner or delivery event remains inactive and non-closable — Wave-1 must refuse FINDING_CLOSED without FINDING_OWNED and FINDING_DELIVERED",
     () => {
       // Wave-1: GD-DEC-005 states a finding is not active until it has an
       // accountable owner and delivery event. A finding lacking both must remain
       // inactive and must not be closable.
+      //
+      // Landed (SLICE-GOVDISP-OWN-DEV-001): deriveFindingState derives the
+      // lifecycle statelessly from the registry's FINDING events (a finding is
+      // ACTIVE only when it carries BOTH a FINDING_OWNED owner binding and a
+      // FINDING_DELIVERED delivery event and is not closed);
+      // evaluateFindingClosure refuses a FINDING_CLOSED for a finding missing
+      // either prerequisite with the named finding_not_active refusal citing
+      // exactly which prerequisite events are missing; an owned+delivered
+      // finding closes.
+      const store: GovdispRegistryStoreLike = { appendRegistryEvent, queryRegistryEvents };
+      const base = mkdtempSync(join(tmpdir(), "odin-govdisp-control9-"));
+      try {
+        const scope = "control-9";
+        const objective = "obj-control-9";
+        const findingId = "finding-c9";
+        let sequence = 0;
+        const appendFinding = (eventType: string, ownerRole?: string): void => {
+          sequence += 1;
+          const result = appendRegistryEvent(scope, {
+            schema_version: "govdisp.event.v1",
+            event_id: `evt-c9-${sequence}`,
+            ts: "2026-08-23T00:00:00Z",
+            stable_objective_id: objective,
+            event_class: "FINDING",
+            event_type: eventType,
+            finding_id: findingId,
+            ...(ownerRole === undefined ? {} : { owner_role: ownerRole })
+          }, base);
+          expect(result.ok).toBe(true);
+        };
+
+        // A finding that is only OPENED: no owner, no delivery — inactive and
+        // non-closable. The closure is refused by name with BOTH missing
+        // prerequisites cited.
+        appendFinding("FINDING_OPENED");
+        const inactive = deriveFindingState(store, scope, findingId, base);
+        expect(inactive.ok).toBe(true);
+        if (!inactive.ok) return;
+        expect(inactive.state.opened).toBe(true);
+        expect(inactive.state.owned).toBe(false);
+        expect(inactive.state.delivered).toBe(false);
+        expect(inactive.state.active).toBe(false);
+        expect(inactive.state.missing_prerequisites).toEqual(["FINDING_OWNED", "FINDING_DELIVERED"]);
+
+        const refused = evaluateFindingClosure(store, scope, findingId, base);
+        expect(refused.ok).toBe(true);
+        if (!refused.ok) return;
+        expect(refused.permitted).toBe(false);
+        if (refused.permitted) return;
+        expect(refused.refusal.name).toBe(FINDING_REFUSAL_NAME);
+        expect(refused.refusal.code).toBe(FINDING_NOT_ACTIVE_CODE);
+        expect(refused.refusal.code).toBe("finding_not_active");
+        expect(refused.refusal.event_class).toBe("FINDING");
+        expect(refused.refusal.finding_id).toBe(findingId);
+        expect(refused.refusal.missing_prerequisites).toEqual(["FINDING_OWNED", "FINDING_DELIVERED"]);
+        expect(refused.refusal.detail).toContain("FINDING_OWNED");
+        expect(refused.refusal.detail).toContain("FINDING_DELIVERED");
+
+        // Owned but still undelivered: still not active, still non-closable —
+        // the refusal cites the one remaining missing prerequisite.
+        appendFinding("FINDING_OWNED", "B/DEV-1");
+        const ownedOnly = evaluateFindingClosure(store, scope, findingId, base);
+        expect(ownedOnly.ok).toBe(true);
+        if (!ownedOnly.ok) return;
+        expect(ownedOnly.permitted).toBe(false);
+        if (ownedOnly.permitted) return;
+        expect(ownedOnly.refusal.code).toBe("finding_not_active");
+        expect(ownedOnly.refusal.missing_prerequisites).toEqual(["FINDING_DELIVERED"]);
+
+        // With the delivery event recorded, the finding is ACTIVE and closable.
+        appendFinding("FINDING_DELIVERED");
+        const permitted = evaluateFindingClosure(store, scope, findingId, base);
+        expect(permitted.ok).toBe(true);
+        if (!permitted.ok) return;
+        expect(permitted.permitted).toBe(true);
+        if (!permitted.permitted) return;
+        expect(permitted.state.active).toBe(true);
+        expect(permitted.state.owner_roles).toEqual(["B/DEV-1"]);
+        expect(permitted.state.missing_prerequisites).toEqual([]);
+      } finally {
+        rmSync(base, { recursive: true, force: true });
+      }
     }
   );
 

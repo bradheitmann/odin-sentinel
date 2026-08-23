@@ -52,6 +52,20 @@ export const REGISTRY_EVENTS_FILENAME = "events.jsonl";
 export const REGISTRY_LOCK_DIRNAME = "events.lock";
 
 /**
+ * Per-event serialized-size cap in bytes (64 KiB), enforced at the append
+ * choke point: an event whose JSONL line would exceed the cap is rejected
+ * fail-closed with a NAMED event_too_large rejection before any mkdir or
+ * append. Doctrine declaration: protocol/resources/proof-ttl.yaml
+ * (GD-DEC-006; closes the GOVDISP-002 exam's O1 holdout finding). This is
+ * size-shape validation at the choke point — distinct from the budget
+ * policy layer's counting doctrine.
+ */
+export const GOVDISP_EVENT_MAX_BYTES = 64 * 1024;
+
+/** Named-rejection code: the serialized event line exceeds the per-event byte cap. */
+export const EVENT_TOO_LARGE_CODE = "event_too_large" as const;
+
+/**
  * A named, fail-closed rejection. Every refusal cites the offending field and
  * the event class it was rejected under ("<unknown>" when the event does not
  * declare one, "<query>" for query-shape rejections, "<store>" for
@@ -95,6 +109,15 @@ export interface RegistryLockOptions {
   maxLockAttempts?: number;
   /** Backoff between lock attempts, milliseconds. */
   lockRetryMs?: number;
+}
+
+/**
+ * Append-path options: the lock discipline plus the per-event serialized
+ * byte cap (defaults to GOVDISP_EVENT_MAX_BYTES; overridable for tests).
+ */
+export interface RegistryAppendOptions extends RegistryLockOptions {
+  /** Per-event serialized byte cap; defaults to GOVDISP_EVENT_MAX_BYTES. */
+  maxEventBytes?: number;
 }
 
 const DEFAULT_MAX_LOCK_ATTEMPTS = 50;
@@ -222,6 +245,9 @@ function isEexists(error: unknown): boolean {
  * Choke point (must pass before ANY mkdir/append):
  *  1. Scope safety (unsafe scope → named unsafe_scope rejection)
  *  2. Full incoming event validation via validateGovdispEvent
+ *  3. Serialized-size cap (the exact JSONL line to be appended exceeds the
+ *     per-event byte cap → named event_too_large rejection, field "_size",
+ *     with the size and the cap in detail)
  * Only then: mkdir (recursive, idempotent) → acquire mkdir lock → one
  * line-atomic O_APPEND write → release lock. The lock is always released,
  * including when the append itself throws.
@@ -237,7 +263,7 @@ export function appendRegistryEvent(
   fsAppend: typeof appendFileSync = appendFileSync,
   fsMkdir: typeof mkdirSync = mkdirSync,
   fsRmdir: typeof rmdirSync = rmdirSync,
-  options: RegistryLockOptions = {}
+  options: RegistryAppendOptions = {}
 ): AppendRegistryEventResult {
   // --- pure validation choke point (no side effects) ---
   if (!isSafeRegistryScope(scope)) {
@@ -247,6 +273,23 @@ export function appendRegistryEvent(
   if (!validation.valid) {
     return { ok: false, rejections: validation.rejections };
   }
+  // Size-shape validation: measure the exact JSONL line to be appended
+  // (utf8 bytes, terminator included); over-cap events are rejected by name
+  // before any mkdir or append — nothing is written.
+  const line = `${JSON.stringify(validation.event)}\n`;
+  const maxEventBytes = Math.max(1, options.maxEventBytes ?? GOVDISP_EVENT_MAX_BYTES);
+  const lineBytes = Buffer.byteLength(line, "utf8");
+  if (lineBytes > maxEventBytes) {
+    return {
+      ok: false,
+      rejections: [{
+        field: "_size",
+        event_class: validation.event.event_class,
+        code: EVENT_TOO_LARGE_CODE,
+        detail: `serialized event line is ${lineBytes} bytes, exceeding the per-event cap of ${maxEventBytes} bytes (GOVDISP_EVENT_MAX_BYTES; doctrine: protocol/resources/proof-ttl.yaml); the append is refused fail-closed and nothing was written`
+      }]
+    };
+  }
 
   // --- mutations only after full incoming-event validation ---
   const dir = join(base, scope);
@@ -254,7 +297,6 @@ export function appendRegistryEvent(
   const lockDir = join(dir, REGISTRY_LOCK_DIRNAME);
   const maxAttempts = Math.max(1, options.maxLockAttempts ?? DEFAULT_MAX_LOCK_ATTEMPTS);
   const retryMs = Math.max(0, options.lockRetryMs ?? DEFAULT_LOCK_RETRY_MS);
-  const line = `${JSON.stringify(validation.event)}\n`;
 
   fsMkdir(dir, { recursive: true });
 

@@ -26,6 +26,7 @@ const requiredProtocolFiles = [
   "protocol/resources/pod-bringup.yaml",
   "protocol/resources/governance-overhead-budget.yaml",
   "protocol/resources/meta-governance-depth.yaml",
+  "protocol/resources/proof-ttl.yaml",
   "protocol/bootstrap-skill.md",
   "protocol/skill-references/boot-receipt-examples.md",
   "protocol/skill-references/canonical-introduction-prompt.md",

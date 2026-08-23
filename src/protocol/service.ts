@@ -1526,6 +1526,7 @@ export function getActiveWatchPacket(input: ActiveWatchPacketInput): Record<stri
         "Classify local inference stalls separately: MODEL_STALLED or STREAMING_PROTOCOL_MISMATCH.",
         "WATCH_WARN after 5 minutes without meaningful visible progress; STALLED after 10 minutes without heartbeat/status unless a known long-running operation is declared.",
         "Allowed interventions: corrective prompts for scope drift, authority drift, secret mishandling, stopped polling, blocked panes, stale proof, missing receipts, and context exhaustion.",
+        "Finding ownership duty binding (GD-DEC-005): a finding is not ACTIVE until it carries both a FINDING_OWNED owner binding and a FINDING_DELIVERED delivery event; only owner-bound findings with delivery events count toward intervention duties, and a FINDING_CLOSED raised without both prerequisites is refused finding_not_active.",
         "Forbidden actions: implement product work, QA-accept work, route business priorities, or override EXEC PM launch/activation authority.",
         "ODIN is a meta-control peer layer: not DEV/QA, not equal to EXEC PM for launch authority, and not too subordinate to object to PM or agent drift.",
         "A turn ending without re-arming the watch loop, starting an approved monitor, or handing off to a named successor is a protocol violation.",
@@ -4047,6 +4048,271 @@ export function appendGovernanceOverheadEvent(
   return { ok: true, appended: true, path: appended.path, event: appended.event };
 }
 
+// ---------------------------------------------------------------------------
+// STORY-GOVDISP-004 — finding ownership lifecycle (GD-DEC-005: a finding is
+// not ACTIVE until it has an accountable owner and a delivery event; "logged"
+// must not masquerade as "driven").
+//
+// These are PURE, STATELESS derivations over the append-only registry — the
+// same doctrine as the attempt, depth, and budget evaluators above: a
+// finding's lifecycle state is recomputed from the registry's own FINDING
+// events at evaluation time and NOTHING is stored or cached between calls
+// (the registry is the append-only truth; evaluators are stateless functions
+// over it). The Wave-0 union already carries the full FINDING family
+// (FINDING_OPENED/OWNED/DELIVERED/CLOSED); this slice adds derivation and
+// refusal policy only — no union changes. The closure evaluator is registry
+// negative control #9: a FINDING_CLOSED raised for a finding lacking a
+// FINDING_OWNED owner binding, a FINDING_DELIVERED delivery event, or both is
+// refused with the named finding_not_active refusal citing exactly which
+// prerequisite events are missing; closing an owned+delivered finding is
+// permitted. The intervention-duty guard (countActiveFindings) counts only
+// owner-bound findings with delivery events — unowned findings never count
+// toward ODIN intervention duties.
+// ---------------------------------------------------------------------------
+
+/** The named refusal emitted when a finding closure violates GD-DEC-005. */
+export const FINDING_REFUSAL_NAME = "FINDING_REFUSED" as const;
+
+/** Named-rejection code: the finding is not ACTIVE (ownership/delivery prerequisites missing). */
+export const FINDING_NOT_ACTIVE_CODE = "finding_not_active" as const;
+
+/**
+ * The FINDING event types a closure requires in the registry, in canonical
+ * family order. A finding missing either prerequisite is not ACTIVE and is
+ * non-closable (registry negative control #9).
+ */
+export const FINDING_CLOSURE_PREREQUISITES = ["FINDING_OWNED", "FINDING_DELIVERED"] as const;
+export type FindingClosurePrerequisite = (typeof FINDING_CLOSURE_PREREQUISITES)[number];
+
+/**
+ * Stateless finding lifecycle derivation for one finding_id. Presence flags
+ * and event-id lists (append order) are recomputed from the registry's
+ * FINDING events on every call. `active` is the GD-DEC-005 binding: the
+ * finding carries BOTH a FINDING_OWNED owner binding and a FINDING_DELIVERED
+ * delivery event and is not closed. `missing_prerequisites` names exactly
+ * which closure prerequisites are absent (canonical family order); it is
+ * empty iff the finding is closable.
+ */
+export interface FindingStateDerivation {
+  finding_id: string;
+  event_count: number;
+  opened: boolean;
+  owned: boolean;
+  delivered: boolean;
+  closed: boolean;
+  active: boolean;
+  owner_roles: string[];
+  opened_event_ids: string[];
+  owned_event_ids: string[];
+  delivered_event_ids: string[];
+  closed_event_ids: string[];
+  missing_prerequisites: FindingClosurePrerequisite[];
+}
+
+/**
+ * A named finding-closure refusal. Follows the registry named-rejection
+ * shape conventions ({ field, event_class, code, detail }) and additionally
+ * carries the finding the closure was attempted on plus exactly which
+ * prerequisite events are missing.
+ */
+export interface FindingClosureRefusal {
+  name: typeof FINDING_REFUSAL_NAME;
+  field: string;
+  event_class: "FINDING";
+  code: typeof FINDING_NOT_ACTIVE_CODE;
+  detail: string;
+  finding_id: string;
+  missing_prerequisites: FindingClosurePrerequisite[];
+}
+
+export type DeriveFindingStateResult =
+  | { ok: true; state: FindingStateDerivation }
+  | { ok: false; rejections: GovdispRegistryRejection[] };
+
+export type EvaluateFindingClosureResult =
+  | { ok: true; permitted: true; finding_id: string; state: FindingStateDerivation }
+  | { ok: true; permitted: false; refusal: FindingClosureRefusal; state: FindingStateDerivation }
+  | { ok: false; rejections: GovdispRegistryRejection[] };
+
+export type CountActiveFindingsResult =
+  | { ok: true; count: number; active_finding_ids: string[]; inactive_finding_ids: string[] }
+  | { ok: false; rejections: GovdispRegistryRejection[] };
+
+function requireFindingId(findingId: unknown): GovdispRegistryRejection | null {
+  if (typeof findingId !== "string" || findingId.trim() === "") {
+    return registryArgumentRejection(
+      "finding_id",
+      "invalid_finding_id",
+      "finding_id must be a non-empty string naming the finding whose lifecycle is derived"
+    );
+  }
+  return null;
+}
+
+/**
+ * Pure reducer: fold one finding's FINDING events (append order) into its
+ * lifecycle state. An accountable owner is a FINDING_OWNED event (its
+ * owner_role binding is reported when the event carries one); delivery is a
+ * FINDING_DELIVERED event. Never touches storage — the caller supplies the
+ * already-queried events.
+ */
+function summarizeFindingEvents(findingId: string, events: GovdispEvent[]): FindingStateDerivation {
+  const openedEventIds: string[] = [];
+  const ownedEventIds: string[] = [];
+  const deliveredEventIds: string[] = [];
+  const closedEventIds: string[] = [];
+  const ownerRoles: string[] = [];
+  for (const event of events) {
+    if (event.event_class !== "FINDING" || event.finding_id !== findingId) continue;
+    if (event.event_type === "FINDING_OPENED") openedEventIds.push(event.event_id);
+    if (event.event_type === "FINDING_OWNED") {
+      ownedEventIds.push(event.event_id);
+      if (typeof event.owner_role === "string" && event.owner_role.trim() !== "") {
+        ownerRoles.push(event.owner_role);
+      }
+    }
+    if (event.event_type === "FINDING_DELIVERED") deliveredEventIds.push(event.event_id);
+    if (event.event_type === "FINDING_CLOSED") closedEventIds.push(event.event_id);
+  }
+  const owned = ownedEventIds.length > 0;
+  const delivered = deliveredEventIds.length > 0;
+  const closed = closedEventIds.length > 0;
+  const missingPrerequisites: FindingClosurePrerequisite[] = [];
+  if (!owned) missingPrerequisites.push("FINDING_OWNED");
+  if (!delivered) missingPrerequisites.push("FINDING_DELIVERED");
+  return {
+    finding_id: findingId,
+    event_count: openedEventIds.length + ownedEventIds.length + deliveredEventIds.length + closedEventIds.length,
+    opened: openedEventIds.length > 0,
+    owned,
+    delivered,
+    closed,
+    active: owned && delivered && !closed,
+    owner_roles: ownerRoles,
+    opened_event_ids: openedEventIds,
+    owned_event_ids: ownedEventIds,
+    delivered_event_ids: deliveredEventIds,
+    closed_event_ids: closedEventIds,
+    missing_prerequisites: missingPrerequisites
+  };
+}
+
+/**
+ * Derive the lifecycle state of one finding_id from the registry's FINDING
+ * events for a scope.
+ *
+ * Pure and stateless: the state is recomputed from the registry on every
+ * call; repeated derivation over the same log yields the identical state.
+ * The derivation binds to the finding_id alone (a finding's lifecycle is its
+ * own event stream, independent of every other finding in the scope).
+ */
+export function deriveFindingState(
+  store: GovdispRegistryStoreLike,
+  scope: string,
+  findingId: string,
+  base?: string
+): DeriveFindingStateResult {
+  const storeFault = requireRegistryStore(store, "queryRegistryEvents");
+  if (storeFault) return { ok: false, rejections: [storeFault] };
+  const scopeFault = requireRegistryScope(scope);
+  if (scopeFault) return { ok: false, rejections: [scopeFault] };
+  const findingFault = requireFindingId(findingId);
+  if (findingFault) return { ok: false, rejections: [findingFault] };
+
+  const queried = store.queryRegistryEvents(scope, { event_class: "FINDING" }, base);
+  if (!queried.ok) return { ok: false, rejections: queried.rejections };
+  return { ok: true, state: summarizeFindingEvents(findingId, queried.events) };
+}
+
+/**
+ * Evaluate whether a FINDING_CLOSED may stand for one finding_id (registry
+ * negative control #9, GD-DEC-005).
+ *
+ * The verdict is a pure derivation over the registry: a finding lacking a
+ * FINDING_OWNED owner binding, a FINDING_DELIVERED delivery event, or both is
+ * NOT ACTIVE, and its closure is REFUSED with a named finding_not_active
+ * refusal citing exactly which prerequisite events are missing. Closing an
+ * owned+delivered finding is permitted. The evaluator never appends anything;
+ * repeated evaluation over the same log yields the identical verdict.
+ */
+export function evaluateFindingClosure(
+  store: GovdispRegistryStoreLike,
+  scope: string,
+  findingId: string,
+  base?: string
+): EvaluateFindingClosureResult {
+  const stateResult = deriveFindingState(store, scope, findingId, base);
+  if (!stateResult.ok) return { ok: false, rejections: stateResult.rejections };
+  const { state } = stateResult;
+
+  if (state.missing_prerequisites.length === 0) {
+    return { ok: true, permitted: true, finding_id: findingId, state };
+  }
+
+  return {
+    ok: true,
+    permitted: false,
+    refusal: {
+      name: FINDING_REFUSAL_NAME,
+      field: "finding_id",
+      event_class: "FINDING",
+      code: FINDING_NOT_ACTIVE_CODE,
+      detail: `finding "${findingId}" is not ACTIVE: GD-DEC-005 requires both a FINDING_OWNED owner binding and a FINDING_DELIVERED delivery event recorded in the registry before closure; missing prerequisite event(s): ${state.missing_prerequisites.join(", ")} — a logged finding must not masquerade as driven`,
+      finding_id: findingId,
+      missing_prerequisites: state.missing_prerequisites
+    },
+    state
+  };
+}
+
+/**
+ * The intervention-duty guard (GD-DEC-005): count the findings in a scope
+ * that are ACTIVE — owner-bound (FINDING_OWNED) with a delivery event
+ * (FINDING_DELIVERED) and not closed. Only active findings count toward ODIN
+ * intervention duties; unowned, undelivered, and already-closed findings are
+ * excluded and reported on the inactive list. Pure and stateless: findings
+ * are grouped by finding_id in first-seen (append) order and each lifecycle
+ * is recomputed from the registry's events on every call.
+ */
+export function countActiveFindings(
+  store: GovdispRegistryStoreLike,
+  scope: string,
+  base?: string
+): CountActiveFindingsResult {
+  const storeFault = requireRegistryStore(store, "queryRegistryEvents");
+  if (storeFault) return { ok: false, rejections: [storeFault] };
+  const scopeFault = requireRegistryScope(scope);
+  if (scopeFault) return { ok: false, rejections: [scopeFault] };
+
+  const queried = store.queryRegistryEvents(scope, { event_class: "FINDING" }, base);
+  if (!queried.ok) return { ok: false, rejections: queried.rejections };
+
+  // Group by finding_id in first-seen (append) order — deterministic for a
+  // given log content.
+  const byFinding = new Map<string, GovdispEvent[]>();
+  for (const event of queried.events) {
+    if (event.event_class !== "FINDING") continue;
+    const bucket = byFinding.get(event.finding_id) ?? [];
+    bucket.push(event);
+    byFinding.set(event.finding_id, bucket);
+  }
+
+  const activeFindingIds: string[] = [];
+  const inactiveFindingIds: string[] = [];
+  for (const [findingId, events] of byFinding) {
+    const state = summarizeFindingEvents(findingId, events);
+    if (state.active) activeFindingIds.push(findingId);
+    else inactiveFindingIds.push(findingId);
+  }
+
+  return {
+    ok: true,
+    count: activeFindingIds.length,
+    active_finding_ids: activeFindingIds,
+    inactive_finding_ids: inactiveFindingIds
+  };
+}
+
 export function createProtocolService(repository: ProtocolRepository = createFileProtocolRepository()) {
   return {
     protocolPath: (...segments: string[]) => repository.path(...segments),
@@ -4103,6 +4369,9 @@ export function createProtocolService(repository: ProtocolRepository = createFil
     deriveOverheadAccounting,
     evaluateOverheadBudget,
     recordBudgetExhaustion,
-    appendGovernanceOverheadEvent
+    appendGovernanceOverheadEvent,
+    deriveFindingState,
+    evaluateFindingClosure,
+    countActiveFindings
   };
 }

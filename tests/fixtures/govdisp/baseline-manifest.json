@@ -5,7 +5,7 @@
     "src/protocol",
     "src/mcp"
   ],
-  "file_count": 50,
+  "file_count": 52,
   "files": [
     {
       "path": "protocol/bootstrap-skill.md",
@@ -101,6 +101,11 @@
       "path": "protocol/resources/pod-bringup.yaml",
       "bytes": 2125,
       "sha256": "fbc4ee09a994d9ff07a484fd9ede83ab020c68173ce293a9c9958bfb87558ee8"
+    },
+    {
+      "path": "protocol/resources/proof-ttl.yaml",
+      "bytes": 4018,
+      "sha256": "3468ca31c9424fbedfdfb7ee65df3b2a3421f6ded225bef3934ed15105589479"
     },
     {
       "path": "protocol/resources/qa-independence.yaml",
@@ -203,6 +208,11 @@
       "sha256": "e870d34ab631f2b0a0ec69a8f5e7a74df234299b961ec08cab1783087ccafbad"
     },
     {
+      "path": "src/protocol/event-registry/compact.ts",
+      "bytes": 18357,
+      "sha256": "a492a971a0409012ab6d9a3ab3f3ffaa16ca168eec843b056e84c298d8658631"
+    },
+    {
       "path": "src/protocol/event-registry/diagnostic.ts",
       "bytes": 2642,
       "sha256": "5e4c83818bbb59c3cdb8cc241093bb2de00c080a8f6c90f94a8b0a3117f0103f"
@@ -214,8 +224,8 @@
     },
     {
       "path": "src/protocol/event-registry/storage.ts",
-      "bytes": 16698,
-      "sha256": "0d51e5855493f3694e178d685bf66eb18f304e54b27f5701f729fae5bdbc7557"
+      "bytes": 18725,
+      "sha256": "797264c99de697cf55708ec84c9930083b44c97c1731455d74e135b989838c78"
     },
     {
       "path": "src/protocol/event-registry/types.ts",
@@ -239,8 +249,8 @@
     },
     {
       "path": "src/protocol/service.ts",
-      "bytes": 203079,
-      "sha256": "0e8e3a785a62a0f58ad5b6e9ad11dd722911c65021670c8a1d88772c8d5a1bda"
+      "bytes": 214881,
+      "sha256": "f8b80e4a948f4e4414af97c59cd0ed004d2a3675824e2e297243d9c2db1fa66a"
     },
     {
       "path": "src/protocol/surface-layout.ts",

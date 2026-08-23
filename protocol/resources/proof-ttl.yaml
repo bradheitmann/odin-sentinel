@@ -1,0 +1,64 @@
+version: 0.5.0
+proof_ttl:
+  doctrine: >-
+    GD-DEC-006: the governance evidence footprint stays bounded. Raw proof
+    events older than their TTL compact into ONE terminal summary record per
+    registry scope; the summary carries the ordered sha256 content hash of
+    every removed event (metadata-only: hashes, never raw proof bodies — the
+    prompt_text_stored:false precedent from harness-pacing; the hash
+    convention from scripts/audit/verify-pack.mjs). Compaction is
+    deterministic: the same log content, evaluation instant, and policy always
+    yield byte-identical output. It is replay-verifiable: re-hash each removed
+    JSONL line in file order and compare against the summary's content_hashes.
+    Compaction is the ONLY sanctioned mutation of a registry log; it lives in
+    src/protocol/event-registry/compact.ts and writes the compacted log
+    atomically (temp file + rename) under the same mkdir lock discipline the
+    append path serializes on. The append choke point in storage.ts remains
+    append-only and untouched by compaction.
+
+  default_ttl_days: 30   # raw proof events older than this compact into the scope's terminal summary record
+
+  per_event_class_overrides: {}   # optional per-event-class TTL in days (e.g. FINDING: 90); classes absent here use default_ttl_days
+
+  never_compacted_classes:
+    - TERMINAL   # terminal records (including prior compaction summaries) are outcomes and the replay anchor; compacting them would break the hash chain
+
+  boundary: >-
+    an event compacts iff its ts is strictly older than (now - ttl); an event
+    exactly at the boundary survives. now is the caller-supplied evaluation
+    instant (injected by tests and by the CLI --now flag) so compaction is a
+    pure function of (log content, now, policy).
+
+  event_byte_cap:
+    default_max_bytes: 65536   # 64 KiB per serialized JSONL line, enforced at the append choke point in storage.ts
+    rejection:
+      field: _size
+      code: event_too_large    # named, fail-closed; detail carries the actual size and the cap
+    jurisdiction: >-
+      the append path only. This is size-shape validation at the choke point,
+      distinct from the budget policy layer's counting doctrine. The
+      compaction summary record is written by the compaction path (temp +
+      rename), not appended, so the cap does not apply to it.
+    origin: closes the GOVDISP-002 exam's O1 holdout finding (an oversized actor_role payload is rejected by name)
+
+  compaction_summary_record:
+    shape: the existing TERMINAL event union member — no new event type is introduced
+    event_class: TERMINAL
+    event_type: TERMINAL_COMPLETED
+    stable_objective_id: the compacted registry scope (the summary binds to the log as a whole, not to any single objective)
+    content_hashes: ordered entries of { path: <removed event_id>, sha256: <sha256 of the removed JSONL line bytes> }; replay verification re-hashes the removed lines in file order
+    event_id: deterministic — derived from the sha256 digest of the ordered removed-line hashes, so re-compacting identical input reproduces the identical record
+    ts: the evaluation instant (now), keeping the record fresh against its own TTL horizon
+
+  cli:
+    subcommand: compact-registry   # odin-sentinel compact-registry --scope <scope> [--base <dir>] [--now <iso>] [--ttl-days <n>] [--dry-run]
+    dry_run: reports what WOULD compact and writes nothing (no lock, no temp file, no rename)
+    output: machine-readable JSON on stdout; no Markdown or human-view generation anywhere (DIS-001)
+
+  policy_source: >-
+    typed constants GOVDISP_PROOF_TTL_DAYS_DEFAULT and
+    GOVDISP_PROOF_TTL_CLASS_OVERRIDES in src/protocol/event-registry/compact.ts
+    and GOVDISP_EVENT_MAX_BYTES in src/protocol/event-registry/storage.ts.
+    This file is the doctrine declaration; the canonical ProtocolData
+    resource-loading surface was outside the authoring slice's write scope, so
+    the typed-constant fallback recorded by META_GOVERNANCE_DEPTH_CAP applies.
