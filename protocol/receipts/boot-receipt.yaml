@@ -62,6 +62,50 @@ optional_extension_fields:
     type: string
     required: false
     description: "Harness identifier: cmux | tmux | crush | glm-droid | minimux | herdr | plain"
+  evidence_class:
+    type: string
+    required: false
+    enum:
+      - observed
+      - derived
+      - claimed
+      - provisional
+      - blocked
+      - rejected
+      - accepted
+    description: >-
+      Typed evidence class for a consequential claim (RET-005). The canonical
+      enum is defined once in src/protocol/schemas.ts (EVIDENCE_CLASSES) and
+      enforced by validateEvidenceClassification: REQUIRED with source_binding
+      on verdict-class payloads (QA verdicts, [SCP-FEEDBACK] findings),
+      optional elsewhere; illegal values are rejected by name.
+  source_binding:
+    type: string
+    required: false
+    description: >-
+      Binding from a consequential claim to its evidence source (path, digest,
+      or observation reference). Required alongside evidence_class on
+      verdict-class payloads; an evidence class without a bound source is an
+      unverified claim.
+evidence_class_examples:
+  description: >-
+    Verdict-class payloads demonstrating the RET-005 evidence-class fields.
+    Boot receipts themselves are not verdict-class, so the fields stay optional
+    on SCP_BOOT_RECEIPT / SCP_MIN_BOOT_RECEIPT.
+  qa_verdict:
+    artifact_class: qa_verdict
+    verdict_kind: SLICE_QA_PASS
+    result: PASS
+    emitted_by: B/QA-1
+    evidence_class: observed
+    source_binding: evidence/SLICE-EXAMPLE-001/verify.log
+  feedback_finding:
+    artifact_class: feedback_finding
+    receipt_type: SCP-FEEDBACK
+    severity: MEDIUM
+    finding: readiness warnings repeat across launches
+    evidence_class: derived
+    source_binding: audit coverage matrix vs executed_scope
 recommended_fields:
   - upstream
   - head_sha

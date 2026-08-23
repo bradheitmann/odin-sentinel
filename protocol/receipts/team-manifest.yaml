@@ -48,3 +48,37 @@ scp_context_sources:
   - native odin-scp skill
   - odin-sentinel MCP at or above minimum version
   - full injected SCP protocol text
+optional_extension_fields:
+  evidence_class:
+    type: string
+    required: false
+    enum:
+      - observed
+      - derived
+      - claimed
+      - provisional
+      - blocked
+      - rejected
+      - accepted
+    description: >-
+      Typed evidence class for a consequential claim (RET-005). The canonical
+      enum is defined once in src/protocol/schemas.ts (EVIDENCE_CLASSES) and
+      enforced by validateEvidenceClassification: REQUIRED with source_binding
+      on verdict-class payloads (QA verdicts, [SCP-FEEDBACK] findings),
+      optional elsewhere — manifest role slots are not verdict-class, so the
+      field stays optional here; illegal values are rejected by name.
+  source_binding:
+    type: string
+    required: false
+    description: >-
+      Binding from a consequential claim to its evidence source (path, digest,
+      or observation reference). Required alongside evidence_class on
+      verdict-class payloads.
+evidence_class_example:
+  description: >-
+    Optional evidence typing on a manifest role-slot readiness claim (the
+    non-verdict-class case: present fields must still be canonical).
+  role_slot: B/QA-1
+  readiness_status: PASS
+  evidence_class: observed
+  source_binding: odin.evaluate_readiness_gate output 2026-01-01T00:00:00Z

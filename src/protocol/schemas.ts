@@ -673,6 +673,37 @@ export interface SuccessorContract {
 }
 
 // ---------------------------------------------------------------------------
+// STORY-AMEND-002 / RET-005 — typed evidence classes for consequential claims.
+// Field origin: disposition ledger DISP-20260814-001 (RET-005, ACCEPT) and
+// QCR-027 — QA verdicts and [SCP-FEEDBACK] findings could be emitted without a
+// typed evidence class, letting observed facts, derived analysis, and
+// unverified claims smooth into one another. One enum binds every
+// verdict-class payload; exact labels are the cheapest anti-smoothing control
+// at the schema layer.
+// ---------------------------------------------------------------------------
+
+/** Canonical evidence-class taxonomy. Defined ONCE here; the receipt YAML
+ *  templates reference these exact seven values. */
+export const EVIDENCE_CLASSES = [
+  "observed",
+  "derived",
+  "claimed",
+  "provisional",
+  "blocked",
+  "rejected",
+  "accepted"
+] as const;
+export type EvidenceClass = (typeof EVIDENCE_CLASSES)[number];
+
+export const evidenceClassSchema = z.enum(EVIDENCE_CLASSES);
+
+/** Verdict-class artifact classes: the consequential-claim payloads that MUST
+ *  carry evidence_class + source_binding. Every other artifact class may carry
+ *  the fields optionally (full backward compatibility). */
+export const VERDICT_CLASS_ARTIFACTS = ["qa_verdict", "feedback_finding"] as const;
+export type VerdictClassArtifact = (typeof VERDICT_CLASS_ARTIFACTS)[number];
+
+// ---------------------------------------------------------------------------
 // EPIC-022 — QA closure independence. Field origin: RFC-v2.3 sweep §3.1
 // (TEAM PM self-asserted QA=QA_PASS while the QA seat never emitted a verdict)
 // and fail-state ledger #13/#14 (all slice legs green, sealed holdouts failed).
@@ -689,6 +720,12 @@ export interface ClosureVerdict {
   verdict_kind: ClosureVerdictKind;
   result: "PASS" | "FAIL";
   emitted_by: string;   // the lane that emitted the verdict
+  // RET-005 additive and optional at this layer (pre-RET-005 claims stay valid):
+  // a present evidence_class is checked against EVIDENCE_CLASSES and illegal
+  // values are rejected by name; the hard presence requirement for verdict-class
+  // payloads is enforced at the dedicated choke point (validateEvidenceClassification).
+  evidence_class?: EvidenceClass;
+  source_binding?: string;
 }
 
 export interface ClosureClaim {

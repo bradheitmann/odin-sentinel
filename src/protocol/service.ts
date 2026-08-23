@@ -5,6 +5,7 @@ import {
   type ProtocolData,
   type ProtocolRepository
 } from "./repository.js";
+import { EVIDENCE_CLASSES, VERDICT_CLASS_ARTIFACTS } from "./schemas.js";
 import type { CloseoutMode, DelegationPacketInput, EscalationGateInput, EscalationGateResult, MissionFrontrunInput, MissionFrontrunPack, RoleCard, StartupPacketInput } from "./schemas.js";
 import {
   asRecord,
@@ -2294,6 +2295,89 @@ export function validateOutageHandoff(receipt: Record<string, unknown>): Validat
 }
 
 // ---------------------------------------------------------------------------
+// STORY-AMEND-002 / RET-005 — evidence-class enforcement for verdict-class
+// payloads. The canonical seven-value enum is defined ONCE in schemas.ts
+// (EVIDENCE_CLASSES); this is the validation choke point that requires it.
+// ---------------------------------------------------------------------------
+
+const EVIDENCE_CLASS_LABEL = EVIDENCE_CLASSES.join(" | ");
+
+function normalizeArtifactClass(value: unknown): string {
+  return typeof value === "string" ? value.trim().toLowerCase().replace(/[\s-]+/g, "_") : "";
+}
+
+// Field spelling alias: the [SCP-FEEDBACK] receipt type names the same artifact
+// class as the canonical "feedback_finding".
+function resolveArtifactClass(value: unknown): string {
+  const normalized = normalizeArtifactClass(value);
+  return normalized === "scp_feedback" ? "feedback_finding" : normalized;
+}
+
+/** True when artifact_class names a verdict-class payload (QA verdict or
+ *  [SCP-FEEDBACK] finding) — the consequential-claim classes RET-005 binds. */
+export function isVerdictClassArtifact(artifactClass: unknown): boolean {
+  return (VERDICT_CLASS_ARTIFACTS as readonly string[]).includes(resolveArtifactClass(artifactClass));
+}
+
+/**
+ * Validate evidence-class typing on a receipt payload (RET-005).
+ *
+ * Verdict-class payloads (artifact_class "qa_verdict" or "feedback_finding")
+ * MUST carry evidence_class + source_binding; absence rejects with a named
+ * reason citing the missing field and the artifact class. Every other artifact
+ * class may omit both fields (full backward compatibility). Whenever
+ * evidence_class IS present — on any payload — it must be one of the canonical
+ * seven values; illegal values are rejected by name.
+ */
+export function validateEvidenceClassification(payload: Record<string, unknown>): ValidationResult {
+  const missing: string[] = [];
+  const invalid: string[] = [];
+  const warnings: string[] = [];
+
+  const rawArtifactClass = payload.artifact_class;
+  const artifactClass = normalizeArtifactClass(rawArtifactClass);
+  if (rawArtifactClass !== undefined && rawArtifactClass !== null && artifactClass === "") {
+    invalid.push("artifact_class");
+    warnings.push("artifact_class must be a non-empty string naming the payload's artifact class");
+  }
+  const verdictClass = isVerdictClassArtifact(rawArtifactClass);
+  const artifactLabel = artifactClass === "" ? "<undeclared>" : artifactClass;
+
+  // A present evidence_class is always legality-checked, on every artifact class.
+  const evidenceClass = payload.evidence_class;
+  const hasEvidenceClass = typeof evidenceClass === "string" && evidenceClass.trim() !== "";
+  if (evidenceClass !== undefined && evidenceClass !== null && !hasEvidenceClass) {
+    invalid.push("evidence_class");
+    warnings.push(`evidence_class must be a non-empty string (artifact_class "${artifactLabel}")`);
+  } else if (hasEvidenceClass && !(EVIDENCE_CLASSES as readonly string[]).includes(evidenceClass as string)) {
+    invalid.push("evidence_class");
+    warnings.push(`EVIDENCE_CLASS_INVALID: evidence_class "${String(evidenceClass)}" is not one of the canonical evidence classes (${EVIDENCE_CLASS_LABEL}) — artifact_class "${artifactLabel}"`);
+  }
+
+  const sourceBinding = payload.source_binding;
+  const hasSourceBinding = typeof sourceBinding === "string" && sourceBinding.trim() !== "";
+  if (sourceBinding !== undefined && sourceBinding !== null && !hasSourceBinding) {
+    invalid.push("source_binding");
+    warnings.push(`source_binding must be a non-empty string binding the claim to its evidence source (artifact_class "${artifactLabel}")`);
+  }
+
+  if (verdictClass) {
+    if (!hasEvidenceClass) {
+      invalid.push("evidence_class");
+      warnings.push(`EVIDENCE_CLASS_REQUIRED: verdict-class payload (artifact_class "${artifactLabel}") is missing required field "evidence_class" — consequential claims must declare one of: ${EVIDENCE_CLASS_LABEL}`);
+    }
+    if (!hasSourceBinding) {
+      invalid.push("source_binding");
+      warnings.push(`SOURCE_BINDING_REQUIRED: verdict-class payload (artifact_class "${artifactLabel}") is missing required field "source_binding" — an evidence class without a bound source is an unverified claim`);
+    }
+  } else if (artifactClass === "") {
+    warnings.push(`artifact_class is undeclared; treating the payload as non-verdict-class (evidence_class optional). Verdict-class payloads (${VERDICT_CLASS_ARTIFACTS.join(" | ")}) REQUIRE evidence_class + source_binding.`);
+  }
+
+  return buildValidationResult(missing, invalid, warnings);
+}
+
+// ---------------------------------------------------------------------------
 // EPIC-022 — Active QA closure-independence detection.
 // ---------------------------------------------------------------------------
 
@@ -2342,6 +2426,24 @@ export function validateClosureIndependence(claim: Record<string, unknown>): Val
       const kind = typeof v.verdict_kind === "string" ? v.verdict_kind : "";
       const emittedBy = typeof v.emitted_by === "string" ? v.emitted_by : "";
       const result = typeof v.result === "string" ? v.result : "";
+      // RET-005 HARD GATE (SLICE-AMEND-EVCLASS-DEV-002): every closure verdict
+      // is routed through the evidence-classification choke point exactly as
+      // submitted. A verdict whose declared artifact_class is verdict-class
+      // (qa_verdict | feedback_finding) MUST carry evidence_class +
+      // source_binding — a missing field is a NAMED hard rejection (invalid),
+      // never an advisory. A present evidence_class is legality-checked on
+      // every artifact class, so illegal values stay rejected by name. Verdicts
+      // that predate RET-005 (no declared artifact_class) remain valid and keep
+      // the named EVIDENCE_CLASS_RECOMMENDED advisory — backward compatibility.
+      const classification = validateEvidenceClassification(v);
+      if (!classification.valid) {
+        invalid.push("verdicts");
+        for (const warning of classification.warnings) {
+          warnings.push(`verdict ${index}: ${warning}`);
+        }
+      } else if (v.evidence_class === undefined || v.evidence_class === null) {
+        warnings.push(`verdict ${index}: EVIDENCE_CLASS_RECOMMENDED: verdict-class payload (artifact_class "qa_verdict", verdict_kind "${kind || "<missing>"}") carries no evidence_class — validateEvidenceClassification rejects unclassified verdict-class payloads`);
+      }
       if (!CLOSURE_KINDS.includes(kind)) {
         invalid.push("verdicts");
         warnings.push(`verdict ${index}: verdict_kind must be one of ${CLOSURE_KINDS.join(" | ")} — the vocabulary deliberately separates slice-QA-pass from holdout-accepted`);
@@ -2935,6 +3037,8 @@ export function createProtocolService(repository: ProtocolRepository = createFil
     validateSuccessorContract,
     validateOutageHandoff,
     validateClosureIndependence,
+    validateEvidenceClassification,
+    isVerdictClassArtifact,
     validateCommitGate,
     validateControlRecipe,
     validateHarnessControlRecipe,
