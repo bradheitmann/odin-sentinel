@@ -85,7 +85,7 @@ describe("govdisp typed event union", () => {
   it("exports stable_objective_id typing and the five event-class families", () => {
     const objectiveId: StableObjectiveId = "obj-govdisp-w0a";
     expect(stableObjectiveIdSchema.parse(objectiveId)).toBe(objectiveId);
-    expect(GOVDISP_EVENT_CLASSES).toEqual(["ATTEMPT", "FINDING", "BREAK_GLASS", "BUDGET", "TERMINAL"]);
+    expect(GOVDISP_EVENT_CLASSES).toEqual(["ATTEMPT", "FINDING", "BREAK_GLASS", "BUDGET", "TERMINAL", "AUDIT"]);
     expect(ATTEMPT_EVENT_TYPES.every((name) => name.startsWith("ATTEMPT_"))).toBe(true);
     expect(FINDING_EVENT_TYPES.every((name) => name.startsWith("FINDING_"))).toBe(true);
     expect(BREAK_GLASS_EVENT_TYPES.every((name) => name.startsWith("BREAK_GLASS_"))).toBe(true);

@@ -44,12 +44,19 @@ export const TERMINAL_EVENT_TYPES = [
 ] as const;
 export type TerminalEventType = (typeof TERMINAL_EVENT_TYPES)[number];
 
+export const AUDIT_EVENT_TYPES = [
+  "AUDIT_OPENED",
+  "AUDIT_COMPLETED"
+] as const;
+export type AuditEventType = (typeof AUDIT_EVENT_TYPES)[number];
+
 export const GOVDISP_EVENT_CLASSES = [
   "ATTEMPT",
   "FINDING",
   "BREAK_GLASS",
   "BUDGET",
-  "TERMINAL"
+  "TERMINAL",
+  "AUDIT"
 ] as const;
 export type GovdispEventClass = (typeof GOVDISP_EVENT_CLASSES)[number];
 
@@ -71,7 +78,8 @@ export type GovdispEventType =
   | FindingEventType
   | BreakGlassEventType
   | BudgetEventType
-  | TerminalEventType;
+  | TerminalEventType
+  | AuditEventType;
 
 export interface ContentHash {
   path: string;
@@ -121,9 +129,28 @@ export interface TerminalEvent extends GovdispEventBase {
   content_hashes: ContentHash[];
 }
 
+export interface OrdinaryWorkAuditTarget {
+  kind: "ordinary_work";
+}
+
+export interface AuditAuditTarget {
+  kind: "audit";
+  target_event_id: string;
+}
+
+/** An audit's schema-validated subject: ordinary work, or another audit event. */
+export type AuditTarget = OrdinaryWorkAuditTarget | AuditAuditTarget;
+
+export interface AuditEvent extends GovdispEventBase {
+  event_class: "AUDIT";
+  event_type: AuditEventType;
+  target: AuditTarget;
+}
+
 export type GovdispEvent =
   | AttemptEvent
   | FindingEvent
   | BreakGlassEvent
   | BudgetEvent
-  | TerminalEvent;
+  | TerminalEvent
+  | AuditEvent;

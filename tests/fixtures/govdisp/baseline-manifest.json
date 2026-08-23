@@ -5,7 +5,7 @@
     "src/protocol",
     "src/mcp"
   ],
-  "file_count": 48,
+  "file_count": 50,
   "files": [
     {
       "path": "protocol/bootstrap-skill.md",
@@ -83,9 +83,19 @@
       "sha256": "557d70dd9cfd340ce48f1de39ba8d0c9078c482440c5a9b20920efb39159b59a"
     },
     {
+      "path": "protocol/resources/governance-overhead-budget.yaml",
+      "bytes": 4715,
+      "sha256": "1e0e3353fff2d340a7c7087aa7218dbc02443171876d2ee33ce043b8da54e6cf"
+    },
+    {
       "path": "protocol/resources/harness-control-matrix.yaml",
       "bytes": 9259,
       "sha256": "dd18b10e41e613caf64327fd2e3d85c00aa0bb2b101304d490af112a197c7138"
+    },
+    {
+      "path": "protocol/resources/meta-governance-depth.yaml",
+      "bytes": 2374,
+      "sha256": "82d31447c0dad6decaf2a9b5c1df3ac66e51148bad21884c5d71d6aeca5e9fe2"
     },
     {
       "path": "protocol/resources/pod-bringup.yaml",
@@ -204,13 +214,13 @@
     },
     {
       "path": "src/protocol/event-registry/storage.ts",
-      "bytes": 16653,
-      "sha256": "10376c88e65200525f235d5afd68dc98b8a5e49be047f040100d5ff7a86063e4"
+      "bytes": 16698,
+      "sha256": "0d51e5855493f3694e178d685bf66eb18f304e54b27f5701f729fae5bdbc7557"
     },
     {
       "path": "src/protocol/event-registry/types.ts",
-      "bytes": 3443,
-      "sha256": "ddd76e610ef954e45f8a26b969efc10c24194f2ccf20300d3863f9d1cae8b773"
+      "bytes": 4082,
+      "sha256": "22aa5fb8a544002ba7eb466b4d7dc9b5567286c2c251ebb5a72c93b26da47ab4"
     },
     {
       "path": "src/protocol/index.ts",
@@ -224,13 +234,13 @@
     },
     {
       "path": "src/protocol/schemas.ts",
-      "bytes": 34486,
-      "sha256": "473c63ca19c8b395b9c699bab36d7f2296cf77f16323379033e2e61c759f1b0f"
+      "bytes": 35091,
+      "sha256": "d4d1684823158927a652a3efcfead85ef09aa243b1974e694c39bea6db7e8a6d"
     },
     {
       "path": "src/protocol/service.ts",
-      "bytes": 162977,
-      "sha256": "5e4417f5f6b6fb42d5ab3c23af0231eff1f02aa4b979a002cca1cb6ba1cd66e9"
+      "bytes": 203079,
+      "sha256": "0e8e3a785a62a0f58ad5b6e9ad11dd722911c65021670c8a1d88772c8d5a1bda"
     },
     {
       "path": "src/protocol/surface-layout.ts",

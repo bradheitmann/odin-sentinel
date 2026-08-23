@@ -1,0 +1,59 @@
+version: 0.5.0
+governance_overhead_budget:
+  doctrine: >-
+    GD-DEC-002: governance overhead must terminate in exactly ONE blocked event
+    instead of spawning more proof work. Per stable_objective_id, governance-overhead
+    events (the evaluator's countable classes: ATTEMPT, FINDING, BREAK_GLASS, AUDIT)
+    are counted from the registry's own events at evaluation time and compared against
+    the budget below. While the count is under budget the objective is permitted with a
+    remaining count; at exhaustion the candidate overhead event is REFUSED with a named
+    governance_overhead_budget refusal, and the terminal guard appends EXACTLY ONE
+    TERMINAL_BLOCKED event. The single-event invariant is DERIVED, not stored: the guard
+    queries the registry for an existing TERMINAL_BLOCKED for the objective before
+    appending and refuses a duplicate by name (terminal_already_recorded). Once a
+    TERMINAL_BLOCKED exists for an objective, further governance-overhead appends for
+    that objective are REFUSED by name (objective_terminally_blocked) via a
+    service-layer guard function callers invoke. The evaluators are pure and stateless:
+    nothing is stored or cached between calls; the registry is the append-only truth.
+
+  default_overhead_budget: 25   # governance-overhead events per stable objective; deliberately generous ceiling — run-ledger field data shows healthy slices consume < 20 governance events
+
+  refusal_codes:
+    - governance_overhead_budget      # the derived overhead count reached the budget; the candidate overhead event is refused (carries objective, count, budget)
+    - terminal_already_recorded       # a TERMINAL_BLOCKED already exists for the objective; the exactly-one invariant held and nothing was appended
+    - objective_terminally_blocked    # a governance-overhead append was attempted after a TERMINAL_BLOCKED exists for the objective
+    - budget_not_exhausted            # the terminal guard was invoked without a derived budget breach; no terminal event was appended
+
+  budget_model:
+    countable_classes:        # governance-overhead classes counted toward the budget
+      - ATTEMPT
+      - FINDING
+      - BREAK_GLASS
+      - AUDIT
+    excluded_classes:
+      - TERMINAL              # outcome events, not overhead; NEVER counted (the countable-class boundary)
+      - BUDGET                # the budget machinery's own records; counting them would be self-referential
+    boundary: count < budget permits with remaining = budget - count; count >= budget is exhaustion (breach) — the candidate-event semantics ATTEMPT_CEILING set
+
+  terminal_guard:
+    function: recordBudgetExhaustion
+    appends: exactly one TERMINAL_BLOCKED event per stable_objective_id, and only on a derived budget breach
+    single_event_invariant: derived, not stored — the guard queries the registry for an existing TERMINAL_BLOCKED for the objective before appending and refuses with terminal_already_recorded when one is present
+    idempotency: a second exhaustion call is refused by name and appends nothing
+    race_note: single-process callers cannot interleave the synchronous derive-then-append sequence; the store's existing mkdir lock serializes every individual append across processes, and any post-landing duplicate invocation refuses by name
+    event_shape: TERMINAL_BLOCKED requires content_hashes (min 1) per the typed event union — the caller binds the terminal record to its evidence (e.g. this policy file); the union's append-time validation is reused, never re-validated
+
+  post_terminal_refusal:
+    function: appendGovernanceOverheadEvent
+    rule: once a TERMINAL_BLOCKED exists for an objective, governance-overhead appends (the countable classes) for that objective are refused with objective_terminally_blocked
+    jurisdiction: only the countable governance-overhead classes; every other payload passes through to the store's shape-only validation unchanged
+    layering: the registry storage choke point stays shape-only; the budget guard, the terminal guard, and this refusal are service-layer policy functions callers invoke
+
+  evaluator:
+    derivation: stateless — recomputed from the registry's events on every call; nothing is stored or cached
+    budget_source: typed constant GOVERNANCE_OVERHEAD_BUDGET in src/protocol/service.ts (this file is the doctrine declaration; the canonical ProtocolData resource-loading surface was outside the authoring slice's write scope, so the contract's typed-constant fallback applied — the convention META_GOVERNANCE_DEPTH_CAP recorded)
+    functions:
+      - deriveOverheadAccounting
+      - evaluateOverheadBudget
+      - recordBudgetExhaustion
+      - appendGovernanceOverheadEvent

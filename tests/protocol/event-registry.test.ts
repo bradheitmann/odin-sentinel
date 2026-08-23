@@ -73,6 +73,16 @@ function findingEvent(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function auditEvent(overrides: Record<string, unknown> = {}) {
+  return {
+    ...eventBase(),
+    event_class: "AUDIT" as const,
+    event_type: "AUDIT_OPENED" as const,
+    target: { kind: "ordinary_work" as const },
+    ...overrides
+  };
+}
+
 function eventsFile(base: string, scope: string): string {
   return join(base, scope, REGISTRY_EVENTS_FILENAME);
 }
@@ -88,7 +98,8 @@ describe("validateGovdispEvent (single choke point)", () => {
       findingEvent(),
       eventBase({ event_class: "BREAK_GLASS", event_type: "BREAK_GLASS_RECORDED", authorizing_human: "operator", contradiction_ref: "GDR-20260808-001" }),
       eventBase({ event_class: "BUDGET", event_type: "BUDGET_CROSSED", budget_kind: "tokens" }),
-      eventBase({ event_class: "TERMINAL", event_type: "TERMINAL_COMPLETED", content_hashes: [{ path: "src/protocol/service.ts", sha256: "a".repeat(64) }] })
+      eventBase({ event_class: "TERMINAL", event_type: "TERMINAL_COMPLETED", content_hashes: [{ path: "src/protocol/service.ts", sha256: "a".repeat(64) }] }),
+      auditEvent()
     ];
     for (const event of events) {
       const result = validateGovdispEvent(event);
@@ -153,11 +164,73 @@ describe("validateGovdispEvent (single choke point)", () => {
     expect(result.rejections[0].field).toBe("<root>");
   });
 
-  it("rejects an unknown event_class discriminator", () => {
-    const result = validateGovdispEvent(eventBase({ event_class: "AUDIT", event_type: "ATTEMPT_STARTED" }));
+  it("treats AUDIT as a known event_class discriminator and validates it by name", () => {
+    const valid = validateGovdispEvent(auditEvent());
+    expect(valid.valid).toBe(true);
+
+    const malformed = validateGovdispEvent(auditEvent({ target: { kind: "audit" } }));
+    expect(malformed.valid).toBe(false);
+    if (malformed.valid) return;
+    expect(malformed.rejections.some((r) => r.field.includes("target.target_event_id"))).toBe(true);
+    expect(malformed.rejections[0].event_class).toBe("AUDIT");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AUDIT event class — schema-validated target reference
+// ---------------------------------------------------------------------------
+
+describe("AUDIT event class target validation", () => {
+  it("accepts a valid ordinary_work target", () => {
+    const result = validateGovdispEvent(auditEvent({ target: { kind: "ordinary_work" } }));
+    expect(result.valid).toBe(true);
+  });
+
+  it("accepts a valid audit target with a schema-validated target_event_id", () => {
+    const result = validateGovdispEvent(auditEvent({
+      event_type: "AUDIT_COMPLETED",
+      target: { kind: "audit", target_event_id: "evt-audit-1" }
+    }));
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects a missing target by name", () => {
+    const { target: _omitted, ...noTarget } = auditEvent();
+    const result = validateGovdispEvent(noTarget);
     expect(result.valid).toBe(false);
     if (result.valid) return;
+    expect(result.rejections.some((r) => r.field === "target" || r.field.includes("target"))).toBe(true);
     expect(result.rejections[0].event_class).toBe("AUDIT");
+  });
+
+  it("rejects a malformed target.kind by name", () => {
+    const result = validateGovdispEvent(auditEvent({ target: { kind: "project" } }));
+    expect(result.valid).toBe(false);
+    if (result.valid) return;
+    expect(result.rejections.some((r) => r.field.includes("target.kind"))).toBe(true);
+    expect(result.rejections[0].event_class).toBe("AUDIT");
+  });
+
+  it("rejects kind=audit without target_event_id by name", () => {
+    const result = validateGovdispEvent(auditEvent({ target: { kind: "audit" } }));
+    expect(result.valid).toBe(false);
+    if (result.valid) return;
+    expect(result.rejections.some((r) => r.field.includes("target.target_event_id"))).toBe(true);
+    expect(result.rejections[0].event_class).toBe("AUDIT");
+  });
+
+  it("rejects unknown extra fields on the event and on the target by name", () => {
+    const rootExtra = validateGovdispEvent(auditEvent({ prompt_text: "should never persist" }));
+    expect(rootExtra.valid).toBe(false);
+    if (rootExtra.valid) return;
+    expect(rootExtra.rejections.some((r) => r.field.includes("prompt_text") || r.detail.includes("prompt_text"))).toBe(true);
+    expect(rootExtra.rejections[0].event_class).toBe("AUDIT");
+
+    const targetExtra = validateGovdispEvent(auditEvent({ target: { kind: "ordinary_work", note: "not allowed" } }));
+    expect(targetExtra.valid).toBe(false);
+    if (targetExtra.valid) return;
+    expect(targetExtra.rejections.some((r) => r.field.includes("note") || r.detail.includes("note"))).toBe(true);
+    expect(targetExtra.rejections[0].event_class).toBe("AUDIT");
   });
 });
 
@@ -360,11 +433,35 @@ describe("readRegistryEvents / queryRegistryEvents", () => {
     expect(again.events.map((event) => event.event_id)).toEqual(["e1", "e2", "e3", "e4", "e5"]);
   });
 
+  it("appends AUDIT events and returns them for event_class and event_type queries", () => {
+    const base = makeTmpBase();
+    const scope = "obj-audit-query";
+    const opened = appendRegistryEvent(scope, auditEvent({ event_id: "audit-1", ts: "2026-08-22T05:00:00Z" }), base);
+    expect(opened.ok).toBe(true);
+    const completed = appendRegistryEvent(scope, auditEvent({
+      event_id: "audit-2",
+      event_type: "AUDIT_COMPLETED",
+      ts: "2026-08-22T06:00:00Z",
+      target: { kind: "audit", target_event_id: "audit-1" }
+    }), base);
+    expect(completed.ok).toBe(true);
+
+    const byClass = queryRegistryEvents(scope, { event_class: "AUDIT" }, base);
+    expect(byClass.ok).toBe(true);
+    if (!byClass.ok) return;
+    expect(byClass.events.map((event) => event.event_id)).toEqual(["audit-1", "audit-2"]);
+
+    const byType = queryRegistryEvents(scope, { event_type: "AUDIT_COMPLETED" }, base);
+    expect(byType.ok).toBe(true);
+    if (!byType.ok) return;
+    expect(byType.events.map((event) => event.event_id)).toEqual(["audit-2"]);
+  });
+
   it("rejects an invalid query shape with named rejections and no read", () => {
     const base = makeTmpBase();
     const scope = "obj-query-invalid";
     appendRegistryEvent(scope, attemptEvent(), base);
-    const badClass = queryRegistryEvents(scope, { event_class: "AUDIT" }, base);
+    const badClass = queryRegistryEvents(scope, { event_class: "NOPE" }, base);
     expect(badClass.ok).toBe(false);
     if (badClass.ok) return;
     expect(badClass.rejections[0].field).toBe("event_class");

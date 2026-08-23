@@ -360,7 +360,7 @@ describe("flag on: odin_query_events and the registry resource", () => {
 
       const badClass = parseTextResult(await client.callTool({
         name: "odin_query_events",
-        arguments: { scope, query: { event_class: "AUDIT" } }
+        arguments: { scope, query: { event_class: "NOT_A_CLASS" } }
       })) as QueryToolResult;
       expect(badClass.ok).toBe(false);
       if (badClass.ok) return;

@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   ATTEMPT_EVENT_TYPES,
   ATTEMPT_TRIGGERS,
+  AUDIT_EVENT_TYPES,
   BREAK_GLASS_EVENT_TYPES,
   BUDGET_EVENT_TYPES,
   BUDGET_KINDS,
@@ -891,11 +892,31 @@ export const terminalEventSchema = z.object({
   content_hashes: z.array(govdispContentHashSchema).min(1)
 }).strict();
 
+export const auditTargetSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("ordinary_work")
+  }).strict(),
+  z.object({
+    kind: z.literal("audit"),
+    // Same id format the union uses for event_id (govdispEventBaseShape.event_id).
+    target_event_id: z.string().min(1)
+  }).strict()
+]);
+export type AuditTarget = z.infer<typeof auditTargetSchema>;
+
+export const auditEventSchema = z.object({
+  ...govdispEventBaseShape,
+  event_class: z.literal("AUDIT"),
+  event_type: z.enum(AUDIT_EVENT_TYPES),
+  target: auditTargetSchema
+}).strict();
+
 export const govdispEventSchema = z.discriminatedUnion("event_class", [
   attemptEventSchema,
   findingEventSchema,
   breakGlassEventSchema,
   budgetEventSchema,
-  terminalEventSchema
+  terminalEventSchema,
+  auditEventSchema
 ]);
 export type GovdispEvent = z.infer<typeof govdispEventSchema>;

@@ -33,6 +33,7 @@ import { join } from "node:path";
 import { govdispEventSchema } from "../schemas.js";
 import {
   ATTEMPT_EVENT_TYPES,
+  AUDIT_EVENT_TYPES,
   BREAK_GLASS_EVENT_TYPES,
   BUDGET_EVENT_TYPES,
   FINDING_EVENT_TYPES,
@@ -105,7 +106,8 @@ const GOVDISP_EVENT_TYPE_SET = new Set<string>([
   ...FINDING_EVENT_TYPES,
   ...BREAK_GLASS_EVENT_TYPES,
   ...BUDGET_EVENT_TYPES,
-  ...TERMINAL_EVENT_TYPES
+  ...TERMINAL_EVENT_TYPES,
+  ...AUDIT_EVENT_TYPES
 ]);
 const QUERY_FIELDS = new Set(["stable_objective_id", "event_class", "event_type", "from_ts", "to_ts"]);
 

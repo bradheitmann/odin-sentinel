@@ -1,0 +1,39 @@
+version: 0.5.0
+meta_governance_depth:
+  doctrine: >-
+    GD-DEC-001 caps meta-governance at ONE audited layer. An AUDIT-class
+    governance event auditing ordinary work is depth 1 and permitted. An audit
+    whose target is itself an audit (audit-of-audit) is depth 2 and is REFUSED
+    with a named meta_governance_depth refusal unless a valid BREAK_GLASS event
+    for the same stable_objective_id exists in the registry. Depth is derived
+    statelessly from the registry's own events at evaluation time; nothing is
+    stored or cached.
+
+  cap: 1    # maximum permitted audit depth; deeper audits require break-glass authority
+
+  refusal_codes:
+    - meta_governance_depth     # depth exceeded the cap with no valid break-glass recorded
+    - break_glass_wrong_class   # a non-BREAK_GLASS artifact (e.g. an [SCP-EXCEPTION] shape) offered as break-glass authority
+
+  depth_model:
+    ordinary_work_audit: 1      # AUDIT event with target.kind = ordinary_work
+    audit_of_audit: 2           # AUDIT event with target.kind = audit (target_event_id chain walked for deeper layers)
+
+  break_glass:
+    required_event_class: BREAK_GLASS
+    required_event_type: BREAK_GLASS_RECORDED
+    required_fields:
+      - authorizing_human       # a named human authorizer; enforced by the typed event union at append
+      - contradiction_ref       # a named concrete contradiction; enforced by the typed event union at append
+    binding: stable_objective_id  # the BREAK_GLASS event must be recorded under the same objective
+    rules:
+      - the evaluator checks the break-glass event's presence and binding in the registry; an in-memory offer alone is not authority
+      - an [SCP-EXCEPTION]-shaped payload is NOT a BREAK_GLASS event and is rejected by name (break_glass_wrong_class)
+      - the union's append-time validation of authorizing_human and contradiction_ref is reused, never re-validated
+
+  evaluator:
+    derivation: stateless — recomputed from the registry's AUDIT and BREAK_GLASS events on every call
+    cap_source: typed constant META_GOVERNANCE_DEPTH_CAP in src/protocol/service.ts (this file is the doctrine declaration; the canonical ProtocolData resource-loading surface was outside the authoring slice's write scope, so the contract's typed-constant fallback applied)
+    functions:
+      - deriveMetaGovernanceDepth
+      - evaluateMetaGovernanceDepth
