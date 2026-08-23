@@ -49,3 +49,6 @@ product-research/
 
 # Odin MCP field-feedback research staging (local-only; imported from team field use)
 research/
+
+# Generated architecture map (local render artifact)
+ODIN-ARCHITECTURE-MAP.html
