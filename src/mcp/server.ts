@@ -439,7 +439,7 @@ function registerGovdispRegistrySurface(server: McpServer, options: GovdispRegis
     {
       title: "Append Governance Registry Event (compatibility surface)",
       description:
-        `Append one governance event to the append-only registry log for a scope. Registered only under the ${GOVDISP_REGISTRY_MCP_ENV_VAR} compatibility flag. The staged store is the single validation choke point: valid events are appended (one line-atomic JSONL record); malformed events fail closed and the store's named rejections (field, event_class, code, detail) are propagated verbatim in the tool result — never swallowed or genericized. Append-only: no mutation or deletion surface exists.`,
+        `Append one governance event to the append-only registry log for a scope. Registered by default as of 0.6.0; set ${GOVDISP_REGISTRY_MCP_ENV_VAR} to a non-truthy value to opt out. The staged store is the single validation choke point: valid events are appended (one line-atomic JSONL record); malformed events fail closed and the store's named rejections (field, event_class, code, detail) are propagated verbatim in the tool result — never swallowed or genericized. Append-only: no mutation or deletion surface exists.`,
       inputSchema: appendEventToolInputShape
     },
     (input) => registryToolResult(appendGovdispEvent(store, input.scope, input.event, base))
@@ -450,7 +450,7 @@ function registerGovdispRegistrySurface(server: McpServer, options: GovdispRegis
     {
       title: "Query Governance Registry Events (compatibility surface)",
       description:
-        `Deterministically query the append-only registry log for a scope. Registered only under the ${GOVDISP_REGISTRY_MCP_ENV_VAR} compatibility flag. Optional query filters — stable_objective_id, event_class, event_type, and inclusive ISO-8601 from_ts/to_ts bounds — AND together; results are in append order. Invalid query shapes fail closed with the store's named rejections and no partial results.`,
+        `Deterministically query the append-only registry log for a scope. Registered by default as of 0.6.0; set ${GOVDISP_REGISTRY_MCP_ENV_VAR} to a non-truthy value to opt out. Optional query filters — stable_objective_id, event_class, event_type, and inclusive ISO-8601 from_ts/to_ts bounds — AND together; results are in append order. Invalid query shapes fail closed with the store's named rejections and no partial results.`,
       inputSchema: queryEventsToolInputShape
     },
     (input) =>
@@ -465,7 +465,7 @@ function registerGovdispRegistrySurface(server: McpServer, options: GovdispRegis
     {
       title: "Governance Registry State (compatibility surface)",
       description:
-        `Read-only registry state for one scope: every event in the scope's append-only log, in append order. Registered only under the ${GOVDISP_REGISTRY_MCP_ENV_VAR} compatibility flag. Read-only by construction — the registry exposes no mutation or deletion API. Reads fail closed on corrupt log content, naming the offending line.`,
+        `Read-only registry state for one scope: every event in the scope's append-only log, in append order. Registered by default as of 0.6.0; set ${GOVDISP_REGISTRY_MCP_ENV_VAR} to a non-truthy value to opt out. Read-only by construction — the registry exposes no mutation or deletion API. Reads fail closed on corrupt log content, naming the offending line.`,
       mimeType: "application/json"
     },
     (uri, variables) => {
