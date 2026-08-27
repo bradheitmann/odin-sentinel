@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "policy": {
+    "severityFloor": "high",
+    "maxExpiryHorizonDays": 90,
+    "expiryRule": "Expiry is an ISO-8601 calendar date evaluated in UTC. An entry whose expiry equals the current UTC date is EXPIRED and fails the gate. An expiry more than maxExpiryHorizonDays in the future fails as over-horizon.",
+    "recordRule": "Every entry needs advisory, owner, expires, and rationale. An entry missing any of the four is malformed and fails the gate on its own, whether or not the advisory it names is present in the tree. A pin recorded here must still match the workspace overrides block."
+  },
+  "exceptions": [
+    {
+      "advisory": "GHSA-v2v4-37r5-5v8g",
+      "owner": "ODIN Sentinel maintainers",
+      "expires": "2026-11-20",
+      "rationale": "ip-address is transitive through the MCP SDK HTTP transport stack. The stdio server does not invoke those code paths, and the override pins a patched version so the advisory does not resolve in the installed tree. Review whether the pin is still needed when the SDK next moves.",
+      "pin": { "package": "ip-address", "range": "^10.1.1" }
+    },
+    {
+      "advisory": "GHSA-qp7p-654g-cw7p",
+      "owner": "ODIN Sentinel maintainers",
+      "expires": "2026-11-20",
+      "rationale": "hono is transitive through the MCP SDK HTTP transport stack. The stdio server does not invoke those code paths, and the override pins a patched version so the advisory does not resolve in the installed tree. Review whether the pin is still needed when the SDK next moves.",
+      "pin": { "package": "hono", "range": "^4.12.18" }
+    },
+    {
+      "advisory": "GHSA-p77w-8qqv-26rm",
+      "owner": "ODIN Sentinel maintainers",
+      "expires": "2026-11-20",
+      "rationale": "hono is transitive through the MCP SDK HTTP transport stack. The stdio server does not invoke those code paths, and the override pins a patched version so the advisory does not resolve in the installed tree. Review whether the pin is still needed when the SDK next moves.",
+      "pin": { "package": "hono", "range": "^4.12.18" }
+    },
+    {
+      "advisory": "GHSA-hm8q-7f3q-5f36",
+      "owner": "ODIN Sentinel maintainers",
+      "expires": "2026-11-20",
+      "rationale": "hono is transitive through the MCP SDK HTTP transport stack. The stdio server does not invoke those code paths, and the override pins a patched version so the advisory does not resolve in the installed tree. Review whether the pin is still needed when the SDK next moves.",
+      "pin": { "package": "hono", "range": "^4.12.18" }
+    },
+    {
+      "advisory": "GHSA-q8mj-m7cp-5q26",
+      "owner": "ODIN Sentinel maintainers",
+      "expires": "2026-11-20",
+      "rationale": "qs is transitive through the MCP SDK HTTP transport stack. The stdio server does not invoke those code paths, and the override pins a patched version so the advisory does not resolve in the installed tree. Review whether the pin is still needed when the SDK next moves.",
+      "pin": { "package": "qs", "range": "^6.15.2" }
+    }
+  ]
+}

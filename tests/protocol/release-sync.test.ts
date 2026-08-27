@@ -83,6 +83,8 @@ const expectedRequiredPackageFiles = [
   "templates/qa-slice-template.md",
   "templates/pm-role-template.md",
   "templates/team-manifest-template.yaml",
+  "scripts/audit/audit-exceptions.json",
+  "scripts/audit/dependency-audit.mjs",
   "scripts/audit/generate-govdisp-baseline.mjs",
   "scripts/audit/public-surface.mjs",
   "scripts/audit/verify-pack.mjs",

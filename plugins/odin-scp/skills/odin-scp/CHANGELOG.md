@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Dependency audit now runs on the publish path: `scripts/audit/dependency-audit.mjs` joins the `validate` chain as `audit:deps`, so `prepublishOnly` fails closed and a tree carrying an unaccepted high-severity advisory cannot be published. Accepted advisories are recorded in `scripts/audit/audit-exceptions.json` with an owner, an expiry, and a rationale per entry; the manifest is validated before the audit runs and a malformed or expired entry fails the gate on its own.
+- CI's audit floor moves from `pnpm audit`'s default (`low`) to `high`. This is a deliberate loosening of CI strictness, paired with the new fail-closed publish-path gate and its exception manifest: CI no longer breaks on low-severity advisory churn, while the release path gains a check it previously had none of. Both workflows now call the single gate script instead of duplicating a bare `pnpm audit` step.
+
 ## 0.6.0 - 2026-08-23
 
 - Registry compatibility mode is ACTIVE BY DEFAULT (Amendment 46, operator order): an unset ODIN_GOVDISP_REGISTRY_MCP enables the registry MCP surface (48 tools plus the odin://registry/{scope}/events resource template), the registry-mode validator branches, and the odin-watch FINDING_OPENED emission; ODIN_GOVDISP_REGISTRY_MCP=0 (or any non-truthy value) is the explicit opt-out returning byte-baseline behavior. The WAVE-4 deferral now applies to prose retirement only, not to registry activation.

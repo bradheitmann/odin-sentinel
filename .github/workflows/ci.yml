@@ -37,7 +37,7 @@ jobs:
         run: pnpm run validate
 
       - name: Audit dependencies
-        run: pnpm audit
+        run: pnpm run audit:deps
 
   telemetry-validate:
     runs-on: ubuntu-latest
@@ -73,5 +73,4 @@ jobs:
         run: pnpm run validate
 
       - name: Audit telemetry dependencies
-        working-directory: telemetry
-        run: pnpm audit
+        run: node scripts/audit/dependency-audit.mjs --workspace telemetry

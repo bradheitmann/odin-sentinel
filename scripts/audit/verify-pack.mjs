@@ -90,6 +90,8 @@ export const requiredPackageFiles = [
   "plugins/odin-scp/skills/bulk-migration/SKILL.md",
   "plugins/odin-scp/README.md",
   ...requiredTemplateFiles,
+  "scripts/audit/audit-exceptions.json",
+  "scripts/audit/dependency-audit.mjs",
   "scripts/audit/generate-govdisp-baseline.mjs",
   "scripts/audit/public-surface.mjs",
   "scripts/audit/verify-pack.mjs",
