@@ -31,6 +31,11 @@ qa_independence:
     rules:
       - a verdict's emitting lane equals the implementer's lane (self-review)
       - a verdict's emitting lane equals the closing authority's lane (self-assertion)
+      - the SLICE_QA_PASS and HOLDOUT_ACCEPTED verdicts share one emitting lane
+        (lane collapse — the two verification lanes must be two distinct parties)
+      - a verdict carries no readable emitting lane (absent, null, empty,
+        whitespace-only, or outside the canonical slot alphabet) — an
+        unattributed verdict is not independent verification
       - no verdict exists at all (closure claimed on a fragmented / silent QA seat)
       - the only PASS evidence is SLICE_QA_PASS (weak signal; not closure-eligible)
       - the only PASS evidence is HOLDOUT_ACCEPTED (blind story verifier; not a
@@ -39,10 +44,49 @@ qa_independence:
       - neither an independent SLICE_QA_PASS nor an independent HOLDOUT_ACCEPTED is present
         together (closure requires BOTH)
 
+  emitter_identity:
+    rule: >-
+      Every lane comparison — self-review, self-assertion, and the
+      distinct-emitter rule — is decided by CANONICAL SLOT IDENTITY, never by
+      raw string equality. Canonicalization folds case, separator form
+      (space / underscore / hyphen), surrounding and internal whitespace,
+      Unicode NFKC forms, zero-width characters, and the hyphen class
+      (U+2010 HYPHEN, U+2011 NON-BREAKING HYPHEN). Team prefix and lane number
+      REMAIN identity: B/DEV-1 and B/DEV-2 are different seats, as are
+      A/EXEC-PM and B/EXEC-PM.
+    consequence: >-
+      b/dev_1, B/DEV-1, and "B/DEV-1 " are ONE seat. Respelling a seat never
+      makes it a second party, so an alias-respelled self-review or
+      self-assertion is refused exactly as the plainly-spelled one is.
+    fail_closed: >-
+      An emitting lane that does not canonicalize (absent, null, empty,
+      whitespace-only, homoglyph, or any other non-canonical form) is INVALID
+      input refused by name. It is never treated as "not matching, therefore
+      independent", and two unreadable emitters are never two distinct parties.
+
+  distinct_emitter_rule: >-
+    The SLICE_QA_PASS and the HOLDOUT_ACCEPTED must come from two CANONICALLY
+    DISTINCT emitting lanes. One seat emitting both verdicts is lane collapse
+    and is refused by name (CLOSURE_LANE_COLLAPSE): the receipt would claim two
+    independent verifications where only one party ever examined the work. The
+    two lanes are structurally different checks (slice-level scope/evidence/
+    hygiene vs. sealed blind story verification), so one seat performing both
+    defeats the purpose of requiring both.
+
+  named_refusals: >-
+    Refusals identify the rule that failed, never a generic "invalid":
+    CLOSURE_SELF_REVIEW (emitter is the implementer),
+    CLOSURE_SELF_ASSERTION (emitter is the closing authority),
+    CLOSURE_LANE_COLLAPSE (one seat emitted both verification lanes),
+    EMITTER_IDENTITY_INVALID (verdict emitter is not a readable slot),
+    CLOSURE_PARTY_IDENTITY_INVALID (implementer_lane or closing_authority is
+    present but not a readable slot, so the comparison itself cannot be trusted).
+
   closure_rule: >-
     Closure-eligible = an independent SLICE_QA_PASS PASS AND an independent
     HOLDOUT_ACCEPTED PASS, each emitted by a lane that is neither the
-    implementer nor the closing authority. Both verdict kinds are required:
+    implementer nor the closing authority, and the two emitting lanes must be
+    canonically distinct from each other. Both verdict kinds are required:
     SLICE_QA_PASS alone is not closure-eligible (state DEV_COMPLETE_QA_PENDING /
     HOLDOUT PENDING); HOLDOUT_ACCEPTED alone is not closure-eligible (state
     QA_INCOMPLETE / B/QA PENDING). Everything else is DEV_COMPLETE_QA_PENDING

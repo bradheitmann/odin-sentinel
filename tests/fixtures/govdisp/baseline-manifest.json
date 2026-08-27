@@ -109,8 +109,8 @@
     },
     {
       "path": "protocol/resources/qa-independence.yaml",
-      "bytes": 2979,
-      "sha256": "5c2d78736e7dc540563fd6488c6ca10217733337d9fb110ff1af1c3e9a1695db"
+      "bytes": 5621,
+      "sha256": "e3e5fb23bc39b5dbd096b91920e8a000ca3bdec21a87a2390df72ee2baf42ac5"
     },
     {
       "path": "protocol/resources/recipe-capture.yaml",
@@ -254,8 +254,8 @@
     },
     {
       "path": "src/protocol/service.ts",
-      "bytes": 237903,
-      "sha256": "2c6accb25afb0db3831c65cf2db2615e2c7eaf37efc689c1e8426782b99f2b3b"
+      "bytes": 242322,
+      "sha256": "9037daa482e33d68befce0dad431ddae87d93bae606cda59ac32b2a42aead087"
     },
     {
       "path": "src/protocol/surface-layout.ts",

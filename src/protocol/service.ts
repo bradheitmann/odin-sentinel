@@ -11,7 +11,8 @@ import {
   hasExecutiveAuthority,
   hasRosterMutationAuthority,
   isHighAuthorityRole,
-  roleKindOf
+  roleKindOf,
+  roleSlotsEqual
 } from "./role-identity.js";
 import { auditTargetSchema, EVIDENCE_CLASSES, govdispEventSchema, harnessControlEntrySchema, VERDICT_CLASS_ARTIFACTS } from "./schemas.js";
 import type { AuditTarget, CloseoutMode, DelegationPacketInput, EscalationGateInput, EscalationGateResult, GovdispEvent, HarnessControlEntry, MissionFrontrunInput, MissionFrontrunPack, RoleCard, StartupPacketInput } from "./schemas.js";
@@ -2592,6 +2593,29 @@ const CLOSURE_KINDS = ["SLICE_QA_PASS", "HOLDOUT_ACCEPTED", "MISSION_INTERNAL_VA
  * equals the implementer's lane, when no verdict exists, or when the only PASS
  * evidence is a weak signal (SLICE_QA_PASS) or an advisory one (a harness's
  * internal validator).
+ *
+ * STORY-GOVTRUTH-R2 — every party comparison here runs through the canonical
+ * slot identity primitive (`roleSlotsEqual` / `canonicalRoleSlot`), never raw
+ * string equality: a respelled emitter (`b/dev_1`, `B/DEV-1 `, `B/DEV‑1` with a
+ * non-breaking hyphen) is the SAME seat and must not defeat the self-review
+ * check. Two further fail-closed rules follow from that:
+ *
+ * - An emitter that is not a readable slot (absent, null, empty,
+ *   whitespace-only, or outside the canonical alphabet) is refused by name.
+ *   An unreadable identity is never "independent" and never satisfies the
+ *   distinct-emitter rule — two unreadable emitters are invalid input, not two
+ *   distinct parties.
+ * - SLICE_QA_PASS and HOLDOUT_ACCEPTED must come from two canonically DISTINCT
+ *   emitters. One seat signing both lanes is lane collapse: the receipt claims
+ *   two independent verifications where only one party exists.
+ *
+ * Every refusal names its rule (EMITTER_IDENTITY_INVALID, CLOSURE_SELF_REVIEW,
+ * CLOSURE_SELF_ASSERTION, CLOSURE_LANE_COLLAPSE, CLOSURE_PARTY_IDENTITY_INVALID)
+ * so an operator reading the result learns which independence guarantee failed
+ * rather than a generic "invalid".
+ *
+ * Ordering is load-bearing: the RET-005 evidence-class choke point stays ahead
+ * of all identity logic and is unchanged by this story.
  */
 export function validateClosureIndependence(claim: Record<string, unknown>): ValidationResult {
   const missing = validateRequiredFields(claim, [
@@ -2609,6 +2633,25 @@ export function validateClosureIndependence(claim: Record<string, unknown>): Val
 
   if (claim.verdicts !== undefined && verdicts === undefined) invalid.push("verdicts");
 
+  // A party identity that is present but unreadable cannot be compared against
+  // any emitter, so every self-review and self-assertion check would silently
+  // pass. Refuse it by name instead of comparing against an unknown seat.
+  // (Absent/empty values are already reported by the required-field check.)
+  const partyIsUnreadable = (field: "implementer_lane" | "closing_authority"): boolean => {
+    const raw = claim[field];
+    if (raw === undefined || raw === null) return false;
+    if (typeof raw === "string" && raw.trim() === "") return false;
+    return canonicalRoleSlot(raw) === null;
+  };
+  if (partyIsUnreadable("implementer_lane")) {
+    invalid.push("implementer_lane");
+    warnings.push(`CLOSURE_PARTY_IDENTITY_INVALID: implementer_lane ${describeRoleSlotInput(claim.implementer_lane)} is not a readable role slot — self-review cannot be checked against an unreadable implementer`);
+  }
+  if (partyIsUnreadable("closing_authority")) {
+    invalid.push("closing_authority");
+    warnings.push(`CLOSURE_PARTY_IDENTITY_INVALID: closing_authority ${describeRoleSlotInput(claim.closing_authority)} is not a readable role slot — self-assertion cannot be checked against an unreadable closing authority`);
+  }
+
   if (verdicts !== undefined) {
     if (verdicts.length === 0) {
       invalid.push("verdicts");
@@ -2624,9 +2667,11 @@ export function validateClosureIndependence(claim: Record<string, unknown>): Val
     // scope, evidence, lifecycle, branch/gate hygiene, and acceptance criteria.
     let hasIndependentSliceQaPass = false;
     let hasIndependentHoldoutAccepted = false;
+    // Canonical emitter identities per lane, for the distinct-emitter rule.
+    const sliceQaEmitters = new Set<string>();
+    const holdoutEmitters = new Set<string>();
     for (const [index, v] of verdicts.entries()) {
       const kind = typeof v.verdict_kind === "string" ? v.verdict_kind : "";
-      const emittedBy = typeof v.emitted_by === "string" ? v.emitted_by : "";
       const result = typeof v.result === "string" ? v.result : "";
       // RET-005 HARD GATE (SLICE-AMEND-EVCLASS-DEV-002): every closure verdict
       // is routed through the evidence-classification choke point exactly as
@@ -2651,25 +2696,52 @@ export function validateClosureIndependence(claim: Record<string, unknown>): Val
         warnings.push(`verdict ${index}: verdict_kind must be one of ${CLOSURE_KINDS.join(" | ")} — the vocabulary deliberately separates slice-QA-pass from holdout-accepted`);
         continue;
       }
-      if (emittedBy !== "" && implementer !== undefined && emittedBy === implementer) {
+      // Emitter identity is decided by canonical slot, never by raw spelling.
+      // An unreadable emitter is refused by name here so it can never reach the
+      // independence bookkeeping below.
+      const emitter = canonicalRoleSlot(v.emitted_by);
+      if (emitter === null) {
         invalid.push("verdicts");
-        warnings.push(`verdict ${index}: emitted by the implementer's own lane (${emittedBy}) — the same assignment must not QA its own work`);
+        warnings.push(`verdict ${index}: EMITTER_IDENTITY_INVALID: emitted_by ${describeRoleSlotInput(v.emitted_by)} is not a readable role slot — an unattributed verdict is not independent verification, and an unreadable identity never counts as a distinct emitter`);
         continue;
       }
-      if (emittedBy !== "" && closer !== undefined && emittedBy === closer) {
+      if (roleSlotsEqual(v.emitted_by, claim.implementer_lane)) {
         invalid.push("verdicts");
-        warnings.push(`verdict ${index}: SELF-ASSERTED by the closing authority (${emittedBy}) — a PM/EXEC may not assert the QA verdict for its own pod's work`);
+        warnings.push(`verdict ${index}: CLOSURE_SELF_REVIEW: emitted by the implementer's own lane (${emitter}) — the same assignment must not QA its own work, and respelling the seat does not make it a different party`);
         continue;
       }
-      // Track each independent verdict kind. "Independent" = emittedBy is set,
-      // not the implementer, not the closer (already checked above).
-      if (result === "PASS" && emittedBy !== "") {
-        if (kind === "SLICE_QA_PASS") hasIndependentSliceQaPass = true;
-        if (kind === "HOLDOUT_ACCEPTED") hasIndependentHoldoutAccepted = true;
+      if (roleSlotsEqual(v.emitted_by, claim.closing_authority)) {
+        invalid.push("verdicts");
+        warnings.push(`verdict ${index}: CLOSURE_SELF_ASSERTION: SELF-ASSERTED by the closing authority (${emitter}) — a PM/EXEC may not assert the QA verdict for its own pod's work, under any spelling of its own name`);
+        continue;
+      }
+      // Track each independent verdict kind. "Independent" = the emitter is a
+      // readable slot, and is neither the implementer nor the closer (already
+      // checked above). Canonical identities are retained per lane so the
+      // distinct-emitter rule can compare the two lanes after the loop.
+      if (result === "PASS") {
+        if (kind === "SLICE_QA_PASS") {
+          hasIndependentSliceQaPass = true;
+          sliceQaEmitters.add(emitter);
+        }
+        if (kind === "HOLDOUT_ACCEPTED") {
+          hasIndependentHoldoutAccepted = true;
+          holdoutEmitters.add(emitter);
+        }
       }
       if (kind === "MISSION_INTERNAL_VALIDATOR") {
         warnings.push(`verdict ${index}: a harness-internal (Mission) validator is ADVISORY, not closure — independently contracted QA is not interchangeable with a nested validator`);
       }
+    }
+
+    // Distinct-emitter rule: the two verification lanes must be two parties.
+    // One seat signing both the slice-QA pass and the holdout accept produces a
+    // receipt that claims two independent verifications while only one party
+    // ever looked at the work.
+    const collapsedEmitters = [...sliceQaEmitters].filter((slot) => holdoutEmitters.has(slot));
+    if (collapsedEmitters.length > 0) {
+      invalid.push("verdicts");
+      warnings.push(`CLOSURE_LANE_COLLAPSE: SLICE_QA_PASS and HOLDOUT_ACCEPTED were both emitted by the same canonical seat (${collapsedEmitters.join(", ")}) — closure requires two canonically DISTINCT emitters, one per lane; a single seat signing both lanes is one verification wearing two hats`);
     }
 
     const closureEligible = hasIndependentSliceQaPass && hasIndependentHoldoutAccepted;
