@@ -1,72 +1,142 @@
 version: 0.6.0
 # Registry mode: typed events are authority; this document is transport.
-# Harness Probe Matrix Receipt — EPIC-028
-# Per-harness version-pinned control recipes surfaced through the
-# odin.get_harness_probe_matrix tool output. Control recipes are probe-visible
-# (inline in each matrix row) so a probe consumer sees quit_verb /
-# model_set_recipe / control_recipe without a second resource read.
+# Harness Probe Matrix Receipt — EPIC-028 / STORY-GOVTRUTH-R4
+# Per-harness control recipes surfaced through the odin.get_harness_probe_matrix
+# tool output. Control recipes are probe-visible (inline in each matrix row) so
+# a probe consumer sees quit_verb / model_set_recipe / control_recipe without a
+# second resource read.
+#
+# SOURCE OF TRUTH: protocol/resources/harness-control-matrix.yaml is the sole
+# source of harness recipe data (STORY-GOVTRUTH-R4). This receipt MIRRORS those
+# entries; a parity test (tests/protocol/harness-control-matrix.test.ts) fails
+# on any membership or value drift between the two, in either direction.
+#
+# Identity: `harness_id` is the canonical snake_case machine id; `display_name`
+# is an explicit field, never an inferred transform of the id. Entries with
+# `verified: false` carry NO version_pin (unverified recipes are never
+# presented as pinned) and their recipes are best-effort defaults.
 # All recipes are ARROW-FREE: type-ahead, mnemonic keys, or launch flags only.
 
 harnesses:
-  - harness_id: "Claude Code"
+  - harness_id: claude_code
+    display_name: "Claude Code"
+    verified: true
     version_pin: "2.1.170+"
-    submit_profile: multi_line
+    submit_profile: double_enter
     newline_policy: preserve
-    control_recipe: "clear-before-send: ctrl+u; quit: /exit; model: /model (GLOBAL per instance, set last or use --model flag)"
+    control_recipe: "clear-before-send: ctrl+u then read-screen; quit: /exit; model: /model (global, set last or --model flag)"
     quit_verb: "/exit"
-    model_set_recipe: "/model <name> (type-ahead; model/effort is GLOBAL — number-key commits global; 's' key = session-only)"
-    effort_set_recipe: "/effort <level> (GLOBAL — same caveat as model)"
-    open_menu_recipe: "type-ahead slash commands (/model, /effort, /exit)"
-    relaunch_recipe: "claude --model <name>"
+    model_set_recipe: "/model <name> (type-ahead; model/effort default is GLOBAL per instance — set in-session LAST or use --model flag)"
+    effort_set_recipe: "/effort <level> (type-ahead; global)"
+    open_menu_recipe: "type-ahead slash commands: /model, /effort, /exit"
+    relaunch_recipe: "relaunch with --model <name> launch flag; re-verify model from the status bar"
     notes: "model/effort is GLOBAL across instances; set in-session LAST or use --model flag"
 
-  - harness_id: "Droid"
+  - harness_id: droid
+    display_name: "Droid"
+    verified: true
     version_pin: "0.144.2+"
     submit_profile: double_enter
     newline_policy: preserve
-    control_recipe: "clear-before-send: ctrl+u; quit: /quit; autonomy: --auto high for mission/high-autonomy"
+    control_recipe: "clear-before-send: ctrl+u then read-screen; quit: /quit; autonomy: --auto high for mission/high-autonomy"
     quit_verb: "/quit"
     model_set_recipe: "--model <name> launch flag or /model (session)"
-    effort_set_recipe: "--auto high (mission/high-autonomy requires --auto high)"
-    open_menu_recipe: "type-ahead slash commands"
-    relaunch_recipe: "droid --model <name> --auto high"
+    effort_set_recipe: "--auto high for mission/high-autonomy (launch flag)"
+    open_menu_recipe: "type-ahead slash commands: /model, /quit"
+    relaunch_recipe: "relaunch with --model <name> and --auto high; re-verify autonomy level"
     notes: "governed readiness needs 'droid mcp'; read-only exec allowed without write authority"
 
-  - harness_id: "OpenCode"
+  - harness_id: opencode
+    display_name: "OpenCode"
+    verified: true
     version_pin: "1.17.4+"
     submit_profile: single_enter_verify
     newline_policy: preserve
-    control_recipe: "clear-before-send: ctrl+u; quit: /exit; single-Enter submits — NEVER send a blind second Enter"
+    control_recipe: "clear-before-send: ctrl+u then read-screen; quit: /exit; single-Enter submit, no blind second Enter"
     quit_verb: "/exit"
     model_set_recipe: "/model <name> (type-ahead)"
     effort_set_recipe: "/effort <level> (type-ahead)"
-    open_menu_recipe: "type-ahead slash commands"
-    relaunch_recipe: "opencode --model <name>"
+    open_menu_recipe: "type-ahead slash commands: /model, /effort, /exit"
+    relaunch_recipe: "relaunch with --model <name> launch flag; re-verify model from the status bar"
     notes: "single Enter submits; a blind second Enter interrupts reply generation"
 
-  - harness_id: "Crush"
+  - harness_id: crush
+    display_name: "Crush"
+    verified: true
     version_pin: "0.76.0+"
     submit_profile: double_enter
     newline_policy: preserve
-    control_recipe: "clear-before-send: ctrl+u; quit: /q; alt-screen TUI — behavioral delivery verification is MANDATORY (no scrollback)"
+    control_recipe: "clear-before-send: ctrl+u then read-screen; quit: /q; alt-screen TUI, no scrollback — behavioral delivery verification mandatory"
     quit_verb: "/q"
-    model_set_recipe: "/model <name> (type-ahead; alt-screen TUI)"
+    model_set_recipe: "/model <name> (type-ahead)"
     effort_set_recipe: "/effort <level> (type-ahead)"
-    open_menu_recipe: "type-ahead slash commands"
-    relaunch_recipe: "crush --model <name>"
+    open_menu_recipe: "type-ahead slash commands: /model, /effort, /q"
+    relaunch_recipe: "relaunch with --model <name> launch flag; re-verify model from the status bar"
     notes: "alt-screen TUI with no scrollback; marker-grep alone is insufficient — behavioral tier mandatory"
 
-  - harness_id: "Pi"
+  - harness_id: pi
+    display_name: "Pi"
+    verified: true
     version_pin: "0.79.6+"
     submit_profile: single_line_flatten
     newline_policy: flatten_to_space
-    control_recipe: "clear-before-send: ctrl+u; quit: /exit; single-line flatten with ' ;; ' field separators"
+    control_recipe: "clear-before-send: ctrl+u then read-screen; quit: /exit; single_line_flatten — flatten newlines to spaces with ' ;; ' separators before single submit"
+    quit_verb: "/exit"
+    model_set_recipe: "/model <name> (type-ahead)"
+    effort_set_recipe: "N/A (model/effort set via /model)"
+    open_menu_recipe: "type-ahead slash commands: /model, /exit"
+    relaunch_recipe: "relaunch with --model <name> launch flag; re-verify model from the status bar"
+    notes: "embedded newlines machine-gun (one line per prompt); flatten before single submit"
+
+  # --- Promoted (STORY-GOVTRUTH-R4): formerly code-only catalog entries. ---
+  # verified: false and NO version_pin; recipes are best-effort defaults.
+  - harness_id: codex
+    display_name: "Codex"
+    verified: false
+    quit_verb: "/exit"
+    model_set_recipe: "--model <name> launch flag"
+    control_recipe: "clear-before-send: ctrl+u; quit: /exit; model via --model flag"
+    notes: "UNVERIFIED recipe defaults; verify on a disposable surface before governed use."
+
+  - harness_id: goose
+    display_name: "Goose"
+    verified: false
     quit_verb: "/exit"
     model_set_recipe: "/model <name>"
-    effort_set_recipe: "N/A"
-    open_menu_recipe: "type-ahead slash commands"
-    relaunch_recipe: "pi --model <name>"
-    notes: "embedded newlines machine-gun (one line per prompt); flatten before single submit"
+    control_recipe: "clear-before-send: ctrl+u; quit: /exit"
+    notes: "UNVERIFIED recipe defaults; verify on a disposable surface before governed use."
+
+  - harness_id: openhands
+    display_name: "OpenHands"
+    verified: false
+    quit_verb: "/exit"
+    model_set_recipe: "config file or launch flag"
+    control_recipe: "clear-before-send: ctrl+u; quit: /exit"
+    notes: "UNVERIFIED recipe defaults; verify on a disposable surface before governed use."
+
+  - harness_id: kilocode
+    display_name: "KiloCode"
+    verified: false
+    quit_verb: "/exit"
+    model_set_recipe: "/model <name>"
+    control_recipe: "clear-before-send: ctrl+u; quit: /exit"
+    notes: "UNVERIFIED recipe defaults; verify on a disposable surface before governed use."
+
+  - harness_id: aider
+    display_name: "Aider"
+    verified: false
+    quit_verb: "/exit"
+    model_set_recipe: "--model <name> launch flag"
+    control_recipe: "clear-before-send: ctrl+u; quit: /exit"
+    notes: "UNVERIFIED recipe defaults; verify on a disposable surface before governed use."
+
+  - harness_id: nanocoder
+    display_name: "NanoCoder"
+    verified: false
+    quit_verb: "/exit"
+    model_set_recipe: "--model <name> launch flag"
+    control_recipe: "clear-before-send: ctrl+u; quit: /exit"
+    notes: "UNVERIFIED recipe defaults; verify on a disposable surface before governed use."
 
 delivery_verification_tiers:
   - tier: scrollback_grep

@@ -59,8 +59,8 @@
     },
     {
       "path": "protocol/receipts/harness-probe-matrix.yaml",
-      "bytes": 4133,
-      "sha256": "08e6883bc0988c55b90bda7c92ff1adfe82493b6a9b23cd3e7e9ce2c8a228c7d"
+      "bytes": 7378,
+      "sha256": "c3ce74ec97985e2fa607bb5cb468af14984ba7769268b732652286e24d63c89a"
     },
     {
       "path": "protocol/receipts/team-manifest.yaml",
@@ -89,8 +89,8 @@
     },
     {
       "path": "protocol/resources/harness-control-matrix.yaml",
-      "bytes": 9259,
-      "sha256": "7ce981b53dae78a48769dca2adb2539e697b0faf88d211834b8a2f0258060096"
+      "bytes": 12426,
+      "sha256": "1d59a931f2aff063eb2725a98404085d67006f5febcfff2cc5ab4c747feab17e"
     },
     {
       "path": "protocol/resources/meta-governance-depth.yaml",
@@ -244,13 +244,13 @@
     },
     {
       "path": "src/protocol/schemas.ts",
-      "bytes": 35091,
-      "sha256": "d4d1684823158927a652a3efcfead85ef09aa243b1974e694c39bea6db7e8a6d"
+      "bytes": 39739,
+      "sha256": "692a5e2c8ec2bd4374ddaaca4277dd5075d10a64977736b2e06df6156bbfd2ff"
     },
     {
       "path": "src/protocol/service.ts",
-      "bytes": 232147,
-      "sha256": "18a3fa47ea25406db32263eff027ba9ebe505871a1f37bd0ef0ddb3651f64b38"
+      "bytes": 235615,
+      "sha256": "b183f2fd78ea655ba32a462d4a685a0ed9b72b9dc0b354c207c54369c60e846f"
     },
     {
       "path": "src/protocol/surface-layout.ts",

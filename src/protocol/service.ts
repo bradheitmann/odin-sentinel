@@ -5,8 +5,8 @@ import {
   type ProtocolData,
   type ProtocolRepository
 } from "./repository.js";
-import { auditTargetSchema, EVIDENCE_CLASSES, govdispEventSchema, VERDICT_CLASS_ARTIFACTS } from "./schemas.js";
-import type { AuditTarget, CloseoutMode, DelegationPacketInput, EscalationGateInput, EscalationGateResult, GovdispEvent, MissionFrontrunInput, MissionFrontrunPack, RoleCard, StartupPacketInput } from "./schemas.js";
+import { auditTargetSchema, EVIDENCE_CLASSES, govdispEventSchema, harnessControlEntrySchema, VERDICT_CLASS_ARTIFACTS } from "./schemas.js";
+import type { AuditTarget, CloseoutMode, DelegationPacketInput, EscalationGateInput, EscalationGateResult, GovdispEvent, HarnessControlEntry, MissionFrontrunInput, MissionFrontrunPack, RoleCard, StartupPacketInput } from "./schemas.js";
 import {
   asRecord,
   buildValidationResult,
@@ -1657,9 +1657,77 @@ export function getActiveWatchPacket(input: ActiveWatchPacketInput): Record<stri
   };
 }
 
-export function getHarnessProbeMatrix(input: HarnessProbeInput = {}): Record<string, unknown> {
-  const knownHarnesses = ["Codex", "Claude Code", "Droid", "Goose", "Crush", "OpenHands", "KiloCode", "Pi", "Aider", "NanoCoder"];
-  const intended = input.intendedHarnesses ?? knownHarnesses;
+/**
+ * Exact canonical snake_case machine id shape (STORY-GOVTRUTH-R4 AC7):
+ * lowercase letters and digits, underscore-separated. Identity is decided by
+ * exact canonical match, never by coincidental normalization.
+ */
+const CANONICAL_HARNESS_ID_PATTERN = /^[a-z0-9]+(?:_[a-z0-9]+)*$/;
+
+/** True only for a string already in exact canonical snake_case id form. */
+export function isCanonicalHarnessId(value: string): boolean {
+  return CANONICAL_HARNESS_ID_PATTERN.test(value);
+}
+
+/**
+ * Canonical snake_case machine id for a harness (STORY-GOVTRUTH-R4 AC7).
+ * FAIL-CLOSED: the input must ALREADY be in exact canonical snake_case form —
+ * this function never case-folds, trims, or otherwise transforms it. A
+ * case-respelled form (e.g. "DROID", "GOOsE", "kilOcode"), a display name, or
+ * any other mutation is refused with a named error identifying the
+ * non-canonical form. Display names are explicit fields on the resource
+ * entries (the explicit display-name channel), never an inferred transform of
+ * the id or of any other string.
+ */
+export function canonicalHarnessId(name: string): string {
+  if (!isCanonicalHarnessId(name)) {
+    throw new Error(
+      `non_canonical_harness_id: "${name}" is not an exact canonical snake_case harness id; ` +
+      `canonical ids (e.g. "claude_code", "droid", "opencode") are matched exactly and are never ` +
+      `case-folded or transformed — use the entry's explicit display_name channel for human-friendly forms`
+    );
+  }
+  return name;
+}
+
+/**
+ * STORY-GOVTRUTH-R4: load and validate the harness entries from the SINGLE
+ * source of truth, protocol/resources/harness-control-matrix.yaml (via the
+ * protocol repository). The former in-code HARNESS_CONTROL_RECIPES catalog is
+ * removed; every recipe field the probe matrix serves derives from these
+ * entries at runtime. A malformed entry fails closed with a named error
+ * (including verified/version_pin contradictions: a verified entry must carry
+ * an exact pin, an unverified entry must not carry one).
+ */
+function loadHarnessControlEntries(repository: ProtocolRepository): HarnessControlEntry[] {
+  const data = loadProtocolData(repository);
+  const matrix = requireRecord(data.harnessControlMatrix.harness_control_matrix, "harness-control-matrix.harness_control_matrix");
+  const rawEntries = Array.isArray(matrix.harnesses) ? matrix.harnesses : [];
+  if (rawEntries.length === 0) {
+    throw new Error("harness-control-matrix.yaml declares no harnesses; the resource is the sole source of harness recipe data");
+  }
+  return rawEntries.map((raw, index) => {
+    const parsed = harnessControlEntrySchema.safeParse(raw);
+    if (!parsed.success) {
+      const detail = parsed.error.issues.map((issue) => `${issue.path.join(".") || "<entry>"}: ${issue.message}`).join("; ");
+      throw new Error(`harness-control-matrix.yaml harnesses[${index}] is invalid: ${detail}`);
+    }
+    return parsed.data;
+  });
+}
+
+export function getHarnessProbeMatrix(
+  input: HarnessProbeInput = {},
+  repository: ProtocolRepository = getDefaultRepository()
+): Record<string, unknown> {
+  const entries = loadHarnessControlEntries(repository);
+  const entriesById = new Map(entries.map((entry) => [entry.harness_id, entry]));
+  // The explicit display-name channel (AC7): declared display_name fields,
+  // matched exactly — never derived from ids or matched case-insensitively.
+  const entriesByDisplayName = new Map(entries.map((entry) => [entry.display_name, entry]));
+  // Default probe list = the resource's full membership (canonical ids carried
+  // as explicit display names). Callers may still pass display names or ids.
+  const intended = input.intendedHarnesses ?? entries.map((entry) => entry.display_name);
   const installed = new Set((input.installedHarnesses ?? []).map((value) => value.toLowerCase()));
   const observations = input.observations ?? [];
   const timeout = input.visibleOutputTimeoutSeconds ?? 60;
@@ -1667,10 +1735,30 @@ export function getHarnessProbeMatrix(input: HarnessProbeInput = {}): Record<str
     Object.entries(input.providerStatuses ?? {}).map(([name, present]) => [name, { present, value: present ? "present redacted" : "absent" }])
   );
 
-  const rows = intended.map((harness) => {
-    const observation = observations.find((item) => item.harness.toLowerCase() === harness.toLowerCase());
+  const rows = intended.map((intendedName) => {
+    // Membership resolution (AC7, FAIL-CLOSED): an intended harness resolves
+    // ONLY by the entry's explicit display_name field (the explicit
+    // display-name channel) or by exact canonical snake_case machine id.
+    // Case-respelled or otherwise mutated forms (e.g. "DROID", "GOOsE",
+    // "kilOcode") are refused as non-canonical, never silently folded into a
+    // resource-backed member.
+    const entry = entriesByDisplayName.get(intendedName)
+      ?? (isCanonicalHarnessId(intendedName) ? entriesById.get(intendedName) : undefined);
+    if (!entry) {
+      throw new Error(
+        `unknown_or_non_canonical_harness: "${intendedName}" does not resolve to any harness — ` +
+        `resolution requires the exact canonical snake_case machine id (e.g. "droid") or the exact ` +
+        `declared display_name (e.g. "Droid"); case-respelled or otherwise mutated forms are refused, ` +
+        `never silently normalized`
+      );
+    }
+    const harnessId = canonicalHarnessId(entry.harness_id);
+    const harness = entry.display_name;
+    // Observation identity follows the same rule: exact display_name or exact
+    // canonical id — never case-folded.
+    const observation = observations.find((item) => item.harness === harness || item.harness === harnessId);
     const key = harness.toLowerCase();
-    const installedBinary = installed.has(key);
+    const installedBinary = installed.has(key) || installed.has(intendedName.toLowerCase());
     const classifications = new Set<string>();
     if (!installedBinary) classifications.add("NOT_INSTALLED_OR_UNPROVEN");
     if (input.userProvisioningAnswer !== "yes") classifications.add("USER_INPUT_REQUIRED");
@@ -1715,7 +1803,7 @@ export function getHarnessProbeMatrix(input: HarnessProbeInput = {}): Record<str
       observation?.visibleContent === true ? "MODEL_READY" : "MODEL_SLOW";
 
     // Multi-dimensional readiness: never collapse the distinct facts into one boolean.
-    const canHydrateAtBoot = ["Codex", "Claude Code", "Droid"].includes(harness);
+    const canHydrateAtBoot = ["codex", "claude_code", "droid"].includes(harnessId);
     const authBlockers = ["BLOCKED_BY_API_KEY", "AUTH_PROVIDER_BLOCKED", "BLOCKED_BY_LOGIN", "BLOCKED_BY_AUTH"];
     const authenticated: boolean | "unknown" =
       observation?.authStatus === "AUTH_READY" ? true :
@@ -1746,13 +1834,17 @@ export function getHarnessProbeMatrix(input: HarnessProbeInput = {}): Record<str
 
     return {
       harness,
+      // AC7: the canonical snake_case machine id is the identity; the display
+      // name is the explicit display_name field from the resource entry.
+      harnessId,
+      displayName: harness,
       installed: installedBinary,
       classifications: [...classifications],
       modelStatus,
       visibleOutputTimeoutSeconds: timeout,
       canHydrateDeferredMcpToolsAtBoot: canHydrateAtBoot,
       canHydrateDeferredMcpToolsAfterSecondTurn: true,
-      nativeSkillInvocation: ["Codex", "Claude Code"].includes(harness),
+      nativeSkillInvocation: ["codex", "claude_code"].includes(harnessId),
       sentinelCoordinationProtocolSkill: "install before governed launch when the harness supports native skills",
       autoLevel: key === "droid" ? (observation?.autoLevel ?? "unknown") : observation?.autoLevel,
       governedReadiness: governed.state,
@@ -1773,13 +1865,20 @@ export function getHarnessProbeMatrix(input: HarnessProbeInput = {}): Record<str
         governed_context_uptake_verified: governed.uptakeVerified,
         governed_role_ready: governedRoleReady
       },
-      // EPIC-028: control recipes are probe-visible (not only in the separate
-      // harness-control-matrix resource). Each row carries the version-pinned
-      // quit_verb / model_set_recipe / control_recipe from the observation, so a
-      // probe consumer sees them inline without a second resource read.
-      controlRecipe: observation?.controlRecipe ?? HARNESS_CONTROL_RECIPES[key]?.controlRecipe,
-      quitVerb: observation?.quitVerb ?? HARNESS_CONTROL_RECIPES[key]?.quitVerb,
-      modelSetRecipe: observation?.modelSetRecipe ?? HARNESS_CONTROL_RECIPES[key]?.modelSetRecipe,
+      // STORY-GOVTRUTH-R4: every probe row exposes all six recipe fields,
+      // derived at runtime from protocol/resources/harness-control-matrix.yaml
+      // (the sole source of harness recipe data; the in-code catalog is gone).
+      // A field is null when the entry is unverified and records no value.
+      // versionPin is READ from the resource — never pinned data for an
+      // unverified entry (verified: false ⇒ no pin, labeled unverified).
+      verified: entry?.verified === true,
+      recipeVerification: entry?.verified === true ? "verified" : "unverified",
+      versionPin: entry?.version_pin ?? null,
+      submitProfile: entry?.submit_profile ?? null,
+      newlinePolicy: entry?.newline_policy ?? null,
+      controlRecipe: observation?.controlRecipe ?? entry?.control_recipe ?? null,
+      quitVerb: observation?.quitVerb ?? entry?.quit_verb ?? null,
+      modelSetRecipe: observation?.modelSetRecipe ?? entry?.model_set_recipe ?? null,
       safeNextActions: classifications.size === 0 ? [] : defaultSafeOutcomes(),
       sanitizedObservation: observation?.text ? redactSecretLikeText(observation.text) : undefined
     };
@@ -1794,6 +1893,9 @@ export function getHarnessProbeMatrix(input: HarnessProbeInput = {}): Record<str
     governedContextNote:
       "Presence is not authority. MCP being configured or an SCP skill existing on disk does not make a harness GOVERNED_READY; protocol uptake must be verified. Each row's governedReadiness is one of GOVERNED_READY, FIXABLE_BLOCKED, NON_GOVERNED_ONE_SHOT_ONLY, or UNSUPPORTED.",
     governedContextVerifier: "scripts/protocol/verify-governed-context.mjs",
+    recipeSource: "protocol/resources/harness-control-matrix.yaml",
+    unverifiedRecipeNote:
+      "Rows with verified: false expose best-effort default recipes that were never verified against a live harness release; they carry no version pin. Verify on a disposable surface before governed use.",
     rows
   };
 }
@@ -1836,13 +1938,16 @@ function onboardingAssistedSteps(): string[] {
  * chooses assisted setup. This function does not install, write, or delete any harness config
  * or ledger file.
  */
-export function getOnboardingPlan(input: OnboardingPlanInput = {}): Record<string, unknown> {
+export function getOnboardingPlan(
+  input: OnboardingPlanInput = {},
+  repository: ProtocolRepository = getDefaultRepository()
+): Record<string, unknown> {
   const probe = getHarnessProbeMatrix({
     intendedHarnesses: input.intendedHarnesses,
     installedHarnesses: input.installedHarnesses,
     userProvisioningAnswer: input.userProvisioningAnswer,
     observations: input.observations
-  });
+  }, repository);
   const probeRows = Array.isArray(probe.rows) ? (probe.rows as Array<Record<string, unknown>>) : [];
 
   const readinessRows = probeRows.map((row) => {
@@ -2662,29 +2767,14 @@ export function validateCommitGate(record: Record<string, unknown>): ValidationR
 // ---------------------------------------------------------------------------
 
 const NAV_TOKEN_PATTERN = /\b(up|down|left|right|home|end|page[\s_-]?(up|down))\b|arrow|\x1b\[[ABCD]|\\e\[[ABCD]|\\x1b\[[ABCD]|\b(j|k|h|l)\b\s+(?:as\s+(?:a\s+)?(?:standalone\s+)?)?nav/i;
-// `control_recipe` / `controlRecipe` carry the full inline control recipe used by
-// HARNESS_CONTROL_RECIPES and the harness-control-matrix entries; they are checked
-// for arrow/nav tokens alongside the per-action recipe fields.
+// `control_recipe` / `controlRecipe` carry the full inline control recipe from
+// the harness-control-matrix entries; they are checked for arrow/nav tokens
+// alongside the per-action recipe fields.
+// STORY-GOVTRUTH-R4: the former in-code HARNESS_CONTROL_RECIPES catalog is
+// REMOVED. protocol/resources/harness-control-matrix.yaml is the sole source
+// of harness recipe data; getHarnessProbeMatrix derives every recipe field
+// from that resource at runtime (see loadHarnessControlEntries).
 const RECIPE_FIELDS = ["open_menu_recipe", "model_set_recipe", "effort_set_recipe", "quit_verb", "relaunch_recipe", "control_recipe", "controlRecipe"];
-
-// EPIC-028: version-pinned, arrow-free control recipes for the four harness
-// families. These make control recipes probe-visible in the getHarnessProbeMatrix
-// output (not only in the separate harness-control-matrix resource). Recipes are
-// type-ahead / mnemonic / launch-flag based — NEVER arrow or nav-key tokens.
-// (Vim-style j/k/h/l are nav keys too and are rejected by validateControlRecipe.)
-const HARNESS_CONTROL_RECIPES: Record<string, { controlRecipe?: string; quitVerb?: string; modelSetRecipe?: string; versionPin?: string }> = {
-  "claude code": { versionPin: "2.1.170+", quitVerb: "/exit", modelSetRecipe: "/model <name> (type-ahead; model/effort is GLOBAL per instance)", controlRecipe: "clear-before-send: ctrl+u; quit: /exit; model: /model (global, set last or use --model flag)" },
-  codex: { versionPin: "latest", quitVerb: "/exit", modelSetRecipe: "--model <name> launch flag", controlRecipe: "clear-before-send: ctrl+u; quit: /exit; model via --model flag" },
-  droid: { versionPin: "0.144.2+", quitVerb: "/quit", modelSetRecipe: "--model <name> launch flag or /model (session)", controlRecipe: "clear-before-send: ctrl+u; quit: /quit; autonomy: --auto high for mission/high-autonomy" },
-  opencode: { versionPin: "1.17.4+", quitVerb: "/exit", modelSetRecipe: "/model <name> (type-ahead)", controlRecipe: "clear-before-send: ctrl+u; quit: /exit; single-Enter submit, no blind second Enter" },
-  crush: { versionPin: "0.76.0+", quitVerb: "/q", modelSetRecipe: "/model <name> (type-ahead; alt-screen TUI, no scrollback)", controlRecipe: "clear-before-send: ctrl+u; quit: /q; alt-screen: behavioral delivery verification mandatory" },
-  goose: { versionPin: "latest", quitVerb: "/exit", modelSetRecipe: "/model <name>", controlRecipe: "clear-before-send: ctrl+u; quit: /exit" },
-  openhands: { versionPin: "latest", quitVerb: "/exit", modelSetRecipe: "config file or launch flag", controlRecipe: "clear-before-send: ctrl+u; quit: /exit" },
-  kilocode: { versionPin: "latest", quitVerb: "/exit", modelSetRecipe: "/model <name>", controlRecipe: "clear-before-send: ctrl+u; quit: /exit" },
-  pi: { versionPin: "latest", quitVerb: "/exit", modelSetRecipe: "/model <name>", controlRecipe: "clear-before-send: ctrl+u; quit: /exit; single_line_flatten with ' ;; ' separators" },
-  aider: { versionPin: "latest", quitVerb: "/exit", modelSetRecipe: "--model <name> launch flag", controlRecipe: "clear-before-send: ctrl+u; quit: /exit" },
-  nanocoder: { versionPin: "latest", quitVerb: "/exit", modelSetRecipe: "--model <name> launch flag", controlRecipe: "clear-before-send: ctrl+u; quit: /exit" }
-};
 
 /**
  * Validate a harness control-matrix entry: recipes must be arrow-free (arrow
@@ -4660,8 +4750,8 @@ export function createProtocolService(repository: ProtocolRepository = createFil
     getBootReceiptExamples,
     evaluateReadinessGate,
     getActiveWatchPacket,
-    getHarnessProbeMatrix,
-    getOnboardingPlan,
+    getHarnessProbeMatrix: (input: HarnessProbeInput = {}) => getHarnessProbeMatrix(input, repository),
+    getOnboardingPlan: (input: OnboardingPlanInput = {}) => getOnboardingPlan(input, repository),
     classifyGovernedReadiness,
     harnessCategory,
     getDelegationPacket,

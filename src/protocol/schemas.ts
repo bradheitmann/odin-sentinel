@@ -784,6 +784,84 @@ export interface QaTimeoutPolicy {
   max_seconds: number;
 }
 
+// ---------------------------------------------------------------------------
+// STORY-GOVTRUTH-R4 — harness control matrix single source of truth.
+// protocol/resources/harness-control-matrix.yaml is the SOLE source of harness
+// recipe data; the API derives probe-row recipe fields from it at runtime.
+// Identity: `harness_id` is the canonical snake_case machine id; `display_name`
+// is an explicit field, never an inferred transform of the id or any other
+// string. `verified: true` requires an exact version_pin; `verified: false`
+// forbids one (an unverified recipe is never presented as pinned).
+// ---------------------------------------------------------------------------
+
+/** Canonical submit-profile vocabulary — the enum declared by
+ *  harness-control-matrix.yaml. Mirrors the SubmitProfile type below. */
+export const HARNESS_SUBMIT_PROFILES = ["single_line_flatten", "double_enter", "single_enter_verify"] as const;
+
+/** Canonical newline-policy vocabulary. Mirrors the NewlinePolicy type below. */
+export const HARNESS_NEWLINE_POLICIES = ["flatten_to_space", "preserve"] as const;
+
+/** Canonical snake_case machine id: lowercase letters, digits, underscores. */
+export const canonicalHarnessIdSchema = z.string().min(1).regex(/^[a-z0-9_]+$/, "harness_id must be a snake_case machine id (lowercase letters, digits, underscores)");
+
+/**
+ * One harness entry in protocol/resources/harness-control-matrix.yaml (and its
+ * mirror in protocol/receipts/harness-probe-matrix.yaml). Loaded and validated
+ * at runtime by getHarnessProbeMatrix — this schema is what makes the resource
+ * the single source of truth instead of an in-code catalog.
+ */
+export const harnessControlEntrySchema = z.object({
+  harness_id: canonicalHarnessIdSchema,
+  display_name: z.string().min(1),
+  verified: z.boolean(),
+  version_pin: z.string().min(1).optional(),
+  harness_version: z.string().min(1).optional(),
+  quit_verb: z.string().min(1),
+  model_set_recipe: z.string().min(1),
+  control_recipe: z.string().min(1),
+  submit_profile: z.enum(HARNESS_SUBMIT_PROFILES).optional(),
+  newline_policy: z.enum(HARNESS_NEWLINE_POLICIES).optional(),
+  open_menu_recipe: z.string().optional(),
+  effort_set_recipe: z.string().optional(),
+  relaunch_recipe: z.string().optional(),
+  notes: z.string().optional()
+}).superRefine((entry, ctx) => {
+  if (entry.verified === true && (entry.version_pin === undefined || entry.version_pin.trim() === "")) {
+    ctx.addIssue({ code: "custom", path: ["version_pin"], message: `verified entry "${entry.harness_id}" must carry the exact version_pin its recipes were verified against` });
+  }
+  if (entry.verified === false && entry.version_pin !== undefined) {
+    ctx.addIssue({ code: "custom", path: ["version_pin"], message: `unverified entry "${entry.harness_id}" must NOT carry a version_pin — an unverified recipe is never presented as pinned` });
+  }
+  if (entry.verified === false && entry.harness_version !== undefined) {
+    ctx.addIssue({ code: "custom", path: ["harness_version"], message: `unverified entry "${entry.harness_id}" must NOT carry a harness_version alias — an unverified recipe is never presented as pinned` });
+  }
+  if (entry.version_pin !== undefined && /^(latest|\*|any)$/i.test(entry.version_pin.trim())) {
+    ctx.addIssue({ code: "custom", path: ["version_pin"], message: `entry "${entry.harness_id}" version_pin must be an exact verified version, never a latest/any placeholder` });
+  }
+  if (entry.harness_version !== undefined && entry.version_pin !== undefined && entry.harness_version !== entry.version_pin) {
+    ctx.addIssue({ code: "custom", path: ["harness_version"], message: `entry "${entry.harness_id}" harness_version alias must equal version_pin` });
+  }
+});
+export type HarnessControlEntry = z.infer<typeof harnessControlEntrySchema>;
+
+/**
+ * The recipe/control surface every probe row exposes (STORY-GOVTRUTH-R4 AC3):
+ * all six fields are present on every row; a field is null when the resource
+ * entry is unverified and carries no recorded value for it.
+ */
+export interface HarnessProbeControlFields {
+  harnessId: string;              // canonical snake_case machine id
+  displayName: string;            // explicit display name from the resource entry
+  verified: boolean;              // false = recipes not verified against a live release
+  recipeVerification: "verified" | "unverified";
+  versionPin: string | null;      // read from the resource at runtime; null when unverified
+  submitProfile: SubmitProfile | null;
+  newlinePolicy: NewlinePolicy | null;
+  quitVerb: string | null;
+  modelSetRecipe: string | null;
+  controlRecipe: string | null;
+}
+
 /** EPIC-028 — delivery verification tier enum for the harness control matrix.
  * Deep-scrollback grep is primary for scrollback-capable harnesses; timed re-read
  * is a weaker second pass; behavioral (screen advanced + input-bar head absent)

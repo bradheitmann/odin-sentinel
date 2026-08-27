@@ -29,24 +29,37 @@ harness_control_matrix:
     - "FAIL-9: stray probe keystrokes into the wrong or idle pane - verify the target locator before every probe."
 
   matrix_entry_fields:
-    - harness_id
-    - version_pin           # exact version the recipes were verified against
+    - harness_id            # canonical snake_case machine id (the identity key)
+    - display_name          # explicit human-readable name; never inferred from the id
+    - verified              # true only when the recipes were verified against version_pin
+    - version_pin           # exact version the recipes were verified against; ABSENT when verified: false
     - open_menu_recipe
     - model_set_recipe
     - effort_set_recipe
     - quit_verb
     - relaunch_recipe
+    - control_recipe
+    - submit_profile
+    - newline_policy
     - notes
 
-  # EPIC-028 concrete harness entries (version-pinned, arrow-free). These carry
-  # the real data the matrix describes; `version_pin` is the canonical schema
-  # field and `harness_version` is its alias on the validateHarnessControlRecipe /
-  # holdout validator surface. The `+` floor means "verified at this release;
-  # re-verify on upgrade" — it is a real pin, not a `latest`/`any` placeholder.
+  # STORY-GOVTRUTH-R4: this resource is the SOLE SOURCE of harness recipe data.
+  # The API (odin.get_harness_probe_matrix) derives its recipe fields from these
+  # entries at runtime, and protocol/receipts/harness-probe-matrix.yaml mirrors
+  # them (a parity test fails on any drift). `version_pin` is the canonical
+  # schema field and `harness_version` is its alias on the
+  # validateHarnessControlRecipe / holdout validator surface. The `+` floor
+  # means "verified at this release; re-verify on upgrade" — it is a real pin,
+  # not a `latest`/`any` placeholder. Entries with `verified: false` carry NO
+  # version pin and are labeled unverified in API output: their recipes are
+  # recorded best-effort defaults that have NOT been verified against a live
+  # harness release.
   field_aliases:
     harness_version: version_pin   # holdout / validateHarnessControlRecipe surface
   harnesses:
     - harness_id: claude_code
+      display_name: "Claude Code"
+      verified: true
       version_pin: "2.1.170+"
       harness_version: "2.1.170+"
       quit_verb: "/exit"
@@ -59,6 +72,8 @@ harness_control_matrix:
       newline_policy: "preserve"
       notes: "FAIL-6: model/effort 'default' is GLOBAL, not per-session. Menus are driven by type-ahead slash commands or launch flags, never arrow/nav keys (unusable through cmux send-key)."
     - harness_id: droid
+      display_name: "Droid"
+      verified: true
       version_pin: "0.144.2+"
       harness_version: "0.144.2+"
       quit_verb: "/quit"
@@ -71,6 +86,8 @@ harness_control_matrix:
       newline_policy: "preserve"
       notes: "Governed readiness needs `droid mcp`; mission/high-autonomy requires --auto high. Menus via type-ahead slash commands or launch flags, never arrow/nav keys (unusable through cmux send-key)."
     - harness_id: opencode
+      display_name: "OpenCode"
+      verified: true
       version_pin: "1.17.4+"
       harness_version: "1.17.4+"
       quit_verb: "/exit"
@@ -83,6 +100,8 @@ harness_control_matrix:
       newline_policy: "preserve"
       notes: "single-Enter submit; a blind second Enter interrupts reply generation. Menus via type-ahead slash commands or launch flags, never arrow/nav keys (unusable through cmux send-key)."
     - harness_id: crush
+      display_name: "Crush"
+      verified: true
       version_pin: "0.76.0+"
       harness_version: "0.76.0+"
       quit_verb: "/q"
@@ -95,6 +114,8 @@ harness_control_matrix:
       newline_policy: "preserve"
       notes: "Alt-screen TUI with no scrollback: marker-grep is structurally unreliable; behavioral delivery verification is MANDATORY (see transport_contract.alt_screen_rule). Menus via type-ahead slash commands or launch flags, never arrow/nav keys (unusable through cmux send-key)."
     - harness_id: pi
+      display_name: "Pi"
+      verified: true
       version_pin: "0.79.6+"
       harness_version: "0.79.6+"
       quit_verb: "/exit"
@@ -106,6 +127,52 @@ harness_control_matrix:
       submit_profile: "single_line_flatten"
       newline_policy: "flatten_to_space"
       notes: "Embedded newlines machine-gun (one line per prompt; GLM-5.2/Pi 2026-06-27 incident) — flatten before single submit. Menus via type-ahead slash commands or launch flags, never arrow/nav keys (unusable through cmux send-key). Central to the single_line_flatten contract."
+    # --- Promoted (STORY-GOVTRUTH-R4): formerly code-only catalog entries. ---
+    # verified: false and NO version_pin: these recipes are recorded best-effort
+    # defaults that have never been verified against a live harness release.
+    # Promote, never delete — the eleven-harness public surface is preserved.
+    - harness_id: codex
+      display_name: "Codex"
+      verified: false
+      quit_verb: "/exit"
+      model_set_recipe: "--model <name> launch flag"
+      control_recipe: "clear-before-send: ctrl+u; quit: /exit; model via --model flag"
+      notes: "UNVERIFIED recipe defaults; verify on a disposable surface before governed use."
+    - harness_id: goose
+      display_name: "Goose"
+      verified: false
+      quit_verb: "/exit"
+      model_set_recipe: "/model <name>"
+      control_recipe: "clear-before-send: ctrl+u; quit: /exit"
+      notes: "UNVERIFIED recipe defaults; verify on a disposable surface before governed use."
+    - harness_id: openhands
+      display_name: "OpenHands"
+      verified: false
+      quit_verb: "/exit"
+      model_set_recipe: "config file or launch flag"
+      control_recipe: "clear-before-send: ctrl+u; quit: /exit"
+      notes: "UNVERIFIED recipe defaults; verify on a disposable surface before governed use."
+    - harness_id: kilocode
+      display_name: "KiloCode"
+      verified: false
+      quit_verb: "/exit"
+      model_set_recipe: "/model <name>"
+      control_recipe: "clear-before-send: ctrl+u; quit: /exit"
+      notes: "UNVERIFIED recipe defaults; verify on a disposable surface before governed use."
+    - harness_id: aider
+      display_name: "Aider"
+      verified: false
+      quit_verb: "/exit"
+      model_set_recipe: "--model <name> launch flag"
+      control_recipe: "clear-before-send: ctrl+u; quit: /exit"
+      notes: "UNVERIFIED recipe defaults; verify on a disposable surface before governed use."
+    - harness_id: nanocoder
+      display_name: "NanoCoder"
+      verified: false
+      quit_verb: "/exit"
+      model_set_recipe: "--model <name> launch flag"
+      control_recipe: "clear-before-send: ctrl+u; quit: /exit"
+      notes: "UNVERIFIED recipe defaults; verify on a disposable surface before governed use."
   submit_profile: single_line_flatten | double_enter | single_enter_verify
   newline_policy: flatten_to_space | preserve
 
