@@ -53,6 +53,24 @@ export type {
   SentinelSignal
 } from "./service.js";
 
+// STORY-GOVTRUTH-R1 — canonical role identity. Exported so direct library
+// consumers and the MCP boundary reach the SAME classification the authority
+// gates use, rather than re-deriving one per surface.
+export {
+  RATIFIED_COMMIT_ISSUER_SLOTS,
+  ROSTER_MUTATION_AUTHORITY_SLOTS,
+  canonicalRoleSlot,
+  describeRoleSlotInput,
+  hasExecutiveAuthority,
+  hasRosterMutationAuthority,
+  isHighAuthorityRole,
+  parseRoleSlot,
+  roleKindOf,
+  roleSlotsEqual
+} from "./role-identity.js";
+
+export type { ParsedRoleSlot } from "./role-identity.js";
+
 export {
   computeSurfaceLayout,
   computeSurfaceLayoutGate,

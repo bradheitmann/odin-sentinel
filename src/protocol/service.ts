@@ -5,6 +5,14 @@ import {
   type ProtocolData,
   type ProtocolRepository
 } from "./repository.js";
+import {
+  canonicalRoleSlot,
+  describeRoleSlotInput,
+  hasExecutiveAuthority,
+  hasRosterMutationAuthority,
+  isHighAuthorityRole,
+  roleKindOf
+} from "./role-identity.js";
 import { auditTargetSchema, EVIDENCE_CLASSES, govdispEventSchema, harnessControlEntrySchema, VERDICT_CLASS_ARTIFACTS } from "./schemas.js";
 import type { AuditTarget, CloseoutMode, DelegationPacketInput, EscalationGateInput, EscalationGateResult, GovdispEvent, HarnessControlEntry, MissionFrontrunInput, MissionFrontrunPack, RoleCard, StartupPacketInput } from "./schemas.js";
 import {
@@ -78,23 +86,8 @@ export function protocolPath(...segments: string[]): string {
   return getDefaultRepository().path(...segments);
 }
 
-function normalizeRoleName(role: string): string {
-  const visibleSlot = role.includes("/") ? role.split("/").at(-1) ?? role : role;
-  const normalized = visibleSlot.toUpperCase().replace(/[\s-]+/g, "_");
-  if (normalized === "ODIN") return "TEAM_ODIN";
-  // Bare team-prefixed PM slots (C/PM, D/PM) are TEAM PM seats; the exec form is
-  // always spelled EXEC-PM and never reduces to bare "PM".
-  if (normalized === "PM") return "TEAM_PM";
-  // Worker slots resolve with or without a lane number: B/QA and B/QA-1 are the
-  // same profile. Un-numbered slots are common in the field (single-lane pods).
-  if (/^DEV(_\d+)?$/.test(normalized)) return "DEV_WORKER";
-  if (/^QA(_\d+)?$/.test(normalized)) return "QA_WORKER";
-  if (/^SHADOW(_\d+)?$/.test(normalized)) return "SHADOW_REVIEWER";
-  return normalized;
-}
-
 function modelProfileKeys(role: string): string[] {
-  const normalized = normalizeRoleName(role);
+  const normalized = roleKindOf(role);
   const executiveSlot = normalized.startsWith("EXEC_") ? `A/${normalized.replaceAll("_", "-")}` : undefined;
   return [role, executiveSlot, normalized].filter((key): key is string => Boolean(key));
 }
@@ -318,12 +311,6 @@ function sourceTypeToAssurance(sourceType: unknown): AssuranceLevel {
   return "none";
 }
 
-function isHighAuthorityRole(role: string | undefined): boolean {
-  if (!role) return false;
-  const n = normalizeRoleName(role);
-  return n === "EXEC_PM" || n === "TEAM_PM" || n === "EXEC_ODIN" || n === "TEAM_ODIN";
-}
-
 /**
  * Pure shape validation of a governed-context proof (no disk access). The authoritative on-disk
  * checksum gate is scripts/protocol/verify-governed-context.mjs; this validates the structure,
@@ -491,7 +478,7 @@ export function classifyGovernedReadiness(input: GovernedReadinessInput): Govern
 }
 
 function roleKind(roleSlot: string): string {
-  return normalizeRoleName(roleSlot);
+  return roleKindOf(roleSlot);
 }
 
 function isOdinRole(role: string): boolean {
@@ -587,7 +574,7 @@ export function loadProtocolData(repository: ProtocolRepository = getDefaultRepo
 export function getRoleProfile(role: string, repository: ProtocolRepository = getDefaultRepository()): unknown {
   const data = loadProtocolData(repository);
   const roles = requireRecord(data.roles.roles, "roles.roles");
-  const normalized = normalizeRoleName(role);
+  const normalized = roleKindOf(role);
   const roleProfile = roles?.[normalized];
 
   if (!roleProfile) {
@@ -2439,10 +2426,13 @@ export function validateSuccessorContract(contract: Record<string, unknown>): Va
       warnings.push("canonical_hashes must carry the preserve-rule hashes the successor verifies against");
     }
   }
-  const authority = typeof contract.roster_mutation_authority === "string"
-    ? contract.roster_mutation_authority.toUpperCase().replace(/[\s-]+/g, "_")
-    : undefined;
-  if (authority !== undefined && authority !== "OPERATOR" && authority !== "TEAM_A_EXEC") {
+  // STORY-GOVTRUTH-R1: the third inline normalizer in this file is rehomed onto
+  // the shared slot-identity operation. This field carries an authority LABEL
+  // (`operator` / `TEAM_A_EXEC`), not a seat, so the accepted values are the
+  // canonical forms of those two labels — matched exactly, as everywhere else.
+  const authorityDeclared = contract.roster_mutation_authority !== undefined && contract.roster_mutation_authority !== null;
+  const authority = authorityDeclared ? canonicalRoleSlot(contract.roster_mutation_authority) : undefined;
+  if (authorityDeclared && authority !== "OPERATOR" && authority !== "TEAM-A-EXEC") {
     invalid.push("roster_mutation_authority");
     warnings.push("roster mutation belongs solely to the operator or a Team-A EXEC; a successor does not re-staff on its own initiative");
   }
@@ -2728,23 +2718,42 @@ export function validateCommitGate(record: Record<string, unknown>): ValidationR
   const auth = record.commit_authorization !== undefined ? asRecord(record.commit_authorization) : undefined;
   if (auth !== undefined) {
     const token = typeof auth.token === "string" ? auth.token.trim() : "";
-    const issuedBy = typeof auth.issued_by === "string" ? auth.issued_by : "";
-    const podPm = typeof record.pod_pm_lane === "string" ? record.pod_pm_lane : undefined;
-    const implementer = typeof record.implementer_lane === "string" ? record.implementer_lane : undefined;
+    // STORY-GOVTRUTH-R1: identity is decided by canonical SLOT, not by pattern.
+    // The former `/EXEC/i.test(issuedBy)` accepted EXECUTIONER and A/EXEC-PM-TRAINEE
+    // while refusing the operator's own `operator` seat.
+    const issuedBy = canonicalRoleSlot(auth.issued_by);
+    const podPm = canonicalRoleSlot(record.pod_pm_lane);
+    const implementer = canonicalRoleSlot(record.implementer_lane);
 
     if (token === "") {
       invalid.push("commit_authorization");
       warnings.push("a commit without a valid EXEC-issued authorization token is rejected under commit_gate: exec");
     }
-    if (issuedBy === "" || !/EXEC/i.test(issuedBy)) {
+    if (issuedBy === null) {
+      // AC10: an unreadable issuer is refused by name, never skipped.
       invalid.push("commit_authorization");
-      warnings.push(`authorization token issued_by "${issuedBy || "<missing>"}" is not an EXEC-layer seat — only the executive office authorizes exec-gated commits`);
+      warnings.push(`authorization token issued_by ${describeRoleSlotInput(auth.issued_by)} is not a readable role slot, so it is not an EXEC-layer seat — an empty, non-string, or unparseable issuer identity is refused, never treated as unmatched-but-proceed`);
+    } else if (!hasExecutiveAuthority(issuedBy)) {
+      invalid.push("commit_authorization");
+      warnings.push(`authorization token issued_by "${issuedBy}" is not an EXEC-layer seat — only the executive office authorizes exec-gated commits`);
     }
-    if (podPm !== undefined && issuedBy !== "" && issuedBy === podPm) {
+    // AC10: the self-issue comparisons cannot be silently skipped because a lane
+    // field is unreadable; an unreadable lane is its own named rejection.
+    if (record.pod_pm_lane !== undefined && record.pod_pm_lane !== null && podPm === null) {
+      invalid.push("pod_pm_lane");
+      warnings.push(`pod_pm_lane ${describeRoleSlotInput(record.pod_pm_lane)} is not a readable role slot — the SELF-ISSUED check cannot be evaluated against an unreadable lane`);
+    }
+    if (record.implementer_lane !== undefined && record.implementer_lane !== null && implementer === null) {
+      invalid.push("implementer_lane");
+      warnings.push(`implementer_lane ${describeRoleSlotInput(record.implementer_lane)} is not a readable role slot — the self-issue check cannot be evaluated against an unreadable lane`);
+    }
+    // AC8: canonical slot comparison, so `A/EXEC-PM` issuing as `a/exec-pm` or
+    // `A/EXEC-PM ` is still self-issue.
+    if (podPm !== null && issuedBy !== null && issuedBy === podPm) {
       invalid.push("commit_authorization");
       warnings.push("SELF-ISSUED token: a PM cannot authorize its own pod's commit — that is the exact pattern commit_gate: exec exists to prevent");
     }
-    if (implementer !== undefined && issuedBy !== "" && issuedBy === implementer) {
+    if (implementer !== null && issuedBy !== null && issuedBy === implementer) {
       invalid.push("commit_authorization");
       warnings.push("the implementer cannot issue its own commit authorization");
     }
@@ -2895,28 +2904,49 @@ export function validateAuthorityAction(action: Record<string, unknown>): Valida
   const invalid: string[] = [];
   const warnings: string[] = [];
 
-  const actor = typeof action.actor === "string" ? action.actor : "";
   const actionType = typeof action.action_type === "string"
     ? action.action_type.toUpperCase().replace(/[\s-]+/g, "_")
     : "";
-  const authorizedBy = typeof action.authorized_by === "string" ? action.authorized_by : "";
   const target = typeof action.target_slot === "string" ? action.target_slot : undefined;
+
+  // STORY-GOVTRUTH-R1: both identities resolve through the same canonical-slot
+  // primitive the commit gate uses, so the two gates cannot disagree about the
+  // same actor. The former `/^(OPERATOR|A\/)/i` prefix test granted authority to
+  // every `A/ANYTHING`.
+  const actorSlot = canonicalRoleSlot(action.actor);
+  const authorizedSlot = canonicalRoleSlot(action.authorized_by);
+  const actor = actorSlot ?? describeRoleSlotInput(action.actor);
+  const authorizedBy = authorizedSlot ?? describeRoleSlotInput(action.authorized_by);
+
+  // AC10: an unreadable identity at an authority gate is invalid input refused
+  // by name. It is never skipped and never allowed to pass as "did not match".
+  if (action.actor !== undefined && action.actor !== null && actorSlot === null) {
+    invalid.push("actor");
+    warnings.push(`actor ${describeRoleSlotInput(action.actor)} is not a readable role slot — an authority decision is never taken on an unreadable identity`);
+  }
+  if (action.authorized_by !== undefined && action.authorized_by !== null && authorizedSlot === null) {
+    invalid.push("authorized_by");
+    warnings.push(`authorized_by ${describeRoleSlotInput(action.authorized_by)} is not a readable role slot — an authority decision is never taken on an unreadable identity`);
+  }
 
   // `restaff_dead_seat` and `restaff_on_own_initiative` are the field spellings
   // for the takeover-initiated re-staff incident (RFC-v2.3 §4/§5); normalize them
   // into the roster-mutation class so the authority check actually runs.
   const rosterMutations = ["RESTAFF", "RESTAFF_DEAD_SEAT", "RESTAFF_ON_OWN_INITIATIVE", "SELF_RESTAFF", "SPAWN", "SPAWN_SIBLING", "CHANGE_MODEL", "CHANGE_HARNESS", "ROSTER_MUTATION", "RENAME_SLOT", "CLOSE_SLOT"];
   const isRosterMutation = rosterMutations.includes(actionType);
-  const authorizedIsExec = /^(OPERATOR|A\/)/i.test(authorizedBy) || /TEAM[\s_-]?A[\s_-]?EXEC/i.test(authorizedBy);
-  const actorIsExec = /^A\//i.test(actor);
+  const authorizedIsExec = hasRosterMutationAuthority(authorizedSlot);
+  const actorIsExec = hasExecutiveAuthority(actorSlot);
 
-  if (isRosterMutation) {
+  if (isRosterMutation && actorSlot !== null && authorizedSlot !== null) {
     // A roster mutation is valid only with an INDEPENDENT authorizer — the
     // operator or a Team-A EXEC other than the actor. Self-authorization is a
     // breach for EVERY role, including a taking-over EXEC (A/EXEC-ODIN): the
     // doctrine keeps the roster LOCKED on a takeover and requires report-up,
     // never a re-staff of a dead seat on the taker-over's own initiative.
-    if (authorizedBy === actor) {
+    // AC5: self-authorization is detected AFTER canonicalization, so
+    // `A/EXEC-ODIN` authorizing itself as `a/exec-odin` or `A/EXEC-ODIN ` is
+    // still self-authorization.
+    if (authorizedSlot === actorSlot) {
       invalid.push("authorized_by");
       warnings.push(
         actorIsExec

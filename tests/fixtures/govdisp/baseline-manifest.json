@@ -5,7 +5,7 @@
     "src/protocol",
     "src/mcp"
   ],
-  "file_count": 52,
+  "file_count": 53,
   "files": [
     {
       "path": "protocol/bootstrap-skill.md",
@@ -234,13 +234,18 @@
     },
     {
       "path": "src/protocol/index.ts",
-      "bytes": 1986,
-      "sha256": "706071e0454265a3c544dd557b677680495414251917dfdd9c526a7b45040ce2"
+      "bytes": 2533,
+      "sha256": "3adffd90b1412933c805f5b96df8bc1c4b7d07d909b99e86a39f50b343ae5d67"
     },
     {
       "path": "src/protocol/repository.ts",
       "bytes": 8972,
       "sha256": "cc3de5f47a183b9823182c4e62ae2a9e7480d0dfc0db87cfcfa7162bd5f0aa60"
+    },
+    {
+      "path": "src/protocol/role-identity.ts",
+      "bytes": 8830,
+      "sha256": "5012c1729d94531d770b79f3052e631317d4b3c88e91579e14990783356b211b"
     },
     {
       "path": "src/protocol/schemas.ts",
@@ -249,8 +254,8 @@
     },
     {
       "path": "src/protocol/service.ts",
-      "bytes": 235615,
-      "sha256": "b183f2fd78ea655ba32a462d4a685a0ed9b72b9dc0b354c207c54369c60e846f"
+      "bytes": 237903,
+      "sha256": "2c6accb25afb0db3831c65cf2db2615e2c7eaf37efc689c1e8426782b99f2b3b"
     },
     {
       "path": "src/protocol/surface-layout.ts",
