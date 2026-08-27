@@ -16,4 +16,32 @@ blocked_pod_rollover:
     - Rollover = a new team, never a re-staff of the blocked seat.
     - The blocked pod's state (worklist, receipts, scope) is preserved for resume.
     - Beyond F: ESCALATE_OPERATOR — no further fan-out.
+
+  # ------------------------------------------------------------------
+  # Fail-closed preconditions. Both must hold before a rollover may
+  # proceed; neither is advisory. An unmet precondition returns a
+  # NON-proceeding decision — never SPIN_NEXT_TEAM with a note appended.
+  # ------------------------------------------------------------------
+  preconditions:
+    blocked_pod_paused: true       # the blocked pod is paused BEFORE the rollover team spins
+    blocked_state_preserved: true  # worklist, receipts, and scope survive for resume
+    unmet_precondition_verdict: ESCALATE_OPERATOR
+    report_all_unmet: >-
+      Every unmet precondition is reported, not just the first. No reason string
+      asserts a state the evaluator did not require on the path that emitted it:
+      "blocked pod stays paused for resume" is reachable only from an input that
+      was verified paused.
+
+  # Decision table as enforced by odin.evaluate_blocked_pod_rollover.
+  # framed_as_restaff = true is NON-proceeding at every row, including when
+  # the preconditions hold: restaff framing is never a bypass.
+  decision_table:
+    - { framed_as_restaff: true,  paused: any,   preserved: any,   decision: ESCALATE_OPERATOR }
+    - { framed_as_restaff: false, paused: true,  preserved: true,  decision: SPIN_NEXT_TEAM }
+    - { framed_as_restaff: false, paused: true,  preserved: false, decision: ESCALATE_OPERATOR }
+    - { framed_as_restaff: false, paused: false, preserved: true,  decision: ESCALATE_OPERATOR }
+    - { framed_as_restaff: false, paused: false, preserved: false, decision: ESCALATE_OPERATOR }
+    # SPIN_NEXT_TEAM additionally requires an unused letter in the progression;
+    # exhaustion at F is ESCALATE_OPERATOR.
+
   evaluate_with: odin.evaluate_blocked_pod_rollover

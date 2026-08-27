@@ -74,8 +74,8 @@
     },
     {
       "path": "protocol/resources/blocked-pod-rollover.yaml",
-      "bytes": 975,
-      "sha256": "6dcf88685959b5bac60809588de2550e96b8987683d9a0e23a676a46920eb0c6"
+      "bytes": 2704,
+      "sha256": "7ce65e6839f60b58dbd6e095fb4bab3c7513025c217b0a5ab3dc6b99f93eaa2b"
     },
     {
       "path": "protocol/resources/commit-gate.yaml",
@@ -99,8 +99,8 @@
     },
     {
       "path": "protocol/resources/pod-bringup.yaml",
-      "bytes": 2125,
-      "sha256": "3905759ae4b1b549f7d27beb0bbb38f4179f636fbb1ebb76ec352f4e324b3fd6"
+      "bytes": 3371,
+      "sha256": "84dfea946eb3af919155b6cff4a1e70d19ec951daa1c69c3acdecfbc8f02f5cb"
     },
     {
       "path": "protocol/resources/proof-ttl.yaml",
@@ -124,8 +124,8 @@
     },
     {
       "path": "protocol/resources/step-up-ladder.yaml",
-      "bytes": 6910,
-      "sha256": "0133a2f8412099b4bf6c7df59a851a2e39368369088b5e54e982f58a965049ad"
+      "bytes": 8708,
+      "sha256": "d3b3fb4c3f79e821fa0544626acb364e513985988e7b37d74b654012599cc5f6"
     },
     {
       "path": "protocol/role-cards/crush-stability.md",
@@ -249,13 +249,13 @@
     },
     {
       "path": "src/protocol/schemas.ts",
-      "bytes": 39739,
-      "sha256": "692a5e2c8ec2bd4374ddaaca4277dd5075d10a64977736b2e06df6156bbfd2ff"
+      "bytes": 40863,
+      "sha256": "a6c9b9b2bfa98ed2b142459c2bdca3a9f72c9535c9ffc74d0afa09124690856e"
     },
     {
       "path": "src/protocol/service.ts",
-      "bytes": 242322,
-      "sha256": "9037daa482e33d68befce0dad431ddae87d93bae606cda59ac32b2a42aead087"
+      "bytes": 246733,
+      "sha256": "5b441174499863e5c3b576a7b3733694e238cbc54d4479eca47fd0736affa4c9"
     },
     {
       "path": "src/protocol/surface-layout.ts",

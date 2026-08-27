@@ -29,6 +29,22 @@ pod_bringup:
     sole_valid_trigger: TARGET_ARTIFACT_WRONG
     # The ONLY stop condition is a wrong TARGET artifact. Non-target mutations
     # are preserved, never halted on.
+    canonical_set: [TARGET_ARTIFACT_WRONG]
+    match: exact          # case-sensitive identity; no case-folding, no separator folding
+    coercion: none        # nothing is normalized, deduplicated, or filtered before the check
+    checked_against: raw_input
+    # Field origin of this strictness: a filter that dropped non-string members
+    # accepted plans nobody wrote. A malformed element is REFUSED BY NAME, never
+    # silently discarded, so a plan validates clean only if it IS the exact set.
+    rejected_shapes:
+      - absent                 # refused as a missing required field
+      - null                   # refused as a missing required field
+      - empty_array            # declares no stop condition at all
+      - bare_scalar            # a string, number, or boolean outside an array
+      - object                 # any non-array container
+      - non_string_element     # e.g. [TARGET_ARTIFACT_WRONG, 42] — refused whole, not trimmed
+      - duplicate_element      # the set carries each trigger once
+      - non_canonical_member   # any trigger outside the canonical set
 
   reject:
     - enumerated_expected_state  # any count-enumerated framing; a hook mutation turns it into a false halt
@@ -37,4 +53,6 @@ pod_bringup:
 
   validator: validateBringUpPlan
   # odin.validate_bring_up_plan enforces: capture=after_boot,
-  # framing=count_agnostic, stop_triggers=[TARGET_ARTIFACT_WRONG] only.
+  # framing=count_agnostic, and stop_triggers EXACTLY equal to
+  # [TARGET_ARTIFACT_WRONG] — every shape under rejected_shapes is refused by
+  # name in the result, with no partial acceptance and no warning-only pass.

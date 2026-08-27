@@ -14,7 +14,7 @@ import {
   roleKindOf,
   roleSlotsEqual
 } from "./role-identity.js";
-import { auditTargetSchema, EVIDENCE_CLASSES, govdispEventSchema, harnessControlEntrySchema, VERDICT_CLASS_ARTIFACTS } from "./schemas.js";
+import { auditTargetSchema, BRING_UP_STOP_TRIGGERS, EVIDENCE_CLASSES, govdispEventSchema, harnessControlEntrySchema, VERDICT_CLASS_ARTIFACTS } from "./schemas.js";
 import type { AuditTarget, CloseoutMode, DelegationPacketInput, EscalationGateInput, EscalationGateResult, GovdispEvent, HarnessControlEntry, MissionFrontrunInput, MissionFrontrunPack, RoleCard, StartupPacketInput } from "./schemas.js";
 import {
   asRecord,
@@ -2238,18 +2238,40 @@ export function evaluateEscalationGate(input: EscalationGateInput): EscalationGa
   }
 
   reasons.push(`gate failure at tier ${currentTierIndex}: ${failedGates.join(", ")}; the work is PROVEN hard — step up one tier and REWORK`);
+
+  // BUDGET_EXHAUSTED and BLOCKED are failure SIGNALS, not packet gate values:
+  // the packet's failed_gate enum carries only the three independent gates. A
+  // tier that burned its envelope or self-declared blocked without an
+  // independent verdict has no holding decisive proof, so the baton records
+  // SELF_PROOF_GAP rather than a value the packet validator would refuse.
+  const packetFailedGate = failedGates.find(
+    (gate) => (REMEDIATION_FAILED_GATES as readonly string[]).includes(gate)
+  ) ?? "SELF_PROOF_GAP";
+  const nextTier = currentTierIndex + 1;
+
   return {
     verdict: "REMEDIATE",
     failed_gates: failedGates,
-    next_tier_index: currentTierIndex + 1,
+    next_tier_index: nextTier,
     reasons,
+    // Each requirement is FIELD-IDENTIFIED: it opens with the
+    // validateRemediationPacket field it governs, and carries the gate-known
+    // value in a `[value: ...]` tail where the gate knows it. One requirement
+    // per required field, no requirement without a field — so the
+    // correspondence is checkable in both directions and an agent holding only
+    // these strings can build a packet the validator accepts. Recommended
+    // fields (attempts, original_acceptance_bar) are never emitted as
+    // requirements; they are recommendations, and stating them here would
+    // demand a field nothing requires.
     remediation_requirements: [
-      "hand the next tier the salvaged artifact (rework, never restart)",
-      "carry the exact failure reason from the failed gate",
-      "the acceptance bar is UNCHANGED across tiers",
-      `review lane = tier ${currentTierIndex + 1}'s OWN QA + holdout lane (independence travels with the DEV)`,
-      "record dead-end attempts so the next tier does not repeat them",
-      "validate the handoff with odin.validate_remediation_packet"
+      "task_ref: name the task this baton belongs to — the SAME task reference the failed tier was assigned, carried verbatim so the next tier reworks the same task",
+      `tier_index: the tier that produced the failed artifact [value: ${currentTierIndex}]`,
+      "artifact_paths: hand the next tier the salvaged artifact (rework, never restart) — a non-empty list of paths to the partial work product; an empty list is a restart and is INVALID",
+      "failure_reason: carry the exact failure reason from the failed gate — a non-empty account of what the gate found, not a paraphrase",
+      `failed_gate: the independent gate that failed, one of ${REMEDIATION_FAILED_GATES.join(" | ")} [value: ${packetFailedGate}]`,
+      "acceptance_bar: the acceptance bar is UNCHANGED across tiers — carry the original bar verbatim as a non-empty string; never soften, restate, or renegotiate it",
+      `next_tier_index: the tier receiving the baton, exactly one rung up from tier_index [value: ${nextTier}]`,
+      `review_lane_tier_index: review lane = the receiving tier's OWN QA + holdout lane (independence travels with the DEV); must equal next_tier_index [value: ${nextTier}]`
     ]
   };
 }
@@ -3062,11 +3084,20 @@ export function evaluateBlockedPodRollover(input: {
     reasons.push("REJECTED: rollover spawns a NEW team; it is never a re-staffing of the blocked seat");
     return { decision: "ESCALATE_OPERATOR", next_team_letter: null, reasons };
   }
+  // Fail closed on the preconditions, and report EVERY unmet one rather than
+  // short-circuiting on the first. An unpaused pod previously fell through to
+  // SPIN_NEXT_TEAM carrying an advisory note — a proceeding answer on state the
+  // evaluator never required. No reason emitted below asserts a state that was
+  // not checked on the path that emitted it.
+  const unmet: string[] = [];
   if (!input.blockedPodPaused) {
-    reasons.push("pause the blocked pod BEFORE spinning a rollover team");
+    unmet.push("the blocked pod is NOT paused — pause it BEFORE spinning a rollover team");
   }
   if (!input.blockedStatePreserved) {
-    reasons.push("REJECTED: the blocked pod's state must be preserved for resume");
+    unmet.push("the blocked pod's state is NOT preserved for resume");
+  }
+  if (unmet.length > 0) {
+    reasons.push(`REJECTED: rollover preconditions unmet — ${unmet.join("; ")}`);
     return { decision: "ESCALATE_OPERATOR", next_team_letter: null, reasons };
   }
   const used = new Set(input.lettersInUse.map((letter) => letter.toUpperCase()));
@@ -3267,6 +3298,55 @@ export function evaluateSpecDefectSentinel(input: {
  * the ONLY stop trigger is a wrong TARGET artifact. Enumerated expected-state
  * framing is rejected because any hook-side mutation turns it into a false halt.
  */
+/** Name the shape of a rejected `stop_triggers` value without printing it raw. */
+function describeStopTriggerShape(raw: unknown): string {
+  if (raw === null) return "null";
+  if (Array.isArray(raw)) return `an array of ${raw.length}`;
+  if (typeof raw === "object") return "an object";
+  return `a bare ${typeof raw}`;
+}
+
+/**
+ * Refuse any `stop_triggers` value that is not EXACTLY the canonical set, and
+ * name the reason. Checked against the raw input: nothing is normalized,
+ * deduplicated, or filtered first. Coercion is precisely what made this
+ * validator fail open — a filter that drops the malformed elements accepts a
+ * plan the operator never wrote. Returns null when the value is canonical.
+ */
+function refuseStopTriggers(raw: unknown): string | null {
+  const canonical = BRING_UP_STOP_TRIGGERS.join(", ");
+  const tail = "the ONLY stop condition is a wrong TARGET artifact; non-target mutations are preserved, never halted on";
+
+  if (!Array.isArray(raw)) {
+    return `stop_triggers must be the exact array [${canonical}]; received ${describeStopTriggerShape(raw)} — a non-array value is refused, never coerced. ${tail}`;
+  }
+
+  const nonString = raw.findIndex((entry) => typeof entry !== "string");
+  if (nonString !== -1) {
+    return `stop_triggers[${nonString}] is a ${typeof raw[nonString]}, not a string — a malformed element is refused, never discarded. ${tail}`;
+  }
+
+  const entries = raw as string[];
+  const seen = new Set<string>();
+  for (const entry of entries) {
+    if (seen.has(entry)) {
+      return `stop_triggers repeats "${entry}"; the stop-trigger set is exactly [${canonical}] with no duplicates. ${tail}`;
+    }
+    seen.add(entry);
+  }
+
+  const foreign = entries.find((entry) => !(BRING_UP_STOP_TRIGGERS as readonly string[]).includes(entry));
+  if (foreign !== undefined) {
+    return `"${foreign}" is not a valid stop trigger — membership is exact, case-sensitive identity against [${canonical}]. ${tail}`;
+  }
+
+  if (entries.length !== BRING_UP_STOP_TRIGGERS.length) {
+    return `stop_triggers must be exactly [${canonical}]; received an array of ${entries.length}. An empty list declares no stop condition at all. ${tail}`;
+  }
+
+  return null;
+}
+
 export function validateBringUpPlan(plan: Record<string, unknown>): ValidationResult {
   const missing = validateRequiredFields(plan, ["ground_truth_capture", "preserve_framing", "stop_triggers"]);
   const invalid: string[] = [];
@@ -3286,17 +3366,14 @@ export function validateBringUpPlan(plan: Record<string, unknown>): ValidationRe
     warnings.push("use count-agnostic preserve framing (preserve ALL non-target dirty/untracked, whatever the count); enumerated expected-state breaks the moment a hook archives one more file");
   }
 
-  const triggers = Array.isArray(plan.stop_triggers)
-    ? (plan.stop_triggers as unknown[]).filter((v): v is string => typeof v === "string") : [];
-  for (const trigger of triggers) {
-    const upper = trigger.toUpperCase().replace(/[\s-]+/g, "_");
-    if (upper !== "TARGET_ARTIFACT_WRONG") {
+  // Absent and null are already refused by name through `missing`; every other
+  // shape is refused here against the RAW value, before any mutation.
+  if (plan.stop_triggers !== undefined && plan.stop_triggers !== null) {
+    const refusal = refuseStopTriggers(plan.stop_triggers);
+    if (refusal !== null) {
       invalid.push("stop_triggers");
-      warnings.push(`"${trigger}" is not a valid stop trigger — the ONLY stop condition is a wrong TARGET artifact; non-target mutations are preserved, never halted on`);
+      warnings.push(refusal);
     }
-  }
-  if (triggers.length === 0 && plan.stop_triggers !== undefined) {
-    warnings.push("declare TARGET_ARTIFACT_WRONG as the stop trigger");
   }
 
   return buildValidationResult(missing, invalid, warnings);

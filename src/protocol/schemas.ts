@@ -785,6 +785,27 @@ export interface QaTimeoutPolicy {
 }
 
 // ---------------------------------------------------------------------------
+// EPIC-025 / STORY-GOVTRUTH-R3 — pod bring-up plan input shape.
+// Doctrine: protocol/resources/pod-bringup.yaml. `stop_triggers` is an EXACT
+// set checked against the RAW input: the sole valid stop condition is a wrong
+// TARGET artifact. Membership is case-sensitive identity — nothing is
+// normalized, deduplicated, or filtered, because coercing a malformed element
+// away is what let a plan the operator never wrote validate clean.
+// ---------------------------------------------------------------------------
+
+export const BRING_UP_STOP_TRIGGERS = ["TARGET_ARTIFACT_WRONG"] as const;
+export type BringUpStopTrigger = (typeof BRING_UP_STOP_TRIGGERS)[number];
+
+export const bringUpPlanShape = {
+  ground_truth_capture: z.literal("after_boot"),
+  preserve_framing: z.literal("count_agnostic"),
+  stop_triggers: z.array(z.enum(BRING_UP_STOP_TRIGGERS)).length(BRING_UP_STOP_TRIGGERS.length)
+} as const;
+
+export const bringUpPlanSchema = z.object(bringUpPlanShape).strict();
+export type BringUpPlan = z.infer<typeof bringUpPlanSchema>;
+
+// ---------------------------------------------------------------------------
 // STORY-GOVTRUTH-R4 — harness control matrix single source of truth.
 // protocol/resources/harness-control-matrix.yaml is the SOLE source of harness
 // recipe data; the API derives probe-row recipe fields from it at runtime.

@@ -113,6 +113,34 @@ step_up_ladder:
       - budget_spent
       - original_acceptance_bar # when present, must be byte-identical to acceptance_bar
 
+    # ------------------------------------------------------------------
+    # Requirement-to-field correspondence. The REMEDIATE verdict emits one
+    # requirement per REQUIRED field above, and no requirement without a
+    # field — so an agent holding only the requirement strings can build a
+    # packet the validator accepts, without knowledge from anywhere else.
+    # ------------------------------------------------------------------
+    requirement_format:
+      shape: "<field_name>: <prose> [value: <gate-known value>]"
+      field_identified: true    # the governed field opens the string; prose never carries it alone
+      value_tail: >-
+        Present only where the gate itself knows the value (tier_index,
+        failed_gate, next_tier_index, review_lane_tier_index). The remaining
+        fields carry the failing tier's own data.
+      recommended_fields_emitted: false
+      # Recommended fields are recommendations. Emitting one as a requirement
+      # would demand a field nothing requires, which is how prose requirements
+      # drifted from the enforced set in the first place.
+      procedural_instructions_emitted: false
+      # "Validate the handoff with the tool" is procedure, not a field. It maps
+      # to nothing in the packet and is not carried as a requirement.
+      parity: bidirectional
+      # required_fields above and the REMEDIATE requirement strings are one
+      # correspondence, checked in BOTH directions: every required field is
+      # named by a requirement, and every requirement names a required field.
+      # validateRemediationPacket loads required_fields from THIS file at
+      # runtime while the gate is repository-less, so editing this list without
+      # updating the gate — or the gate without this list — fails the suite.
+
   recipe_capture:
     binding: odin://protocol/recipe-capture
     rule: >-
