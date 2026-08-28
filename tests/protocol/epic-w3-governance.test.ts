@@ -341,10 +341,11 @@ describe("evaluateOversizedSliceSentinel", () => {
 
 // EPIC-031 / S-031.2 — QA_WINDOW_TOO_SMALL per-sentinel façade.
 describe("evaluateQaTimeoutSentinel", () => {
-  it("fires QA_WINDOW_TOO_SMALL for a flat timeout on a large review", () => {
+  it("fires QA_WINDOW_TOO_SMALL when the ceiling binds on a large review", () => {
     const signal = evaluateQaTimeoutSentinel({
-      timeout_config: { base_seconds: 120, per_file_seconds: 0, max_seconds: 120 },
-      review_file_count: 40
+      timeout_config: { base_seconds: 600, per_file_seconds: 30, max_seconds: 600 },
+      review_file_count: 40,
+      slice_ref: "SLICE-TEST-003"
     });
     expect(signal).not.toBeNull();
     expect(signal?.classification).toBe("QA_WINDOW_TOO_SMALL");

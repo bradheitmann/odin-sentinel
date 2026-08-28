@@ -14,7 +14,7 @@ import {
   roleKindOf,
   roleSlotsEqual
 } from "./role-identity.js";
-import { auditTargetSchema, BRING_UP_STOP_TRIGGERS, EVIDENCE_CLASSES, govdispEventSchema, harnessControlEntrySchema, VERDICT_CLASS_ARTIFACTS } from "./schemas.js";
+import { auditTargetSchema, BRING_UP_STOP_TRIGGERS, EVIDENCE_CLASSES, govdispEventSchema, harnessControlEntrySchema, isUsableSeconds, normalizeSentinelIdentifier, parseQaTimeoutPolicy, parseReviewFileCount, VERDICT_CLASS_ARTIFACTS } from "./schemas.js";
 import type { AuditTarget, CloseoutMode, DelegationPacketInput, EscalationGateInput, EscalationGateResult, GovdispEvent, HarnessControlEntry, MissionFrontrunInput, MissionFrontrunPack, RoleCard, StartupPacketInput } from "./schemas.js";
 import {
   asRecord,
@@ -3133,11 +3133,16 @@ export function evaluateSliceHealth(input: {
 }): SliceHealthSignal[] {
   const signals: SliceHealthSignal[] = [];
 
+  // STORY-GOVTRUTH-R5: an event whose identifier is empty or absent is skipped,
+  // not defaulted. A signal reading "this slice is too big" that cannot say
+  // WHICH slice is not a finding — it is noise wearing a finding's shape.
   const dnfBySlice = new Map<string, Set<string>>();
   for (const event of input.dnfEvents ?? []) {
-    const agents = dnfBySlice.get(event.slice_ref) ?? new Set<string>();
+    const sliceRef = normalizeSentinelIdentifier(event.slice_ref);
+    if (sliceRef === null) continue;
+    const agents = dnfBySlice.get(sliceRef) ?? new Set<string>();
     agents.add(event.agent);
-    dnfBySlice.set(event.slice_ref, agents);
+    dnfBySlice.set(sliceRef, agents);
   }
   for (const [sliceRef, agents] of dnfBySlice) {
     if (agents.size >= 2) {
@@ -3153,9 +3158,11 @@ export function evaluateSliceHealth(input: {
 
   const writesByPath = new Map<string, Set<string>>();
   for (const write of input.prohibitedPathWrites ?? []) {
-    const agents = writesByPath.get(write.path) ?? new Set<string>();
+    const path = normalizeSentinelIdentifier(write.path);
+    if (path === null) continue;
+    const agents = writesByPath.get(path) ?? new Set<string>();
     agents.add(write.agent);
-    writesByPath.set(write.path, agents);
+    writesByPath.set(path, agents);
   }
   for (const [path, agents] of writesByPath) {
     if (agents.size >= 2) {
@@ -3170,12 +3177,17 @@ export function evaluateSliceHealth(input: {
   }
 
   const qa = input.qaReview;
-  if (qa !== undefined && qa.flat_timeout_seconds !== undefined) {
+  const qaSliceRef = qa === undefined ? null : normalizeSentinelIdentifier(qa.slice_ref);
+  // STORY-GOVTRUTH-R5: the window must be a real measurement before it is
+  // rendered into operator-facing text. A zero or negative `flat_timeout_seconds`
+  // is not a pathological window, it is an absent one, and no `0s`/`-Ns` window
+  // string is ever emitted.
+  if (qa !== undefined && qaSliceRef !== null && isUsableSeconds(qa.flat_timeout_seconds)) {
     const basis = qa.sized_for_file_count ?? 1;
     if (qa.reviewed_file_count >= basis * 3) {
       signals.push({
         sentinel_id: "QA_WINDOW_TOO_SMALL",
-        slice_ref: qa.slice_ref,
+        slice_ref: qaSliceRef,
         classification: "the window is wrong, not the reviewer",
         recommended_response: "scale the window (base_seconds + per_file_seconds, capped at max_seconds), then re-dispatch",
         details: `flat ${qa.flat_timeout_seconds}s window sized for ~${basis} files applied to a ${qa.reviewed_file_count}-file review`
@@ -3205,7 +3217,10 @@ export function evaluateOversizedSliceSentinel(input: {
   slice_ref?: unknown;
   dnf_agents?: unknown;
 }): SentinelSignal | null {
-  const sliceRef = typeof input.slice_ref === "string" ? input.slice_ref : "";
+  // STORY-GOVTRUTH-R5: identifiers get the same treatment the agent list below
+  // already gets — trim, then require non-empty. Absent means decline.
+  const sliceRef = normalizeSentinelIdentifier(input.slice_ref);
+  if (sliceRef === null) return null;
   const agents = Array.isArray(input.dnf_agents)
     ? input.dnf_agents.filter((agent): agent is string => typeof agent === "string" && agent.trim() !== "")
     : [];
@@ -3225,25 +3240,41 @@ export function evaluateOversizedSliceSentinel(input: {
 
 /**
  * EPIC-031 per-sentinel façade (holdout input shape
- * { timeout_config: { base_seconds, per_file_seconds, max_seconds }, review_file_count }).
- * Fires QA_WINDOW_TOO_SMALL when a FLAT window (per_file_seconds <= 0) is applied
- * to a review materially larger than the sizing basis; returns null once the
- * window scales with review size (per_file_seconds > 0). max_seconds caps the
- * scaled window but does not itself trigger the sentinel.
+ * { timeout_config: { base_seconds, per_file_seconds, max_seconds }, review_file_count,
+ * slice_ref }).
+ *
+ * STORY-GOVTRUTH-R5 — fail-closed. Insufficient or invalid input returns null:
+ * an absent, empty, partial, non-numeric, zero, negative, or incoherent
+ * (`max_seconds < base_seconds`) policy is NOT a measurement of a tiny window,
+ * and an absent `slice_ref` is not an excuse to invent one. Nothing is coerced
+ * to a default.
+ *
+ * Given a fully valid policy, the sentinel fires when the CEILING BINDS —
+ * `base_seconds + per_file_seconds * review_file_count > max_seconds` — because
+ * the reviewer then receives a window capped at `max_seconds` that cannot grow
+ * with the review, however generous the per-file rate looks on paper. The
+ * degenerate `max_seconds == base_seconds` policy is coherent and valid, and is
+ * exactly such a window. Once the ceiling leaves room for the scaled window,
+ * the sentinel is silent. `max_seconds` is strictly positive, so no zero or
+ * negative window is ever rendered.
+ *
+ * ADVISORY-ONLY, unchanged: a PM-bound SURFACE_TO_PM signal that never blocks.
  */
 export function evaluateQaTimeoutSentinel(input: {
   timeout_config?: unknown;
   review_file_count?: unknown;
+  slice_ref?: unknown;
 }): SentinelSignal | null {
-  const cfg = input.timeout_config && typeof input.timeout_config === "object" && !Array.isArray(input.timeout_config)
-    ? (input.timeout_config as Record<string, unknown>)
-    : {};
-  const perFile = typeof cfg.per_file_seconds === "number" ? cfg.per_file_seconds : 0;
-  const base = typeof cfg.base_seconds === "number" ? cfg.base_seconds : 0;
-  const count = typeof input.review_file_count === "number" ? input.review_file_count : 0;
-  if (perFile > 0) return null;
+  const sliceRef = normalizeSentinelIdentifier(input.slice_ref);
+  if (sliceRef === null) return null;
+  const policy = parseQaTimeoutPolicy(input.timeout_config);
+  if (policy === null) return null;
+  const count = parseReviewFileCount(input.review_file_count);
+  if (count === null) return null;
+  const scaledWindow = policy.base_seconds + policy.per_file_seconds * count;
+  if (scaledWindow <= policy.max_seconds) return null;
   const signal = evaluateSliceHealth({
-    qaReview: { slice_ref: "qa-review", reviewed_file_count: count, flat_timeout_seconds: base, sized_for_file_count: 1 }
+    qaReview: { slice_ref: sliceRef, reviewed_file_count: count, flat_timeout_seconds: policy.max_seconds, sized_for_file_count: 1 }
   }).find((s) => s.sentinel_id === "QA_WINDOW_TOO_SMALL");
   if (!signal) return null;
   return {
@@ -3266,7 +3297,10 @@ export function evaluateSpecDefectSentinel(input: {
   prohibited_path?: unknown;
   convergent_agents?: unknown;
 }): SentinelSignal | null {
-  const path = typeof input.prohibited_path === "string" ? input.prohibited_path : "";
+  // STORY-GOVTRUTH-R5: no path, no finding. The `""` coercion that used to sit
+  // here emitted a fully actionable SPEC_DEFECT naming no artifact.
+  const path = normalizeSentinelIdentifier(input.prohibited_path);
+  if (path === null) return null;
   const agents = Array.isArray(input.convergent_agents)
     ? input.convergent_agents.filter((agent): agent is string => typeof agent === "string" && agent.trim() !== "")
     : [];

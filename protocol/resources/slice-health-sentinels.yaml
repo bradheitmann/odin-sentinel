@@ -14,14 +14,22 @@ slice_health_sentinels:
         A slice that DNF'd two different agents at the timeout closed in a
         fraction of the window once the residual gap was scoped down.
     QA_WINDOW_TOO_SMALL:
-      trigger: a flat QA timeout is applied to a review materially larger than the sizing basis
+      trigger: the ceiling binds — base_seconds + per_file_seconds * reviewed files
+        exceeds max_seconds, so the window applied to the review is capped at
+        max_seconds and cannot grow with the review
       classification: the window is wrong, not the reviewer
       recommended_response: scale the window (base + per-file), then re-dispatch
       timeout_shape:
         base_seconds: floor for any review
         per_file_seconds: linear growth with reviewed-file count
-        max_seconds: hard ceiling
-      migration: a legacy flat value is treated as base_seconds with per_file_seconds 0
+        max_seconds: hard ceiling — read by the sentinel, not decorative
+      degenerate_case: >-
+        max_seconds == base_seconds is a coherent, VALID policy and is exactly a
+        flat window: the ceiling equals the floor, so the window never scales.
+      migration: >-
+        A legacy flat value is NOT a policy. It cannot be treated as base_seconds
+        with per_file_seconds 0, because zero is invalid input under
+        input_hygiene below. Supply all three fields, or the sentinel declines.
     SPEC_DEFECT:
       trigger: two or more INDEPENDENT agents converge on writing the SAME WRITE-PROHIBITED path
       classification: unsatisfiable acceptance criteria until proven otherwise —
@@ -29,6 +37,30 @@ slice_health_sentinels:
       recommended_response: SURFACE_TO_PM for spec review/amendment before any retry
       caveat: false positives are possible; the PM investigates, the sentinel never auto-fails
       single_agent_rule: one agent touching a prohibited path is a scope violation, not this sentinel
+
+  # STORY-GOVTRUTH-R5 — fail-closed input hygiene. These sentinels are advisory,
+  # so their credibility is their entire value: a finding that describes nothing
+  # teaches the operator to ignore the channel meant to warn them.
+  input_hygiene:
+    principle: a sentinel that was told nothing says nothing — insufficient input
+      yields NO finding, never a default-shaped one
+    no_coercion: no absent field is defaulted; there is no defensible default for
+      "no policy was supplied"
+    identifiers:
+      rule: non_empty_after_trim
+      applies_to: [slice_ref, prohibited_path]
+      effect: an empty or absent identifier yields null (or omits the affected
+        event); the sentinel never invents a placeholder reference
+    timeout_policy:
+      required_together: [base_seconds, per_file_seconds, max_seconds]
+      each_field: finite and STRICTLY positive (> 0) — zero and negative are
+        invalid input, not measurements
+      coherence_rule: max_seconds_gte_base_seconds
+      invalid_input_yields: null on a direct library call; a NAMED validation
+        rejection at the MCP boundary
+      operator_text: no zero or negative window is ever rendered into a message
+    authority: unchanged — input hygiene reduces what enters the finding-ownership
+      lifecycle; it grants no sentinel any blocking power
 
   evaluate_with: odin.evaluate_slice_health
   # EPIC-031 per-sentinel façades (holdout input shapes) over the aggregate.

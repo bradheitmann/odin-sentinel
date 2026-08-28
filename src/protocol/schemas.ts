@@ -908,25 +908,111 @@ export const harnessControlRecipeInputShape = {
   version_pin: z.string().optional()
 } as const;
 
+// STORY-GOVTRUTH-R5 — sentinel input hygiene. The rules below are named and
+// defined ONCE here, then consumed by BOTH the runtime guards in service.ts and
+// the Zod shapes below, so the MCP boundary and a direct library call cannot
+// drift apart. A sentinel that was told nothing says nothing; a sentinel that
+// was told something incoherent refuses by name. Neither ever coerces to a
+// default — there is no defensible default for "no policy was supplied".
+
+/** Named coherence rule: a ceiling below the floor is an incoherent policy. */
+export const TIMEOUT_POLICY_COHERENCE_RULE = "max_seconds_gte_base_seconds";
+export const TIMEOUT_POLICY_COHERENCE_MESSAGE =
+  `${TIMEOUT_POLICY_COHERENCE_RULE}: timeout_config.max_seconds must be >= timeout_config.base_seconds — a ceiling below the floor is an incoherent timeout policy`;
+
+/** Named identifier rule: an identifier is the whole point of a finding. */
+export const SENTINEL_IDENTIFIER_RULE = "non_empty_after_trim";
+export const SENTINEL_IDENTIFIER_MESSAGE =
+  `${SENTINEL_IDENTIFIER_RULE}: identifier must be non-empty after trimming — a signal carrying an empty reference is not actionable`;
+
+/** A fully validated QA-timeout policy. Every field is finite and > 0. */
+export interface QaTimeoutPolicy {
+  base_seconds: number;
+  per_file_seconds: number;
+  max_seconds: number;
+}
+
+/**
+ * A usable seconds field: present, numeric, finite, and STRICTLY positive.
+ * "Nonnegative" would admit 0, and a zero window is exactly the fabricated
+ * measurement this rule exists to remove.
+ */
+export function isUsableSeconds(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
+/** The `max >= base` coherence rule, named by TIMEOUT_POLICY_COHERENCE_RULE. */
+export function isCoherentTimeoutPolicy(baseSeconds: number, maxSeconds: number): boolean {
+  return maxSeconds >= baseSeconds;
+}
+
+/** The identifier rule, named by SENTINEL_IDENTIFIER_RULE. */
+export function isNonEmptyIdentifier(value: unknown): value is string {
+  return typeof value === "string" && value.trim() !== "";
+}
+
+/** Trimmed identifier, or null when absent/blank. Never invents a value. */
+export function normalizeSentinelIdentifier(value: unknown): string | null {
+  return isNonEmptyIdentifier(value) ? value.trim() : null;
+}
+
+/**
+ * Parse an untrusted timeout policy into either a fully validated value or
+ * null. Absent, empty, non-object, partially specified, non-numeric, NaN,
+ * Infinity, zero, negative, and incoherent (`max < base`) inputs are all
+ * INSUFFICIENT OR INVALID INPUT and yield null — never a defaulted policy.
+ */
+export function parseQaTimeoutPolicy(value: unknown): QaTimeoutPolicy | null {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return null;
+  const cfg = value as Record<string, unknown>;
+  const base = cfg.base_seconds;
+  const perFile = cfg.per_file_seconds;
+  const max = cfg.max_seconds;
+  if (!isUsableSeconds(base) || !isUsableSeconds(perFile) || !isUsableSeconds(max)) return null;
+  if (!isCoherentTimeoutPolicy(base, max)) return null;
+  return { base_seconds: base, per_file_seconds: perFile, max_seconds: max };
+}
+
+/** A reviewed-file count: finite, integral, non-negative. Absent yields null. */
+export function parseReviewFileCount(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) return null;
+  return value;
+}
+
+/** Identifier field: rejects the empty (or whitespace-only) string by name. */
+const sentinelIdentifierSchema = z.string().refine(isNonEmptyIdentifier, {
+  message: SENTINEL_IDENTIFIER_MESSAGE
+});
+
+/**
+ * A seconds field. In zod v4 `z.number()` already rejects NaN and Infinity;
+ * `.positive()` supplies the strictly-positive half of `isUsableSeconds`.
+ */
+const timeoutSecondsSchema = z.number().positive();
+
 /** evaluateOversizedSliceSentinel({ slice_ref, dnf_agents }). */
 export const oversizedSliceSentinelInputShape = {
-  slice_ref: z.string(),
+  slice_ref: sentinelIdentifierSchema,
   dnf_agents: z.array(z.string()).optional()
 } as const;
 
-/** evaluateQaTimeoutSentinel({ timeout_config, review_file_count }). */
+/** evaluateQaTimeoutSentinel({ timeout_config, review_file_count, slice_ref }). */
 export const qaTimeoutSentinelInputShape = {
   timeout_config: z.object({
-    base_seconds: z.number().optional(),
-    per_file_seconds: z.number().optional(),
-    max_seconds: z.number().optional()
-  }).optional(),
-  review_file_count: z.number().int().min(0).optional()
+    base_seconds: timeoutSecondsSchema,
+    per_file_seconds: timeoutSecondsSchema,
+    max_seconds: timeoutSecondsSchema
+  }).refine(
+    (cfg) => isCoherentTimeoutPolicy(cfg.base_seconds, cfg.max_seconds),
+    { message: TIMEOUT_POLICY_COHERENCE_MESSAGE, path: ["max_seconds"] }
+  ).optional(),
+  review_file_count: z.number().int().min(0).optional(),
+  slice_ref: sentinelIdentifierSchema.optional()
 } as const;
 
 /** evaluateSpecDefectSentinel({ prohibited_path, convergent_agents }). */
 export const specDefectSentinelInputShape = {
-  prohibited_path: z.string().optional(),
+  prohibited_path: sentinelIdentifierSchema.optional(),
   convergent_agents: z.array(z.string()).optional()
 } as const;
 

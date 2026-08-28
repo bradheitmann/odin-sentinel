@@ -119,8 +119,8 @@
     },
     {
       "path": "protocol/resources/slice-health-sentinels.yaml",
-      "bytes": 2179,
-      "sha256": "f6b1f5cf3325c66f18cdb157e802598be44b540e4e013a10e5da349ec05f237b"
+      "bytes": 4030,
+      "sha256": "58ca85456dd255f6109f2103501e99b1c5abf96eab63176f3d88a2cf7d1542b7"
     },
     {
       "path": "protocol/resources/step-up-ladder.yaml",
@@ -249,13 +249,13 @@
     },
     {
       "path": "src/protocol/schemas.ts",
-      "bytes": 40863,
-      "sha256": "a6c9b9b2bfa98ed2b142459c2bdca3a9f72c9535c9ffc74d0afa09124690856e"
+      "bytes": 44968,
+      "sha256": "099af874b22094b8468944dd27bc590884eb22684fca5e67d1d6ef80a5442457"
     },
     {
       "path": "src/protocol/service.ts",
-      "bytes": 246733,
-      "sha256": "5b441174499863e5c3b576a7b3733694e238cbc54d4479eca47fd0736affa4c9"
+      "bytes": 248668,
+      "sha256": "6891ecf1f03eb85f11efd2c007a39686f3f85f340fb28c885ee3debf60df7102"
     },
     {
       "path": "src/protocol/surface-layout.ts",
