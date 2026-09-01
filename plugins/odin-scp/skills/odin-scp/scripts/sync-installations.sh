@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MASTER="${SCP_SKILL_MASTER:-${HOME}/.agents/skills/odin-scp}"
+# Master resolution is STRUCTURAL: this script lives inside the skill directory
+# it propagates, so the default master is that directory itself — resolved from
+# the script's own location, never from a machine-local path that can silently
+# fall behind the repository. SCP_SKILL_MASTER remains an explicit override.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+DEFAULT_MASTER="$(cd "${SCRIPT_DIR}/.." && pwd -P)"
+MASTER="${SCP_SKILL_MASTER:-${DEFAULT_MASTER}}"
 VERIFY_ONLY=false
 DRY_RUN=false
 REPORT_PATH=""
@@ -14,8 +20,21 @@ Syncs the master odin-scp skill to runtime copies and
 verifies required markers. --verify-only checks current copies without writing.
 --dry-run previews rsync changes without writing.
 
+Master resolution: the default master is the skill directory CONTAINING this
+script (the repository checkout when run from the repository). The script only
+reads master and writes targets; a target that resolves to the same directory
+as master is skipped, so nothing ever writes back into master.
+
+Verify the master link is intact (run from anywhere):
+  bash <skill-dir>/scripts/sync-installations.sh --verify-only
+With SCP_SKILL_MASTER unset, the reported "master:" line must name <skill-dir>
+itself and the reported "skill_sha256:" must equal
+  shasum -a 256 <skill-dir>/SKILL.md
+If either differs, the structural link is broken and no sync should be run.
+
 Environment overrides:
-  SCP_SKILL_MASTER        Master skill directory. Defaults to ~/.agents/skills/odin-scp
+  SCP_SKILL_MASTER        Master skill directory override. Defaults to the
+                          skill directory containing this script.
   SCP_SKILL_TARGETS_FILE  Optional newline-delimited native target directory list.
   SCP_ADAPTER_TARGETS_FILE Optional newline-delimited adapter file list.
 USAGE
@@ -70,6 +89,7 @@ emit() {
 }
 
 TARGETS=(
+  "${HOME}/.agents/skills/odin-scp"
   "${HOME}/.codex/skills/odin-scp"
   "${HOME}/.claude/skills/odin-scp"
   "${HOME}/.config/goose/skills/odin-scp"
@@ -155,6 +175,7 @@ if [[ ! -f "$MASTER/SKILL.md" ]]; then
   echo "missing master SKILL.md: $MASTER/SKILL.md" >&2
   exit 1
 fi
+MASTER_REAL="$(cd "$MASTER" && pwd -P)"
 
 for marker in "${MARKERS[@]}"; do
   grep -Fq "$marker" "$MASTER/SKILL.md" || {
@@ -184,6 +205,10 @@ fi
 if [[ "$VERIFY_ONLY" == false ]]; then
   for target in "${TARGETS[@]}"; do
     mkdir -p "$target"
+    if [[ "$(cd "$target" && pwd -P)" == "$MASTER_REAL" ]]; then
+      emit "skipping target that resolves to master (nothing ever writes back into master): $target"
+      continue
+    fi
     if [[ "$DRY_RUN" == true ]]; then
       emit "DRY-RUN target: $target"
       rsync "${rsync_args[@]}" "$MASTER/" "$target/" | while IFS= read -r line; do
@@ -211,10 +236,6 @@ for target in "${TARGETS[@]}"; do
   fi
 done
 
-if [[ "$hash_mismatch" == true && "$DRY_RUN" == false ]]; then
-  exit 1
-fi
-
 mode="sync"
 if [[ "$VERIFY_ONLY" == true ]]; then
   mode="verify-only"
@@ -222,7 +243,11 @@ elif [[ "$DRY_RUN" == true ]]; then
   mode="dry-run"
 fi
 
-emit "SCP skill sync verified"
+if [[ "$hash_mismatch" == true ]]; then
+  emit "SCP skill sync found hash mismatches"
+else
+  emit "SCP skill sync verified"
+fi
 emit "mode: $mode"
 emit "master: $MASTER"
 emit "skill_sha256: $master_hash"
@@ -230,4 +255,8 @@ emit "native_targets: ${#TARGETS[@]}"
 emit "adapter_targets: ${#ADAPTERS[@]}"
 if [[ -n "$REPORT_PATH" ]]; then
   emit "report: $REPORT_PATH"
+fi
+
+if [[ "$hash_mismatch" == true && "$DRY_RUN" == false ]]; then
+  exit 1
 fi

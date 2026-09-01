@@ -17,6 +17,10 @@ MCP server.
 
 Public repo, npm package, plugin, bootstrap skill, templates, and docs must be updated together when public protocol semantics change. Private local skill copies may differ intentionally, but release checks must not depend on private local paths. Governed team mode requires CMUX; without CMUX, ODIN may still expose MCP resources and validation tools, but the visible team-management experience is not active governed mode. MCP supplies tools/resources; native skills improve automatic invocation; plugin install paths may package both; full prompt injection is fallback only.
 
+<!-- BEGIN SCP-AMENDMENT GOVEDGE-DEPENDENCY-AUDIT -->
+**Doctrine amendment (GOVEDGE-DEPENDENCY-AUDIT): fail-closed dependency audit on the publish path (source: STORY-GOVTRUTH-R6).** The publish path carries a fail-closed dependency audit with severity floor `high`: the repository's `validate` chain runs the audit gate, and `prepublishOnly` runs `validate`, so a tree carrying an unaccepted high-severity advisory cannot be published. Every accepted advisory is recorded in a reviewed exception manifest carrying an owner, an expiry, and a rationale per entry; the manifest is validated BEFORE the audit runs, and a malformed, expired, or over-horizon entry fails the gate on its own, whether or not the advisory it names is present in the tree.
+<!-- END SCP-AMENDMENT GOVEDGE-DEPENDENCY-AUDIT -->
+
 ## Principles
 
 - Visible role slots are the audit surface.
@@ -24,10 +28,19 @@ Public repo, npm package, plugin, bootstrap skill, templates, and docs must be u
 - PM roles coordinate delivery but do not own ODIN oversight.
 - Worker roles implement bounded scope and produce evidence.
 - QA roles verify independently and do not accept their own work.
+- Closure independence and identity comparisons are machine-enforced and fail-closed, with named refusals.
 - Handoffs, closeout, and restart packets must be explicit.
 - Secrets are never printed or embedded in receipts.
 - Delegation is native to the server and must not require an external extension.
 - Staffing and surface custodianship are the sole authority of A/EXEC-PM.
+
+<!-- BEGIN SCP-AMENDMENT GOVEDGE-CLOSURE-INDEPENDENCE -->
+**Doctrine amendment (GOVEDGE-CLOSURE-INDEPENDENCE): closure independence is machine-enforced (source: STORY-GOVTRUTH-R2; qa-independence resource).** Closure independence is not an honor-system rule: `odin.validate_closure_independence` actively checks every closure claim and fails closed. The `SLICE_QA_PASS` and `HOLDOUT_ACCEPTED` verdicts must be emitted by two canonically DISTINCT seats; one seat signing both verification lanes is refused as `CLOSURE_LANE_COLLAPSE`, because the receipt would claim two independent verifications where only one party ever examined the work. A verdict emitted by the implementer's own lane is refused as `CLOSURE_SELF_REVIEW`; a verdict emitted by the closing authority's lane is refused as `CLOSURE_SELF_ASSERTION`; a verdict whose `emitted_by` is not a readable canonical slot (absent, null, empty, whitespace-only, or outside the canonical alphabet) is refused as `EMITTER_IDENTITY_INVALID`; an `implementer_lane` or `closing_authority` that is present but not a readable slot is refused as `CLOSURE_PARTY_IDENTITY_INVALID`, because the independence comparison itself cannot be trusted against an unreadable party. An unreadable emitter is never treated as "not matching, therefore independent": it is invalid input refused by name, and two unreadable emitters are never two distinct parties. Every comparison runs on canonical slot identity, so a respelled seat (case, separators, surrounding whitespace, a Unicode hyphen, or a zero-width character) is the SAME seat and cannot pose as a second party.
+<!-- END SCP-AMENDMENT GOVEDGE-CLOSURE-INDEPENDENCE -->
+
+<!-- BEGIN SCP-AMENDMENT GOVEDGE-ROLE-IDENTITY -->
+**Doctrine amendment (GOVEDGE-ROLE-IDENTITY): canonical role-slot identity at every authority decision (source: STORY-GOVTRUTH-R1; rulings R1-CANON-1 and R1-CANON-2 / EXEC-Q-001).** Every authority decision — closure independence, self-issue checks, staffing and emitter comparisons — compares CANONICAL role-slot identity, never raw strings. The ruled canonicalization (R1-CANON-1) is exactly: Unicode NFKC normalization, then zero-width/format-character stripping, then Unicode-whitespace folding, then a hyphen-class fold of EXACTLY U+2010 HYPHEN and U+2011 NON-BREAKING HYPHEN to ASCII hyphen-minus. All other dash punctuation — U+2012 FIGURE DASH, U+2013 EN DASH, U+2014 EM DASH, U+2015 HORIZONTAL BAR, U+2212 MINUS SIGN — survives NFKC outside the canonical alphabet and REFUSES fail-closed; broad dash-range folding is prohibited. U+FF0D FULLWIDTH HYPHEN-MINUS and U+FE63 SMALL HYPHEN-MINUS are LEGAL (R1-CANON-2 / EXEC-Q-001): the mechanism governs, not a character enumeration — NFKC itself folds them to ASCII hyphen-minus before the alphabet check, and no pre-NFKC blocklist exists or may be added. Symmetry is required: any refused form also fails self-issue equality in both directions and reflexively, so an unparseable identity can never satisfy a comparison from either side. Team prefix and lane number remain identity: B/DEV-1 and B/DEV-2 are different seats, as are A/EXEC-PM and B/EXEC-PM.
+<!-- END SCP-AMENDMENT GOVEDGE-ROLE-IDENTITY -->
 
 <!-- BEGIN SCP-AMENDMENT GOVDISP-REGISTRY-AUTHORITY -->
 **Doctrine amendment (GOVDISP-REGISTRY-AUTHORITY): registry authority under compatibility mode (source: STORY-GOVDISP-005; Amendment 46: default-ON as of 0.6.0).** Registry compatibility mode is ACTIVE BY DEFAULT as of 0.6.0 (Amendment 46, operator order): an unset ODIN_GOVDISP_REGISTRY_MCP activates the registry MCP surface, the registry-mode validator branches, and the odin-watch FINDING_OPENED emission; setting ODIN_GOVDISP_REGISTRY_MCP=0 (or any non-truthy value) is the explicit opt-out and returns byte-baseline behavior. Under registry compatibility mode, typed registry events are AUTHORITY for governance facts (blockers, attempts, verdicts, receipts); in-pane prose receipts are transport and history. A single fact is never independently editable in two authorities (GD-FP-013). Rendered registry views are PROHIBITED by default — an explicit human request binds requested_by plus the registry digest — and live CMUX surfaces remain the default human view (GD-DEC-012). The WAVE-4 deferral applies to PROSE RETIREMENT only (still deferred: prose retirement occurs only after WAVE-4 independent PASS and an owner activation event); registry ACTIVATION is not deferred — it is the default as of 0.6.0.
@@ -127,6 +140,10 @@ the freshness window is bounded to 86,400,000 milliseconds. Mixed probe prose,
 oversized output, invalid timestamps/windows, future payload timestamps, and
 empty or non-normalized artifact revisions fail closed to a waking diagnostic
 state and can never produce `WORKING` with `wake=0`.
+
+<!-- BEGIN SCP-AMENDMENT GOVEDGE-SENTINEL-HYGIENE -->
+**Doctrine amendment (GOVEDGE-SENTINEL-HYGIENE): sentinel input hygiene is strict (source: STORY-GOVTRUTH-R5; ruling R5-TRIGGER-1).** The slice-health sentinels are ADVISORY-ONLY and remain so; their credibility is protected by fail-closed input hygiene: a sentinel that was told nothing says nothing — insufficient input yields NO finding, never a default-shaped one. The three timeout fields — `base_seconds`, `per_file_seconds`, `max_seconds` — are required together, finite, and STRICTLY positive; zero and negative values are invalid input, not measurements. The coherence rule is named `max_seconds_gte_base_seconds`: the ceiling must be at or above the floor, and `max_seconds == base_seconds` is a coherent, VALID boundary (a flat window whose ceiling equals its floor). The identifier rule is named `non_empty_after_trim`: an empty or absent identifier yields no signal, and the sentinel never invents a placeholder reference. The QA-window sentinel's firing condition is the ceiling-binds test per ruling R5-TRIGGER-1: it fires when `base_seconds + per_file_seconds * review_file_count` exceeds `max_seconds`, so the window cannot scale to the review. Invalid input yields null on a direct library call and a NAMED rejection at the MCP boundary, and no zero or negative window value is ever rendered into operator-facing text.
+<!-- END SCP-AMENDMENT GOVEDGE-SENTINEL-HYGIENE -->
 
 ## Surface Layout
 
@@ -239,6 +256,10 @@ should install the odin-scp skill before governed launch. Probe via
 or high-autonomy work requires `--auto high`. Crush has no MCP management command and its auth-header
 failures are auth blockers, not readiness.
 
+<!-- BEGIN SCP-AMENDMENT GOVEDGE-HARNESS-IDENTITY -->
+**Doctrine amendment (GOVEDGE-HARNESS-IDENTITY): harness ids are exact-match fail-closed (source: STORY-GOVTRUTH-R4).** A canonical harness id is an exact snake_case machine id — `claude_code`, `droid`, `opencode` — matched EXACTLY, never case-folded, trimmed, or otherwise transformed. Human-friendly names travel only on the explicit `display_name` channel each harness entry declares; a display name is never inferred from an id. Resolution accepts exactly two spellings per harness — the exact canonical id or the exact declared display name — and refuses every other spelling rather than normalizing it: a string that is not in canonical snake_case form where a canonical id is required is refused as `non_canonical_harness_id`, and an intended harness that resolves to no entry by exact id or exact display name is refused as `unknown_or_non_canonical_harness`. Both refusals are THROWN — the call stops with a named error; there is no degraded row and no warning-only pass. Worked example: the Droid entry declares `harness_id: droid` and `display_name: "Droid"`, so writing `droid` or `Droid` in a harness list resolves, while `DROID`, a padded `Droid` with stray whitespace, or any other respelling is a thrown refusal instead of a row. Compose harness lists from the declared ids and display names verbatim.
+<!-- END SCP-AMENDMENT GOVEDGE-HARNESS-IDENTITY -->
+
 ## Governed Readiness Is Fail-Closed
 
 Presence is not authority. MCP being configured, or an SCP skill existing on disk, never makes a
@@ -255,6 +276,10 @@ occupant is hard-blocked from activation until its `governedReadiness` is `GOVER
 uptake with `scripts/protocol/verify-governed-context.mjs` (a stable source marker, a disk checksum
 when a path is present, and a matching uptake receipt); a self-reported boolean is rejected. See
 `odin.get_activation_gates` for the governed-context proof contract.
+
+<!-- BEGIN SCP-AMENDMENT GOVEDGE-FAILCLOSED-TRANSITIONS -->
+**Doctrine amendment (GOVEDGE-FAILCLOSED-TRANSITIONS): rollover, bring-up, and escalation are fail-closed (source: STORY-GOVTRUTH-R3; blocked-pod-rollover, pod-bringup, and step-up-ladder resources).** Blocked-pod rollover proceeds to `SPIN_NEXT_TEAM` only when the blocked pod is BOTH paused and state-preserved (worklist, receipts, and scope survive for resume); any unmet precondition returns `ESCALATE_OPERATOR`, never a proceeding decision with a note appended, and every unmet precondition is reported, not only the first. Restaff framing is never a bypass: a rollover framed as a re-staff is non-proceeding at every row of the decision table, even when both preconditions hold. Pod bring-up requires `stop_triggers` to be EXACTLY the canonical set `["TARGET_ARTIFACT_WRONG"]`, rejected against the raw input before any filtering — a malformed element (absent, null, an empty array, a bare scalar, an object, a non-string element, a duplicate, or a non-canonical member) is refused by name, never silently discarded. The step-up ladder's `REMEDIATE` verdict identifies the remediation-packet fields it governs BY FIELD NAME — `task_ref`, `tier_index`, `artifact_paths`, `failure_reason`, `failed_gate`, `acceptance_bar`, `next_tier_index`, `review_lane_tier_index` — one requirement per required field and no requirement without a field, so a seat holding only the requirement strings can build a packet the validator accepts. No sentence in this doctrine asserts a state the evaluator does not require.
+<!-- END SCP-AMENDMENT GOVEDGE-FAILCLOSED-TRANSITIONS -->
 
 ## Closeout Defaults
 

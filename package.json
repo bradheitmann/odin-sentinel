@@ -45,13 +45,14 @@
     "dev": "tsx src/bin/index.ts",
     "audit:public": "node scripts/audit/public-surface.mjs",
     "audit:deps": "node scripts/audit/dependency-audit.mjs",
+    "audit:doctrine": "node scripts/audit/doctrine-currency.mjs",
     "prepack": "pnpm run build",
     "prepublishOnly": "pnpm run validate",
     "test:package": "node scripts/audit/verify-pack.mjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "validate": "pnpm run audit:public && pnpm run audit:deps && pnpm run typecheck && pnpm test && pnpm run build && pnpm run test:package"
+    "validate": "pnpm run audit:public && pnpm run audit:deps && pnpm run audit:doctrine && pnpm run typecheck && pnpm test && pnpm run build && pnpm run test:package"
   },
   "keywords": [
     "mcp",

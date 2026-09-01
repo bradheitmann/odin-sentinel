@@ -191,3 +191,76 @@ describe("registry authority and jurisprudence register 2 amendments (SLICE-GOVD
     }
   });
 });
+
+// Doctrine currency fold-in (SLICE-GOVEDGE-S6-DEV-001): the six GOVEDGE regions
+// bring the trio current with the enforced contract (closure independence, role
+// identity, harness identity, fail-closed transitions, sentinel hygiene, and
+// the publish-path dependency audit) as identifier-tagged additive regions in
+// all three doctrine copies; the tests below extend identifier-presence and
+// mirror sha-identity coverage to them.
+const GOVEDGE_AMENDMENTS = [
+  "GOVEDGE-CLOSURE-INDEPENDENCE",
+  "GOVEDGE-ROLE-IDENTITY",
+  "GOVEDGE-HARNESS-IDENTITY",
+  "GOVEDGE-FAILCLOSED-TRANSITIONS",
+  "GOVEDGE-SENTINEL-HYGIENE",
+  "GOVEDGE-DEPENDENCY-AUDIT",
+] as const;
+
+describe("doctrine currency amendments (SLICE-GOVEDGE-S6-DEV-001)", () => {
+  it("tags all six GOVEDGE amendments with their identifiers in all three copies", () => {
+    for (const path of DOCTRINE_COPIES) {
+      const text = readRepoFile(path);
+      for (const id of GOVEDGE_AMENDMENTS) {
+        expect(text.includes(id), `${path} missing amendment identifier ${id}`).toBe(true);
+      }
+    }
+  });
+
+  it("keeps every mirrored GOVEDGE region byte-identical across the three copies", () => {
+    for (const regionId of GOVEDGE_AMENDMENTS) {
+      const hashes = DOCTRINE_COPIES.map((path) =>
+        sha256(extractRegion(readRepoFile(path), regionId, path)),
+      );
+      expect(
+        new Set(hashes).size,
+        `mirrored region ${regionId} diverged across ${DOCTRINE_COPIES.join(", ")}`,
+      ).toBe(1);
+    }
+  });
+
+  it("names every enforced refusal with a firing condition in the closure-independence region", () => {
+    for (const path of DOCTRINE_COPIES) {
+      const region = extractRegion(readRepoFile(path), "GOVEDGE-CLOSURE-INDEPENDENCE", path);
+      for (const refusal of [
+        "CLOSURE_SELF_REVIEW",
+        "CLOSURE_SELF_ASSERTION",
+        "CLOSURE_LANE_COLLAPSE",
+        "CLOSURE_PARTY_IDENTITY_INVALID",
+        "EMITTER_IDENTITY_INVALID",
+      ]) {
+        expect(region).toContain(refusal);
+      }
+      expect(region).toContain("DISTINCT");
+      expect(region).toContain("not matching, therefore independent");
+    }
+  });
+
+  it("cites the identity rulings by name and keeps the harness worked example", () => {
+    for (const path of DOCTRINE_COPIES) {
+      const identity = extractRegion(readRepoFile(path), "GOVEDGE-ROLE-IDENTITY", path);
+      expect(identity).toContain("R1-CANON-1");
+      expect(identity).toContain("R1-CANON-2");
+      expect(identity).toContain("EXEC-Q-001");
+      const harness = extractRegion(readRepoFile(path), "GOVEDGE-HARNESS-IDENTITY", path);
+      expect(harness).toContain("non_canonical_harness_id");
+      expect(harness).toContain("unknown_or_non_canonical_harness");
+      expect(harness).toContain("`Droid`");
+      expect(harness).toContain("`droid`");
+      const sentinel = extractRegion(readRepoFile(path), "GOVEDGE-SENTINEL-HYGIENE", path);
+      expect(sentinel).toContain("R5-TRIGGER-1");
+      expect(sentinel).toContain("max_seconds_gte_base_seconds");
+      expect(sentinel).toContain("non_empty_after_trim");
+    }
+  });
+});

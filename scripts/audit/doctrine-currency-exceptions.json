@@ -1,0 +1,135 @@
+{
+  "version": 1,
+  "policy": {
+    "entryRule": "Every entry needs identifier, owner, rationale, and recorded, all non-empty after trimming. Identifiers are exact ([A-Za-z0-9_] only): wildcards, globs, regular expressions, and prefixes are refused, as are duplicates. An entry naming an identifier that source no longer declares is stale and fails the gate, so this list cannot silently accumulate.",
+    "reviewRule": "An entry is a deliberate, owned deferral of narrative doctrine coverage, not an exemption from it. Each rationale states what the identifier is and why coverage is deferred. Remove the entry in the same change that documents the identifier."
+  },
+  "exceptions": [
+    {
+      "identifier": "ATTEMPT_STARTED",
+      "owner": "ODIN Sentinel maintainers",
+      "rationale": "Registry-mode attempt-lifecycle prerequisite named in validator rejections. The registry event vocabulary is machine-facing first; narrative doctrine coverage is deferred to the registry documentation wave rather than a glossary dump.",
+      "recorded": "2026-08-31"
+    },
+    {
+      "identifier": "AUTO_HIGH_REQUIRED",
+      "owner": "ODIN Sentinel maintainers",
+      "rationale": "Readiness classification for a mission/high-autonomy launch without the required autonomy flag. The underlying requirement is documented in prose in the doctrine; the classification identifier itself awaits the readiness-vocabulary doctrine pass.",
+      "recorded": "2026-08-31"
+    },
+    {
+      "identifier": "CMUX_UNAVAILABLE",
+      "owner": "ODIN Sentinel maintainers",
+      "rationale": "Readiness probe classification emitted when the reference substrate is absent. Deferred to the readiness-vocabulary doctrine pass with the other probe classifications.",
+      "recorded": "2026-08-31"
+    },
+    {
+      "identifier": "CONTEXT_SOURCE_CONFLICT",
+      "owner": "ODIN Sentinel maintainers",
+      "rationale": "Governed-context verification classification for conflicting protocol-uptake sources. Deferred to the readiness-vocabulary doctrine pass.",
+      "recorded": "2026-08-31"
+    },
+    {
+      "identifier": "EVIDENCE_CLASS_INVALID",
+      "owner": "ODIN Sentinel maintainers",
+      "rationale": "Evidence-classification refusal for an illegal evidence class on a verdict payload. The evidence-classification family is scheduled for its own doctrine treatment; naming one refusal without the family would mislead.",
+      "recorded": "2026-08-31"
+    },
+    {
+      "identifier": "EVIDENCE_CLASS_RECOMMENDED",
+      "owner": "ODIN Sentinel maintainers",
+      "rationale": "Advisory emitted for legacy verdict payloads that predate mandatory evidence classification. Deferred with the rest of the evidence-classification family.",
+      "recorded": "2026-08-31"
+    },
+    {
+      "identifier": "EVIDENCE_CLASS_REQUIRED",
+      "owner": "ODIN Sentinel maintainers",
+      "rationale": "Evidence-classification refusal for a verdict-class payload missing its evidence class. Deferred with the rest of the evidence-classification family.",
+      "recorded": "2026-08-31"
+    },
+    {
+      "identifier": "EXEC_PM_AUTHORIZATION_REQUIRED",
+      "owner": "ODIN Sentinel maintainers",
+      "rationale": "Surface-layout gate classification requiring executive authorization for a staffing transition. The gate itself is documented; the classification identifier awaits the readiness-vocabulary doctrine pass.",
+      "recorded": "2026-08-31"
+    },
+    {
+      "identifier": "FINDING_DELIVERED",
+      "owner": "ODIN Sentinel maintainers",
+      "rationale": "Registry-mode finding-lifecycle prerequisite named in validator rejections. Deferred to the registry documentation wave with the other registry event states.",
+      "recorded": "2026-08-31"
+    },
+    {
+      "identifier": "FINDING_OWNED",
+      "owner": "ODIN Sentinel maintainers",
+      "rationale": "Registry-mode finding-lifecycle prerequisite named in validator rejections. Deferred to the registry documentation wave with the other registry event states.",
+      "recorded": "2026-08-31"
+    },
+    {
+      "identifier": "MAX_TEAMS",
+      "owner": "ODIN Sentinel maintainers",
+      "rationale": "Surface-layout capacity limit named in a thrown error when the team count exceeds the packable maximum. The packing rule is documented; the constant's name awaits the layout doctrine pass.",
+      "recorded": "2026-08-31"
+    },
+    {
+      "identifier": "MCP_VERSION_TOO_OLD",
+      "owner": "ODIN Sentinel maintainers",
+      "rationale": "Version-compatibility classification for a child MCP below the minimum compatible version. The compatibility floor is documented; the classification identifier awaits the readiness-vocabulary doctrine pass.",
+      "recorded": "2026-08-31"
+    },
+    {
+      "identifier": "MCP_VERSION_UNVERIFIED",
+      "owner": "ODIN Sentinel maintainers",
+      "rationale": "Version-compatibility classification for an unverifiable child MCP version. Deferred with MCP_VERSION_TOO_OLD.",
+      "recorded": "2026-08-31"
+    },
+    {
+      "identifier": "MODEL_UNREACHABLE",
+      "owner": "ODIN Sentinel maintainers",
+      "rationale": "Local-inference probe classification for an unreachable or unloaded model endpoint. Sibling classifications are documented; this one awaits the readiness-vocabulary doctrine pass.",
+      "recorded": "2026-08-31"
+    },
+    {
+      "identifier": "ROLE_COMPATIBILITY_FAILED",
+      "owner": "ODIN Sentinel maintainers",
+      "rationale": "Readiness classification for a harness/role compatibility failure. The compatibility requirement is documented in prose; the classification identifier awaits the readiness-vocabulary doctrine pass.",
+      "recorded": "2026-08-31"
+    },
+    {
+      "identifier": "SCP_SKILL_MISSING",
+      "owner": "ODIN Sentinel maintainers",
+      "rationale": "Readiness probe classification for a skill-capable harness without the installed skill. The install requirement is documented in prose; the classification identifier awaits the readiness-vocabulary doctrine pass.",
+      "recorded": "2026-08-31"
+    },
+    {
+      "identifier": "SOURCE_BINDING_REQUIRED",
+      "owner": "ODIN Sentinel maintainers",
+      "rationale": "Evidence-classification refusal for a verdict-class payload missing its bound evidence source. Deferred with the rest of the evidence-classification family.",
+      "recorded": "2026-08-31"
+    },
+    {
+      "identifier": "SPLIT_WORKSPACE",
+      "owner": "ODIN Sentinel maintainers",
+      "rationale": "Warning identifier for a team manifest whose surfaces span multiple workspaces. Deferred to the layout doctrine pass.",
+      "recorded": "2026-08-31"
+    },
+    {
+      "identifier": "UNSUITABLE_FOR_ODIN_ROLE",
+      "owner": "ODIN Sentinel maintainers",
+      "rationale": "Readiness classification for a harness that cannot hold a monitor role at the required assurance. The assurance requirement is documented in prose; the classification identifier awaits the readiness-vocabulary doctrine pass.",
+      "recorded": "2026-08-31"
+    },
+    {
+      "identifier": "USER_INPUT_REQUIRED",
+      "owner": "ODIN Sentinel maintainers",
+      "rationale": "Readiness probe classification pending an explicit operator provisioning answer. Deferred to the readiness-vocabulary doctrine pass.",
+      "recorded": "2026-08-31"
+    },
+    {
+      "identifier": "VACANT_SLOT_REQUIREMENT_UNVERIFIED",
+      "owner": "ODIN Sentinel maintainers",
+      "rationale": "Surface-layout gate classification for a slot-vacancy requirement that could not be verified. Deferred to the layout doctrine pass.",
+      "recorded": "2026-08-31"
+    }
+  ]
+}

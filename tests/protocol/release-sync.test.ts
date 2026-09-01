@@ -85,6 +85,8 @@ const expectedRequiredPackageFiles = [
   "templates/team-manifest-template.yaml",
   "scripts/audit/audit-exceptions.json",
   "scripts/audit/dependency-audit.mjs",
+  "scripts/audit/doctrine-currency-exceptions.json",
+  "scripts/audit/doctrine-currency.mjs",
   "scripts/audit/generate-govdisp-baseline.mjs",
   "scripts/audit/public-surface.mjs",
   "scripts/audit/verify-pack.mjs",
