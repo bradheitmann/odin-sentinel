@@ -234,8 +234,8 @@
     },
     {
       "path": "src/protocol/index.ts",
-      "bytes": 2533,
-      "sha256": "3adffd90b1412933c805f5b96df8bc1c4b7d07d909b99e86a39f50b343ae5d67"
+      "bytes": 2559,
+      "sha256": "53aca935a7666142cee6a49b40de3b396fa38fbb4a64054b009dd771966586a6"
     },
     {
       "path": "src/protocol/repository.ts",
@@ -244,8 +244,8 @@
     },
     {
       "path": "src/protocol/role-identity.ts",
-      "bytes": 8830,
-      "sha256": "5012c1729d94531d770b79f3052e631317d4b3c88e91579e14990783356b211b"
+      "bytes": 9696,
+      "sha256": "906d286817ddb1c9d9dbfdc30c766bb1f96175d219c38428c27025d6fd8adfd4"
     },
     {
       "path": "src/protocol/schemas.ts",
@@ -254,8 +254,8 @@
     },
     {
       "path": "src/protocol/service.ts",
-      "bytes": 248668,
-      "sha256": "6891ecf1f03eb85f11efd2c007a39686f3f85f340fb28c885ee3debf60df7102"
+      "bytes": 250181,
+      "sha256": "36cbef7518f9fe21edd910cde976e493198c76050ae669e6de001a8ebc01a6c1"
     },
     {
       "path": "src/protocol/surface-layout.ts",

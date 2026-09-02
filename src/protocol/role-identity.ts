@@ -57,6 +57,35 @@ export type ParsedRoleSlot = {
   canonical: string;
 };
 
+function foldRoleInput(value: string): string {
+  return value
+    .normalize("NFKC")
+    .replace(ZERO_WIDTH_OR_FORMAT, "")
+    .replace(HYPHEN_CLASS, "-")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
+}
+
+function canonicalComponentFromFolded(value: string): string | null {
+  const component = value.trim().replace(/[\s_-]+/g, "-");
+  return CANONICAL_COMPONENT.test(component) ? component : null;
+}
+
+/**
+ * Canonicalize one unprefixed protocol component through the shared folding
+ * pipeline. Callers retain ownership of their field vocabulary; this helper
+ * only supplies the common NFKC, invisible/format, whitespace, and exact
+ * U+2010/U+2011 hyphen-class handling.
+ */
+export function canonicalRoleComponent(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+
+  const folded = foldRoleInput(value);
+  if (folded === "" || folded.includes("/")) return null;
+  return canonicalComponentFromFolded(folded);
+}
+
 /**
  * The ratified commit-issuer set (STORY-GOVTRUTH-R1 AC3/AC9): the operator plus
  * the declared Team-A executive-office slots, as FULL slots with the team
@@ -97,21 +126,19 @@ export const ROSTER_MUTATION_AUTHORITY_SLOTS = RATIFIED_COMMIT_ISSUER_SLOTS;
 export function parseRoleSlot(value: unknown): ParsedRoleSlot | null {
   if (typeof value !== "string") return null;
 
-  const folded = value
-    .normalize("NFKC")
-    .replace(ZERO_WIDTH_OR_FORMAT, "")
-    .replace(HYPHEN_CLASS, "-")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toUpperCase();
+  const folded = foldRoleInput(value);
 
   if (folded === "") return null;
 
   const parts = folded.split("/");
   if (parts.length > 2) return null;
 
-  const components = parts.map((part) => part.trim().replace(/[\s_-]+/g, "-"));
-  if (components.some((component) => !CANONICAL_COMPONENT.test(component))) return null;
+  const components: string[] = [];
+  for (const part of parts) {
+    const component = canonicalComponentFromFolded(part);
+    if (component === null) return null;
+    components.push(component);
+  }
 
   const team = components.length === 2 ? components[0] : null;
   const role = components.length === 2 ? components[1] : components[0];
@@ -175,7 +202,7 @@ export function hasRosterMutationAuthority(value: unknown): boolean {
  */
 export function roleKindOf(role: string): string {
   const visibleSlot = role.includes("/") ? role.split("/").at(-1) ?? role : role;
-  const normalized = visibleSlot.toUpperCase().replace(/[\s-]+/g, "_");
+  const normalized = canonicalRoleComponent(visibleSlot)?.replaceAll("-", "_") ?? "";
   if (normalized === "ODIN") return "TEAM_ODIN";
   // Bare team-prefixed PM slots (C/PM, D/PM) are TEAM PM seats; the exec form is
   // always spelled EXEC-PM and never reduces to bare "PM".

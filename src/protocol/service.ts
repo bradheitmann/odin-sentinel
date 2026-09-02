@@ -7,6 +7,7 @@ import {
 } from "./repository.js";
 import {
   canonicalRoleSlot,
+  canonicalRoleComponent,
   describeRoleSlotInput,
   hasExecutiveAuthority,
   hasRosterMutationAuthority,
@@ -2398,11 +2399,13 @@ export function validateFallbackContract(contract: Record<string, unknown>): Val
     ? (contract.substitution_triggers as unknown[]).filter((v): v is string => typeof v === "string")
     : [];
   for (const trigger of triggers) {
-    const upper = trigger.toUpperCase().replace(/[\s-]+/g, "_");
-    if (NON_TRIGGER_OPERATOR_SIDE.some((banned) => upper.includes(banned))) {
+    // Keep fallback-trigger vocabulary and operator-side refusal semantics
+    // local to this field while consuming the shared role-component fold.
+    const normalizedTrigger = canonicalRoleComponent(trigger)?.replaceAll("-", "_") ?? "";
+    if (NON_TRIGGER_OPERATOR_SIDE.some((banned) => normalizedTrigger.includes(banned))) {
       invalid.push("substitution_triggers");
       warnings.push(`"${trigger}" is not a failover trigger: provider billing errors are operator-side — HOLD the seat, do not substitute or alarm`);
-    } else if (!CANONICAL_FAILOVER_TRIGGERS.includes(upper)) {
+    } else if (!CANONICAL_FAILOVER_TRIGGERS.includes(normalizedTrigger)) {
       warnings.push(`substitution trigger "${trigger}" is not in the canonical set (${CANONICAL_FAILOVER_TRIGGERS.join(", ")})`);
     }
   }
@@ -2450,9 +2453,10 @@ export function validateSuccessorContract(contract: Record<string, unknown>): Va
     }
   }
   // STORY-GOVTRUTH-R1: the third inline normalizer in this file is rehomed onto
-  // the shared slot-identity operation. This field carries an authority LABEL
-  // (`operator` / `TEAM_A_EXEC`), not a seat, so the accepted values are the
-  // canonical forms of those two labels — matched exactly, as everywhere else.
+  // the shared slot-identity operation. Label-vs-seat distinction: this field
+  // carries an authority LABEL (`operator` / `TEAM_A_EXEC`), not a seat, so the
+  // accepted values are the canonical forms of those two labels — matched
+  // exactly, as everywhere else.
   const authorityDeclared = contract.roster_mutation_authority !== undefined && contract.roster_mutation_authority !== null;
   const authority = authorityDeclared ? canonicalRoleSlot(contract.roster_mutation_authority) : undefined;
   if (authorityDeclared && authority !== "OPERATOR" && authority !== "TEAM-A-EXEC") {
@@ -2842,12 +2846,13 @@ export function validateCommitGate(record: Record<string, unknown>): ValidationR
       warnings.push(`implementer_lane ${describeRoleSlotInput(record.implementer_lane)} is not a readable role slot — the self-issue check cannot be evaluated against an unreadable lane`);
     }
     // AC8: canonical slot comparison, so `A/EXEC-PM` issuing as `a/exec-pm` or
-    // `A/EXEC-PM ` is still self-issue.
-    if (podPm !== null && issuedBy !== null && issuedBy === podPm) {
+    // `A/EXEC-PM ` is still self-issue. Compare the source fields through the
+    // one slot-equality operation, not the derived canonical locals.
+    if (podPm !== null && issuedBy !== null && roleSlotsEqual(auth.issued_by, record.pod_pm_lane)) {
       invalid.push("commit_authorization");
       warnings.push("SELF-ISSUED token: a PM cannot authorize its own pod's commit — that is the exact pattern commit_gate: exec exists to prevent");
     }
-    if (implementer !== null && issuedBy !== null && issuedBy === implementer) {
+    if (implementer !== null && issuedBy !== null && roleSlotsEqual(auth.issued_by, record.implementer_lane)) {
       invalid.push("commit_authorization");
       warnings.push("the implementer cannot issue its own commit authorization");
     }
@@ -2998,9 +3003,13 @@ export function validateAuthorityAction(action: Record<string, unknown>): Valida
   const invalid: string[] = [];
   const warnings: string[] = [];
 
-  const actionType = typeof action.action_type === "string"
-    ? action.action_type.toUpperCase().replace(/[\s-]+/g, "_")
-    : "";
+  // Consume the shared slot primitive for the complete folding pipeline
+  // (NFKC, invisible/format stripping, Unicode whitespace, and the narrow
+  // U+2010/U+2011 hyphen class). The action vocabulary is written with
+  // underscores, while canonicalRoleComponent returns canonical component
+  // separators as hyphens, so this final representation mapping is not a
+  // second fold.
+  const actionType = canonicalRoleComponent(action.action_type)?.replaceAll("-", "_") ?? "";
   const target = typeof action.target_slot === "string" ? action.target_slot : undefined;
 
   // STORY-GOVTRUTH-R1: both identities resolve through the same canonical-slot
@@ -3028,8 +3037,19 @@ export function validateAuthorityAction(action: Record<string, unknown>): Valida
   // into the roster-mutation class so the authority check actually runs.
   const rosterMutations = ["RESTAFF", "RESTAFF_DEAD_SEAT", "RESTAFF_ON_OWN_INITIATIVE", "SELF_RESTAFF", "SPAWN", "SPAWN_SIBLING", "CHANGE_MODEL", "CHANGE_HARNESS", "ROSTER_MUTATION", "RENAME_SLOT", "CLOSE_SLOT"];
   const isRosterMutation = rosterMutations.includes(actionType);
+  const isLateralNegotiation = actionType === "LATERAL_ROSTER_NEGOTIATION";
   const authorizedIsExec = hasRosterMutationAuthority(authorizedSlot);
   const actorIsExec = hasExecutiveAuthority(actorSlot);
+
+  // "No match" is malformed input, not an ungoverned action. Refuse it by
+  // name so absent, degenerate, and unrecognized action types cannot skip the
+  // authority gate silently.
+  if (!isRosterMutation && !isLateralNegotiation) {
+    invalid.push("action_type");
+    warnings.push(
+      `unrecognized action_type ${describeRoleSlotInput(action.action_type)} is refused rather than treated as ungoverned`
+    );
+  }
 
   if (isRosterMutation && actorSlot !== null && authorizedSlot !== null) {
     // A roster mutation is valid only with an INDEPENDENT authorizer — the
@@ -3040,7 +3060,10 @@ export function validateAuthorityAction(action: Record<string, unknown>): Valida
     // AC5: self-authorization is detected AFTER canonicalization, so
     // `A/EXEC-ODIN` authorizing itself as `a/exec-odin` or `A/EXEC-ODIN ` is
     // still self-authorization.
-    if (authorizedSlot === actorSlot) {
+    // Label-vs-seat distinction: authorized_by names the individual SEAT that
+    // approved this action, so a class label such as TEAM-A-EXEC is not a valid
+    // substitute even though the successor-contract policy field accepts it.
+    if (roleSlotsEqual(action.authorized_by, action.actor)) {
       invalid.push("authorized_by");
       warnings.push(
         actorIsExec
@@ -3052,7 +3075,7 @@ export function validateAuthorityAction(action: Record<string, unknown>): Valida
       warnings.push(`roster mutation authorized by "${authorizedBy}": roster mutation belongs solely to the operator or a Team-A EXEC`);
     }
   }
-  if (actionType === "LATERAL_ROSTER_NEGOTIATION" || action.lateral === true) {
+  if (isLateralNegotiation || action.lateral === true) {
     invalid.push("action_type");
     warnings.push("lateral roster negotiation is a breach — downstream ODINs report UP the Team-A EXEC line");
   }

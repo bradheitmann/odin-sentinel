@@ -59,6 +59,7 @@ export type {
 export {
   RATIFIED_COMMIT_ISSUER_SLOTS,
   ROSTER_MUTATION_AUTHORITY_SLOTS,
+  canonicalRoleComponent,
   canonicalRoleSlot,
   describeRoleSlotInput,
   hasExecutiveAuthority,
