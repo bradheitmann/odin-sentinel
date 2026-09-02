@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getOnboardingPlan } from "../../src/protocol/service.js";
+import { getHarnessProbeMatrix, getOnboardingPlan } from "../../src/protocol/service.js";
 
 type Plan = Record<string, any>;
 
@@ -196,5 +196,38 @@ describe("onboarding plan", () => {
     expect(row.governedRoleReady).toBe(false);
     const summary = plan.blockerSummary as Array<Record<string, any>>;
     expect(summary.find((entry) => entry.harness === "KiloCode")?.blockers).toContain("BLOCKED_BY_LOGIN");
+  });
+
+  it("classifies an unresolvable request per row while probe matrix remains whole-batch fail-closed", () => {
+    expect(() => getHarnessProbeMatrix({ intendedHarnesses: ["droid", "clod-code"] })).toThrow(
+      /^unknown_or_non_canonical_harness:/
+    );
+
+    const plan = getOnboardingPlan({
+      intendedHarnesses: ["Droid", "clod-code"],
+      installedHarnesses: ["Droid"],
+      userProvisioningAnswer: "yes",
+      observations: [{ harness: "Droid", visibleContent: true }]
+    });
+    const rows = plan.readinessRows as Array<Record<string, any>>;
+    expect(rows).toHaveLength(2);
+
+    const resolvable = rowFor(plan, "Droid");
+    expect(resolvable.harness).toBe("Droid");
+    expect(resolvable.governedReadiness).toBeDefined();
+
+    const unresolved = rowFor(plan, "clod-code");
+    expect(unresolved.classifications).toContain("UNRESOLVABLE_HARNESS_REQUEST");
+    expect(unresolved.governedRoleReady).toBe(false);
+    expect(unresolved.quitVerb).toBeUndefined();
+    expect(unresolved.controlRecipe).toBeUndefined();
+    expect(unresolved.versionPin).toBeUndefined();
+    expect(unresolved.harnessId).toBeUndefined();
+
+    const summary = plan.blockerSummary as Array<Record<string, any>>;
+    expect(summary.find((entry) => entry.harness === "clod-code")?.blockers).toContain(
+      "UNRESOLVABLE_HARNESS_REQUEST"
+    );
+    expect(typeof plan.nextUserAction).toBe("string");
   });
 });

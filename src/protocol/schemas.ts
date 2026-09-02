@@ -823,7 +823,8 @@ export const HARNESS_SUBMIT_PROFILES = ["single_line_flatten", "double_enter", "
 export const HARNESS_NEWLINE_POLICIES = ["flatten_to_space", "preserve"] as const;
 
 /** Canonical snake_case machine id: lowercase letters, digits, underscores. */
-export const canonicalHarnessIdSchema = z.string().min(1).regex(/^[a-z0-9_]+$/, "harness_id must be a snake_case machine id (lowercase letters, digits, underscores)");
+export const CANONICAL_HARNESS_ID_PATTERN = /^[a-z0-9]+(?:_[a-z0-9]+)*$/;
+export const canonicalHarnessIdSchema = z.string().min(1).regex(CANONICAL_HARNESS_ID_PATTERN, "harness_id must be a canonical snake_case machine id (no leading, trailing, or doubled underscores)");
 
 /**
  * One harness entry in protocol/resources/harness-control-matrix.yaml (and its

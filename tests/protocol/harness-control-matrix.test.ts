@@ -5,7 +5,8 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import YAML from "yaml";
 import { createFileProtocolRepository } from "../../src/protocol/repository.js";
-import { canonicalHarnessId, getHarnessProbeMatrix } from "../../src/protocol/service.js";
+import { canonicalHarnessId, getHarnessProbeMatrix, resolveHarnessEntry } from "../../src/protocol/service.js";
+import { CANONICAL_HARNESS_ID_PATTERN, canonicalHarnessIdSchema } from "../../src/protocol/schemas.js";
 
 // ---------------------------------------------------------------------------
 // STORY-GOVTRUTH-R4 — harness matrix single source of truth parity test.
@@ -273,6 +274,19 @@ describe("harness matrix single source of truth (STORY-GOVTRUTH-R4)", () => {
     expect(readFileSync(join(REPO_ROOT, RECEIPT_PATH), "utf8")).not.toContain("multi_line");
   });
 
+  it("loads the shipped matrices clean before any scratch negative fixture runs", () => {
+    const rows = getHarnessProbeMatrix({}, createFileProtocolRepository(REPO_ROOT)).rows as Array<Record<string, unknown>>;
+    expect(rows).toHaveLength(11);
+    expect(rows.map((row) => row.harnessId).sort()).toEqual(EXPECTED_IDS);
+    for (const id of EXPECTED_IDS) {
+      const [row] = getHarnessProbeMatrix(
+        { intendedHarnesses: [id] },
+        createFileProtocolRepository(REPO_ROOT)
+      ).rows as Array<Record<string, unknown>>;
+      expect(row.harnessId).toBe(id);
+    }
+  });
+
   // --- AC7 fail-closed identity: exact canonical match only, never folding ---
 
   it("resolves an exact canonical snake_case id to its resource-backed member", () => {
@@ -424,4 +438,106 @@ describe("harness matrix single source of truth (STORY-GOVTRUTH-R4)", () => {
       }
     );
   });
+
+  // --- STORY-GOVEDGE-S3 — identity uniqueness and load-time refusal ---
+
+  it("refuses duplicate harness ids at load with a named reason", () => {
+    expect(() => withScratchProtocol(
+      (root) => mutateResource(root, (doc) => {
+        const entries = (doc.harness_control_matrix as Record<string, unknown>).harnesses as RawEntry[];
+        entries[1].harness_id = entries[0].harness_id;
+      }),
+      (root) => getHarnessProbeMatrix({}, createFileProtocolRepository(root))
+    )).toThrow(/^duplicate_harness_id: "claude_code"/);
+  });
+
+  it("refuses duplicate display names at load with a named reason", () => {
+    expect(() => withScratchProtocol(
+      (root) => mutateResource(root, (doc) => {
+        const entries = (doc.harness_control_matrix as Record<string, unknown>).harnesses as RawEntry[];
+        entries[1].display_name = entries[0].display_name;
+      }),
+      (root) => getHarnessProbeMatrix({}, createFileProtocolRepository(root))
+    )).toThrow(/^duplicate_harness_display_name: "Claude Code"/);
+  });
+
+  it("refuses display names that collide byte-for-byte with any harness id", () => {
+    const throwing = () => withScratchProtocol(
+      (root) => mutateResource(root, (doc) => {
+        const entries = (doc.harness_control_matrix as Record<string, unknown>).harnesses as RawEntry[];
+        entries[0].display_name = "droid";
+      }),
+      (root) => getHarnessProbeMatrix({}, createFileProtocolRepository(root))
+    );
+    expect(throwing).toThrow(/^display_name_collides_with_harness_id:.*display_name "droid".*harness_id "droid"/);
+    // The refusal must name the OFFENDING entry's own harness_id, not just its
+    // index, so an operator can identify the at-fault entry without counting
+    // rows. entries[0] is claude_code; its display_name was mutated to "droid",
+    // which collides with entries[1] (droid)'s harness_id.
+    expect(throwing).toThrow(/entry 0 \(harness_id "claude_code"\)/);
+    expect(throwing).toThrow(/on entry 1$/);
+  });
+
+  it("refuses a display name equal to its OWN harness_id (self-collision), naming that entry's harness_id", () => {
+    const throwing = () => withScratchProtocol(
+      (root) => mutateResource(root, (doc) => {
+        const entries = (doc.harness_control_matrix as Record<string, unknown>).harnesses as RawEntry[];
+        entries[0].display_name = entries[0].harness_id as string;
+      }),
+      (root) => getHarnessProbeMatrix({}, createFileProtocolRepository(root))
+    );
+    expect(throwing).toThrow(/^display_name_collides_with_harness_id:/);
+    expect(throwing).toThrow(/entry 0 \(harness_id "claude_code"\)/);
+    expect(throwing).toThrow(/display_name "claude_code" is byte-equal to harness_id "claude_code" on entry 0$/);
+  });
+
+  it("uses exact byte identity for uniqueness, so case-distinct display names both load", () => {
+    const rows = withScratchProtocol(
+      (root) => mutateResource(root, (doc) => {
+        const entries = (doc.harness_control_matrix as Record<string, unknown>).harnesses as RawEntry[];
+        entries[0].display_name = "Kilo Code";
+        entries[1].display_name = "kilo code";
+      }),
+      (root) => getHarnessProbeMatrix(
+        { intendedHarnesses: ["Kilo Code", "kilo code"] },
+        createFileProtocolRepository(root)
+      ).rows as Array<Record<string, unknown>>
+    );
+    expect(rows.map((row) => row.harnessId)).toEqual(["claude_code", "droid"]);
+  });
+
+  it("consults canonical ids before display names independently of the load gate", () => {
+    const entries = [
+      { harness_id: "droid", display_name: "OpenCode" },
+      { harness_id: "evil_harness", display_name: "droid" }
+    ] as any;
+    expect(resolveHarnessEntry(entries, "droid")?.harness_id).toBe("droid");
+  });
+
+  it("defines and consumes exactly one strict canonical-id pattern", () => {
+    const service = readFileSync(join(REPO_ROOT, "src/protocol/service.ts"), "utf8");
+    const schemas = readFileSync(join(REPO_ROOT, "src/protocol/schemas.ts"), "utf8");
+    expect(schemas.match(/export const CANONICAL_HARNESS_ID_PATTERN\s*=/g)).toHaveLength(1);
+    expect(service).not.toMatch(/const CANONICAL_HARNESS_ID_PATTERN\s*=/);
+    expect(service).toContain("CANONICAL_HARNESS_ID_PATTERN");
+    expect(CANONICAL_HARNESS_ID_PATTERN.source).toBe("^[a-z0-9]+(?:_[a-z0-9]+)*$");
+    expect(canonicalHarnessIdSchema.safeParse("droid").success).toBe(true);
+    expect(canonicalHarnessIdSchema.safeParse("_droid").success).toBe(false);
+  });
+
+  it.each(["_droid", "droid__x", "droid_"])(
+    "refuses malformed canonical id %j at load before any row is built",
+    (badId) => {
+      expect(() => withScratchProtocol(
+        (root) => mutateResource(root, (doc) => {
+          const entries = (doc.harness_control_matrix as Record<string, unknown>).harnesses as RawEntry[];
+          entries[0].harness_id = badId;
+        }),
+        (root) => getHarnessProbeMatrix(
+          { intendedHarnesses: ["droid"] },
+          createFileProtocolRepository(root)
+        )
+      )).toThrow(/^non_canonical_harness_id:/);
+    }
+  );
 });

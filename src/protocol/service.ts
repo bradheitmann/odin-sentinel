@@ -15,7 +15,7 @@ import {
   roleKindOf,
   roleSlotsEqual
 } from "./role-identity.js";
-import { auditTargetSchema, BRING_UP_STOP_TRIGGERS, EVIDENCE_CLASSES, govdispEventSchema, harnessControlEntrySchema, isUsableSeconds, normalizeSentinelIdentifier, parseQaTimeoutPolicy, parseReviewFileCount, VERDICT_CLASS_ARTIFACTS } from "./schemas.js";
+import { auditTargetSchema, BRING_UP_STOP_TRIGGERS, CANONICAL_HARNESS_ID_PATTERN, EVIDENCE_CLASSES, govdispEventSchema, harnessControlEntrySchema, isUsableSeconds, normalizeSentinelIdentifier, parseQaTimeoutPolicy, parseReviewFileCount, VERDICT_CLASS_ARTIFACTS } from "./schemas.js";
 import type { AuditTarget, CloseoutMode, DelegationPacketInput, EscalationGateInput, EscalationGateResult, GovdispEvent, HarnessControlEntry, MissionFrontrunInput, MissionFrontrunPack, RoleCard, StartupPacketInput } from "./schemas.js";
 import {
   asRecord,
@@ -1651,8 +1651,6 @@ export function getActiveWatchPacket(input: ActiveWatchPacketInput): Record<stri
  * lowercase letters and digits, underscore-separated. Identity is decided by
  * exact canonical match, never by coincidental normalization.
  */
-const CANONICAL_HARNESS_ID_PATTERN = /^[a-z0-9]+(?:_[a-z0-9]+)*$/;
-
 /** True only for a string already in exact canonical snake_case id form. */
 export function isCanonicalHarnessId(value: string): boolean {
   return CANONICAL_HARNESS_ID_PATTERN.test(value);
@@ -1695,7 +1693,13 @@ function loadHarnessControlEntries(repository: ProtocolRepository): HarnessContr
   if (rawEntries.length === 0) {
     throw new Error("harness-control-matrix.yaml declares no harnesses; the resource is the sole source of harness recipe data");
   }
-  return rawEntries.map((raw, index) => {
+  const entries = rawEntries.map((raw, index) => {
+    const rawId = asRecord(raw).harness_id;
+    if (typeof rawId !== "string" || !isCanonicalHarnessId(rawId)) {
+      throw new Error(
+        `non_canonical_harness_id: harness-control-matrix.yaml entry ${index} has invalid harness_id ${JSON.stringify(rawId)}; canonical ids require lowercase letters, digits, and single internal underscores`
+      );
+    }
     const parsed = harnessControlEntrySchema.safeParse(raw);
     if (!parsed.success) {
       const detail = parsed.error.issues.map((issue) => `${issue.path.join(".") || "<entry>"}: ${issue.message}`).join("; ");
@@ -1703,17 +1707,61 @@ function loadHarnessControlEntries(repository: ProtocolRepository): HarnessContr
     }
     return parsed.data;
   });
+
+  const idOwners = new Map<string, number>();
+  const displayNameOwners = new Map<string, number>();
+  for (const [index, entry] of entries.entries()) {
+    const priorIdOwner = idOwners.get(entry.harness_id);
+    if (priorIdOwner !== undefined) {
+      throw new Error(
+        `duplicate_harness_id: "${entry.harness_id}" appears in entries ${priorIdOwner} and ${index}`
+      );
+    }
+    idOwners.set(entry.harness_id, index);
+
+    const priorDisplayOwner = displayNameOwners.get(entry.display_name);
+    if (priorDisplayOwner !== undefined) {
+      throw new Error(
+        `duplicate_harness_display_name: "${entry.display_name}" appears in entries ${priorDisplayOwner} and ${index}`
+      );
+    }
+    displayNameOwners.set(entry.display_name, index);
+  }
+
+  for (const [index, entry] of entries.entries()) {
+    const collidingIdOwner = idOwners.get(entry.display_name);
+    if (collidingIdOwner !== undefined) {
+      throw new Error(
+        `display_name_collides_with_harness_id: entry ${index} (harness_id "${entry.harness_id}") display_name "${entry.display_name}" is byte-equal to harness_id "${entry.display_name}" on entry ${collidingIdOwner}`
+      );
+    }
+  }
+
+  return entries;
 }
 
-export function getHarnessProbeMatrix(
+/**
+ * Resolve a requested harness name from already-loaded entries. This helper
+ * intentionally has no load gate so the resolution-order guarantee can be
+ * tested independently from load-time collision refusal.
+ */
+export function resolveHarnessEntry(
+  entries: readonly HarnessControlEntry[],
+  intendedName: string
+): HarnessControlEntry | undefined {
+  const entriesById = new Map(entries.map((entry) => [entry.harness_id, entry]));
+  const entriesByDisplayName = new Map(entries.map((entry) => [entry.display_name, entry]));
+  return entriesById.get(intendedName) ?? entriesByDisplayName.get(intendedName);
+}
+
+const UNRESOLVABLE_HARNESS_REQUEST = "UNRESOLVABLE_HARNESS_REQUEST";
+
+function getHarnessProbeMatrixInternal(
   input: HarnessProbeInput = {},
-  repository: ProtocolRepository = getDefaultRepository()
+  repository: ProtocolRepository = getDefaultRepository(),
+  tolerateUnresolvable = false
 ): Record<string, unknown> {
   const entries = loadHarnessControlEntries(repository);
-  const entriesById = new Map(entries.map((entry) => [entry.harness_id, entry]));
-  // The explicit display-name channel (AC7): declared display_name fields,
-  // matched exactly — never derived from ids or matched case-insensitively.
-  const entriesByDisplayName = new Map(entries.map((entry) => [entry.display_name, entry]));
   // Default probe list = the resource's full membership (canonical ids carried
   // as explicit display names). Callers may still pass display names or ids.
   const intended = input.intendedHarnesses ?? entries.map((entry) => entry.display_name);
@@ -1731,9 +1779,39 @@ export function getHarnessProbeMatrix(
     // Case-respelled or otherwise mutated forms (e.g. "DROID", "GOOsE",
     // "kilOcode") are refused as non-canonical, never silently folded into a
     // resource-backed member.
-    const entry = entriesByDisplayName.get(intendedName)
-      ?? (isCanonicalHarnessId(intendedName) ? entriesById.get(intendedName) : undefined);
+    const entry = resolveHarnessEntry(entries, intendedName);
     if (!entry) {
+      if (tolerateUnresolvable) {
+        return {
+          harness: intendedName,
+          installed: false,
+          classifications: [UNRESOLVABLE_HARNESS_REQUEST],
+          modelStatus: "MODEL_UNREACHABLE",
+          governedReadiness: "FIXABLE_BLOCKED",
+          governedRoleReady: false,
+          governedContext: {
+            category: "mcp_only",
+            requiredAssurance: "mcp_bootstrap",
+            proofAssurance: null,
+            uptakeVerified: false,
+            blockers: [UNRESOLVABLE_HARNESS_REQUEST]
+          },
+          governedNextSafeAction: "Use an exact shipped harness id or display name, then retry onboarding.",
+          nextSafeAction: "Use an exact shipped harness id or display name, then retry onboarding.",
+          readiness: {
+            installed_binary: false,
+            authenticated: "unknown",
+            mcp_configured: false,
+            mcp_management_available: "unknown",
+            mcp_tool_hydration: "UNPROVEN",
+            governed_context_uptake_verified: false,
+            governed_role_ready: false
+          },
+          nativeSkillInvocation: false,
+          sentinelCoordinationProtocolSkill: "resolve the harness request before governed setup",
+          safeNextActions: defaultSafeOutcomes()
+        };
+      }
       throw new Error(
         `unknown_or_non_canonical_harness: "${intendedName}" does not resolve to any harness — ` +
         `resolution requires the exact canonical snake_case machine id (e.g. "droid") or the exact ` +
@@ -1889,6 +1967,13 @@ export function getHarnessProbeMatrix(
   };
 }
 
+export function getHarnessProbeMatrix(
+  input: HarnessProbeInput = {},
+  repository: ProtocolRepository = getDefaultRepository()
+): Record<string, unknown> {
+  return getHarnessProbeMatrixInternal(input, repository, false);
+}
+
 const ONBOARDING_ADVISORY_CLASSIFICATIONS = new Set(["USER_INPUT_REQUIRED"]);
 const DEFAULT_INSTALL_LEDGER_PATH = ".odin/install-ledger.json";
 const COMPUTER_USE_CANDIDATE_HARNESSES = ["Codex Desktop", "Claude Desktop", "Claude Code"];
@@ -1931,12 +2016,12 @@ export function getOnboardingPlan(
   input: OnboardingPlanInput = {},
   repository: ProtocolRepository = getDefaultRepository()
 ): Record<string, unknown> {
-  const probe = getHarnessProbeMatrix({
+  const probe = getHarnessProbeMatrixInternal({
     intendedHarnesses: input.intendedHarnesses,
     installedHarnesses: input.installedHarnesses,
     userProvisioningAnswer: input.userProvisioningAnswer,
     observations: input.observations
-  }, repository);
+  }, repository, true);
   const probeRows = Array.isArray(probe.rows) ? (probe.rows as Array<Record<string, unknown>>) : [];
 
   const readinessRows = probeRows.map((row) => {
