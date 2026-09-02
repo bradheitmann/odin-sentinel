@@ -1,5 +1,7 @@
-import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 // @ts-ignore - audit script is an ESM .mjs module without declaration files.
 const gate = await import("../../scripts/audit/dependency-audit.mjs");
@@ -244,10 +246,485 @@ describe("report parsing and the injection seam", () => {
   it("documents the seam and leaves it inert when no input is supplied", () => {
     const options = gate.parseArgs([], {});
     expect(options.reportFile).toBeNull();
-    expect(gate.parseArgs([], { [gate.REPORT_FILE_ENV_VAR]: "fixture.json" }).reportFile).toBe("fixture.json");
+    const fromEnv = gate.parseArgs([], { [gate.REPORT_FILE_ENV_VAR]: "fixture.json" });
+    expect(fromEnv.reportFile).toBe("fixture.json");
+    expect(fromEnv.reportFileFromEnv).toBe(true);
     expect(gate.parseArgs(["--report-file", "fixture.json"], {}).reportFile).toBe("fixture.json");
     expect(gate.parseArgs(["--workspace", "telemetry"], {}).workspaceLabel).toBe("telemetry");
     expect(() => gate.parseArgs(["--nope"], {})).toThrow(/Unknown argument/);
+  });
+
+  it("AC8: the environment-variable seam requires --allow-injected-report and injects nothing alone", () => {
+    const envOptions = gate.parseArgs([], { [gate.REPORT_FILE_ENV_VAR]: "fixture.json" });
+    expect(envOptions.reportFile).toBe("fixture.json");
+    expect(envOptions.reportFileFromEnv).toBe(true);
+    expect(() => gate.assertReportFileAllowed(envOptions)).toThrow(/--allow-injected-report/);
+    expect(() => gate.assertReportFileAllowed(envOptions)).toThrow(/ODIN_DEPENDENCY_AUDIT_REPORT_FILE/);
+
+    const allowed = gate.parseArgs(["--allow-injected-report"], { [gate.REPORT_FILE_ENV_VAR]: "fixture.json" });
+    expect(allowed.reportFileFromEnv).toBe(true);
+    expect(allowed.allowInjectedReport).toBe(true);
+    expect(() => gate.assertReportFileAllowed(allowed)).not.toThrow();
+
+    const explicit = gate.parseArgs(["--report-file", "fixture.json"], {});
+    expect(explicit.reportFileFromEnv).toBe(false);
+    expect(() => gate.assertReportFileAllowed(explicit)).not.toThrow();
+
+    const precedence = gate.parseArgs(["--report-file", "explicit.json"], { [gate.REPORT_FILE_ENV_VAR]: "env.json" });
+    expect(precedence.reportFile).toBe("explicit.json");
+    expect(precedence.reportFileFromEnv).toBe(false);
+
+    const alone = gate.parseArgs(["--allow-injected-report"], {});
+    expect(alone.reportFile).toBeNull();
+    expect(alone.allowInjectedReport).toBe(true);
+  });
+});
+
+describe("AC1-AC3 regression: fail-closed report validation", () => {
+  /** A pnpm-audit-format report that also carries a top-level `error` key. */
+  function reportWithError(errorValue: unknown): string {
+    return JSON.stringify({
+      advisories: {},
+      metadata: { vulnerabilities: { info: 0, low: 0, moderate: 0, high: 0, critical: 0 } },
+      error: errorValue
+    });
+  }
+
+  it("AC1: rejects a top-level error key by presence, naming code/message, even with otherwise complete proof", () => {
+    for (const errorValue of [null, {}, "", false]) {
+      const verdict = gate.validateAuditReport(reportWithError(errorValue));
+      expect(verdict.ok).toBe(false);
+      expect(verdict.name).toBe("REPORT_CARRIES_ERROR_KEY");
+      expect(verdict.message).toContain('"error"');
+    }
+    const coded = gate.validateAuditReport(
+      reportWithError({ code: "ERR_PNPM_AUDIT_NO_LOCKFILE", message: "No lockfile in this directory." })
+    );
+    expect(coded.ok).toBe(false);
+    expect(coded.message).toContain("ERR_PNPM_AUDIT_NO_LOCKFILE");
+    expect(coded.message).toContain("No lockfile in this directory");
+    // the error key wins even alongside otherwise complete positive proof
+    const gated = evaluate(manifest([exception()]), reportWithError({ code: "E1", message: "boom" }));
+    expect(gated.ok).toBe(false);
+    expect(gated.lines.join("\n")).toContain("could not be verified to have run");
+  });
+
+  it("AC2: positive proof requires advisories as object/array and metadata.vulnerabilities as object", () => {
+    for (const badAdvisories of ["str", 1, true, null]) {
+      const verdict = gate.validateAuditReport(
+        JSON.stringify({ advisories: badAdvisories, metadata: { vulnerabilities: {} } })
+      );
+      expect(verdict.ok).toBe(false);
+      expect(verdict.message).toContain('"advisories"');
+    }
+    const missingAdvisories = gate.validateAuditReport(JSON.stringify({ metadata: { vulnerabilities: {} } }));
+    expect(missingAdvisories.ok).toBe(false);
+    expect(missingAdvisories.message).toContain('"advisories"');
+
+    for (const badVuln of ["str", 1, true, null, []]) {
+      const verdict = gate.validateAuditReport(
+        JSON.stringify({ advisories: {}, metadata: { vulnerabilities: badVuln } })
+      );
+      expect(verdict.ok).toBe(false);
+      expect(verdict.message).toContain('"metadata.vulnerabilities"');
+    }
+    const missingVuln = gate.validateAuditReport(JSON.stringify({ advisories: {} }));
+    expect(missingVuln.ok).toBe(false);
+    expect(missingVuln.message).toContain('"metadata.vulnerabilities"');
+
+    expect(
+      gate.validateAuditReport(JSON.stringify({ advisories: {}, metadata: { vulnerabilities: {} } })).ok
+    ).toBe(true);
+    expect(
+      gate.validateAuditReport(JSON.stringify({ advisories: [], metadata: { vulnerabilities: {} } })).ok
+    ).toBe(true);
+  });
+
+  it("AC3: absence is never zero — could-not-verify is a distinct named failure class", () => {
+    const couldNotVerify = evaluate(
+      manifest([exception()]),
+      JSON.stringify({ error: { code: "ERR_PNPM_AUDIT_NO_LOCKFILE", message: "No lockfile." } })
+    );
+    expect(couldNotVerify.ok).toBe(false);
+    const couldNotOutput = couldNotVerify.lines.join("\n");
+    expect(couldNotOutput).toContain("Dependency audit FAIL: the audit could not be verified to have run");
+    expect(couldNotOutput).not.toContain("0 unaccepted advisories");
+
+    const unaccepted = evaluate(manifest([]), report([advisory()]));
+    const unacceptedOutput = unaccepted.lines.join("\n");
+    expect(unacceptedOutput).toContain("Dependency audit FAIL: 1 unaccepted advisory");
+    expect(unacceptedOutput).not.toContain("could not be verified to have run");
+
+    const manifestInvalid = evaluate(manifest([exception({ expires: daysFromNow(-1) })]), report([]));
+    const invalidOutput = manifestInvalid.lines.join("\n");
+    expect(invalidOutput).toContain("Manifest INVALID");
+    expect(invalidOutput).not.toContain("could not be verified to have run");
+  });
+});
+
+describe("AC4-AC7 regression: live semantics, positive control, strict JSON, source line", () => {
+  it("AC4: a non-zero live exit with an error report fails; an advisory-bearing report is still reconciled", () => {
+    const errorReport = JSON.stringify({
+      error: { code: "ERR_PNPM_AUDIT_NO_LOCKFILE", message: "No lockfile in this directory." }
+    });
+    const failed = evaluate(manifest([exception()]), errorReport);
+    expect(failed.ok).toBe(false);
+    expect(failed.lines.join("\n")).toContain("could not be verified to have run");
+    expect(failed.lines.join("\n")).toContain("ERR_PNPM_AUDIT_NO_LOCKFILE");
+
+    const advisoryReport = evaluate(manifest([]), report([advisory()]));
+    expect(advisoryReport.ok).toBe(false);
+    expect(advisoryReport.lines.join("\n")).toContain("UNACCEPTED high GHSA-aaaa-bbbb-cccc");
+    expect(advisoryReport.lines.join("\n")).not.toContain("could not be verified to have run");
+  });
+
+  it("AC5: positive control — a genuine clean audit passes; one unaccepted high advisory fails as unaccepted", () => {
+    const clean = evaluate(manifest([exception()]), report([]));
+    expect(clean.ok).toBe(true);
+    expect(clean.lines.join("\n")).toContain("Dependency audit PASS");
+
+    const oneHigh = evaluate(manifest([]), report([advisory()]));
+    expect(oneHigh.ok).toBe(false);
+    expect(oneHigh.lines.join("\n")).toContain("Dependency audit FAIL: 1 unaccepted advisory");
+    expect(oneHigh.lines.join("\n")).not.toContain("could not be verified to have run");
+  });
+
+  it("AC6: no JSON is recovered from surrounding output", () => {
+    const embedded = `prefix ${report([])} suffix`;
+    const verdict = gate.validateAuditReport(embedded);
+    expect(verdict.ok).toBe(false);
+    expect(verdict.message).toContain("not valid JSON");
+    expect(gate.validateAuditReport(report([]).slice(0, 40)).ok).toBe(false);
+    expect(gate.validateAuditReport("[1,2,3]").ok).toBe(false);
+    expect(gate.validateAuditReport('"just a string"').ok).toBe(false);
+    expect(evaluate(manifest([]), embedded).ok).toBe(false);
+    // Rework finding 1: a UTF-8 BOM prefix must fail closed, never be
+    // normalized into valid JSON by trimming (trim() treats U+FEFF as
+    // whitespace, which would otherwise make the BOM-prefixed report parse).
+    expect(gate.validateAuditReport(`\uFEFF${report([])}`).ok).toBe(false);
+    expect(gate.validateAuditReport(` \uFEFF${report([])}`).ok).toBe(false);
+    expect(gate.validateAuditReport(`\uFEFF${report([])}`).message).toContain("UTF-8 BOM");
+    expect(evaluate(manifest([]), `\uFEFF${report([])}`).ok).toBe(false);
+  });
+
+  it("AC7: the first output line names the report source", () => {
+    const live = gate.evaluateDependencyAudit({ manifest: manifest([]), reportText: report([]), now: NOW });
+    expect(live.lines[0]).toContain("report source: live pnpm audit");
+    const injected = gate.evaluateDependencyAudit({
+      manifest: manifest([]),
+      reportText: report([]),
+      now: NOW,
+      reportSource: "injected report /tmp/fixture.json"
+    });
+    expect(injected.lines[0]).toContain("report source: injected report /tmp/fixture.json");
+  });
+});
+
+describe("AC9 regression: workspace resolution", () => {
+  it("AC9: equivalent workspace spellings resolve to the same workspace", () => {
+    const ROOT = new URL("../../", import.meta.url).pathname.replace(/\/$/, "");
+    for (const spelling of [".", "./", ROOT, "sub/..", `${ROOT}/.`]) {
+      expect(gate.normalizeWorkspaceLabel(spelling)).toBe(".");
+    }
+    for (const spelling of ["telemetry", "./telemetry", `${ROOT}/telemetry`, "telemetry/../telemetry"]) {
+      expect(gate.normalizeWorkspaceLabel(spelling)).toBe("telemetry");
+    }
+    expect(gate.parseArgs(["--workspace", "telemetry"], {}).workspaceFile.endsWith("telemetry/pnpm-workspace.yaml")).toBe(
+      true
+    );
+    expect(gate.parseArgs(["--workspace", "."], {}).workspaceFile.endsWith("/pnpm-workspace.yaml")).toBe(true);
+  });
+});
+
+describe("AC10-AC11 regression: workspace-scoped pin linkage", () => {
+  const TELEMETRY_FIXTURE = ["overrides:", '  ws: "^8.21.0"', '  undici: "^7.28.0"', ""].join("\n");
+
+  it("AC10: a pin from another workspace is reported not applicable and never counted absent/drifted", () => {
+    const manifestValue = manifest([
+      exception({ advisory: "GHSA-aaab-bbbb-cccc", pin: { package: "ws", range: "^8.21.0", workspace: "telemetry" } }),
+      exception({ advisory: "GHSA-aaac-bbbb-cccc", pin: { package: "undici", range: "^7.28.0", workspace: "telemetry" } })
+    ]);
+    const rootRun = evaluate(manifestValue, report([]), WORKSPACE_FIXTURE);
+    expect(rootRun.ok).toBe(true);
+    const output = rootRun.lines.join("\n");
+    expect(output).toContain("not applicable to this run");
+    expect(output).toContain("reconciled against that workspace's file");
+    // the root workspace file has no ws/undici override, yet no absent/drifted failure
+    expect(rootRun.errors.join("\n")).not.toContain("GHSA-aaab-bbbb-cccc");
+    expect(rootRun.errors.join("\n")).not.toContain("GHSA-aaac-bbbb-cccc");
+  });
+
+  it("AC10: a telemetry run reconciles telemetry pins against telemetry's own file", () => {
+    const manifestValue = manifest([
+      exception({
+        advisory: "GHSA-96hv-2xvq-fx4p",
+        pin: { package: "ws", range: "^8.21.0", workspace: "telemetry" }
+      }),
+      exception({
+        advisory: "GHSA-vmh5-mc38-953g",
+        pin: { package: "undici", range: "^7.28.0", workspace: "telemetry" }
+      })
+    ]);
+    const result = gate.evaluateDependencyAudit({
+      manifest: manifestValue,
+      reportText: report([]),
+      workspaceText: TELEMETRY_FIXTURE,
+      workspaceLabel: "telemetry",
+      now: NOW
+    });
+    expect(result.ok).toBe(true);
+    expect(result.errors).toEqual([]);
+  });
+
+  it("AC10: a drifted telemetry override fails the telemetry run and a drifted root pin fails the root run", () => {
+    const telemetryDrift = gate.evaluateDependencyAudit({
+      manifest: manifest([exception({ pin: { package: "ws", range: "^9.0.0", workspace: "telemetry" } })]),
+      reportText: report([]),
+      workspaceText: TELEMETRY_FIXTURE,
+      workspaceLabel: "telemetry",
+      now: NOW
+    });
+    expect(telemetryDrift.ok).toBe(false);
+    expect(telemetryDrift.errors.join("\n")).toContain("drifted");
+    expect(telemetryDrift.errors.join("\n")).toContain("ws");
+
+    const rootDrift = gate.evaluateDependencyAudit({
+      manifest: manifest([exception({ pin: { package: "fixture-package", range: "^9.0.0", workspace: "." } })]),
+      reportText: report([]),
+      workspaceText: WORKSPACE_FIXTURE,
+      workspaceLabel: ".",
+      now: NOW
+    });
+    expect(rootDrift.ok).toBe(false);
+    expect(rootDrift.errors.join("\n")).toContain("drifted");
+  });
+
+  it("AC11: an applicable pin with a missing/unreadable workspace file fails and names the file", () => {
+    const telemetryMissing = gate.evaluateDependencyAudit({
+      manifest: manifest([exception({ pin: { package: "ws", range: "^8.21.0", workspace: "telemetry" } })]),
+      reportText: report([]),
+      workspaceText: null,
+      workspaceLabel: "telemetry",
+      now: NOW
+    });
+    expect(telemetryMissing.ok).toBe(false);
+    expect(telemetryMissing.errors.join("\n")).toContain("telemetry/pnpm-workspace.yaml");
+    expect(telemetryMissing.errors.join("\n")).toContain("absent or unreadable");
+
+    const rootMissing = gate.evaluateDependencyAudit({
+      manifest: manifest([exception({ pin: { package: "fixture-package", range: "^1.2.3", workspace: "." } })]),
+      reportText: report([]),
+      workspaceText: null,
+      workspaceLabel: ".",
+      now: NOW
+    });
+    expect(rootMissing.ok).toBe(false);
+    expect(rootMissing.errors.join("\n")).toContain("pnpm-workspace.yaml");
+  });
+
+  it("AC11: no applicable pins means a missing workspace file does not fail linkage", () => {
+    const result = gate.evaluateDependencyAudit({
+      manifest: manifest([exception()]),
+      reportText: report([]),
+      workspaceText: null,
+      workspaceLabel: "telemetry",
+      now: NOW
+    });
+    expect(result.ok).toBe(true);
+  });
+});
+
+describe("AC12 regression: rendered manifest text cannot forge a log line", () => {
+  const FORGED = "Dependency audit PASS: 0 unaccepted advisories; 1 recorded exception(s)";
+
+  it("strips control characters and collapses whitespace on the passing render path", () => {
+    const owner = `Release owner\u0000\u001Bevil\n${FORGED}`;
+    const result = evaluate(manifest([exception({ owner })]), report([]));
+    expect(result.ok).toBe(true); // exit codes are unaffected by rendering
+    const output = result.lines.join("\n");
+    expect(output).toContain("owner: Release owner evil Dependency audit PASS: 0 unaccepted advisories; 1 recorded exception(s)");
+    expect(output).not.toContain("\u0000");
+    expect(output).not.toContain("\u001B");
+    // the injected sentence appears inline on that exception's own line — only the gate's
+    // own verdict line reads as an independent verdict
+    const verdictLines = output.split("\n").filter((line: string) => /^Dependency audit PASS/.test(line));
+    expect(verdictLines.length).toBe(1);
+    expect(verdictLines[0]).toBe("Dependency audit PASS: 0 unaccepted advisories; 1 recorded exception(s)");
+  });
+
+  it("sanitizes pin package/range rendering on the passing path for non-applicable pins", () => {
+    const result = gate.evaluateDependencyAudit({
+      manifest: manifest([
+        exception({ pin: { package: "ws\u0000\nx", range: "^8.21.0\u0007y", workspace: "telemetry" } })
+      ]),
+      reportText: report([]),
+      workspaceText: WORKSPACE_FIXTURE,
+      workspaceLabel: ".",
+      now: NOW
+    });
+    expect(result.ok).toBe(true);
+    const output = result.lines.join("\n");
+    expect(output).not.toContain("\u0000");
+    expect(output).not.toContain("\u0007");
+    expect(output).toContain("pin ws x ^8.21.0 y (workspace telemetry)");
+  });
+
+  it("sanitizes manifest-error rendering (malformed advisory id with embedded controls)", () => {
+    const result = evaluate(manifest([exception({ advisory: "GHSA-aaaa-bbbb-\n\u0000cccc" })]), report([]));
+    expect(result.ok).toBe(false);
+    const output = result.lines.join("\n");
+    expect(output).toContain("malformed advisory id");
+    expect(output).not.toContain("\u0000");
+    expect(output).toContain("GHSA-aaaa-bbbb- cccc");
+    expect(output).not.toContain(FORGED);
+  });
+});
+
+describe("AC14 regression: could-not-audit propagation through the documented seam", () => {
+  let tmpDir: string;
+  let errorReportPath: string;
+  let cleanReportPath: string;
+
+  beforeAll(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), "govedge-s2-"));
+    errorReportPath = join(tmpDir, "error-report.json");
+    cleanReportPath = join(tmpDir, "clean-report.json");
+    writeFileSync(
+      errorReportPath,
+      JSON.stringify({ error: { code: "ERR_PNPM_AUDIT_NO_LOCKFILE", message: "No lockfile in this directory." } })
+    );
+    writeFileSync(cleanReportPath, report([]));
+  });
+
+  afterAll(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("AC14: a could-not-audit report through --report-file exits non-zero (gate rejects)", async () => {
+    let err: unknown = null;
+    try {
+      await gate.main(["--report-file", errorReportPath], {});
+    } catch (caught) {
+      err = caught;
+    }
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toContain("Dependency audit gate failed");
+    expect((err as Error).message).toContain("ERR_PNPM_AUDIT_NO_LOCKFILE");
+  });
+
+  it("AC14: a clean injected report through the same seam passes", async () => {
+    let err: unknown = null;
+    try {
+      await gate.main(["--report-file", cleanReportPath], {});
+    } catch (caught) {
+      err = caught;
+    }
+    expect(err).toBeNull();
+  });
+
+  it("AC14: the env-var seam propagates the failure when opted in, and refuses before reading when not", async () => {
+    let err: unknown = null;
+    try {
+      await gate.main(["--allow-injected-report"], { [gate.REPORT_FILE_ENV_VAR]: errorReportPath });
+    } catch (caught) {
+      err = caught;
+    }
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toContain("Dependency audit gate failed");
+
+    let refusal: unknown = null;
+    try {
+      await gate.main([], { [gate.REPORT_FILE_ENV_VAR]: join(tmpDir, "never-read.json") });
+    } catch (caught) {
+      refusal = caught;
+    }
+    expect(refusal).toBeInstanceOf(Error);
+    expect((refusal as Error).message).toContain("--allow-injected-report");
+  });
+
+  it("AC14: the publish path observes the fix — prepublishOnly runs validate which runs audit:deps", () => {
+    const pkg = JSON.parse(repoText("package.json"));
+    expect(pkg.scripts.prepublishOnly).toBe("pnpm run validate");
+    expect(pkg.scripts.validate).toContain("audit:deps");
+    expect(pkg.scripts["audit:deps"]).toContain("scripts/audit/dependency-audit.mjs");
+  });
+});
+
+describe("rework regressions: workspace attribution fails closed", () => {
+  let tmpDir: string;
+  let cleanReportPath: string;
+
+  beforeAll(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), "govedge-s2-ws-"));
+    mkdirSync(join(tmpDir, "telemetry"));
+    cleanReportPath = join(tmpDir, "clean.json");
+    writeFileSync(cleanReportPath, report([]));
+  });
+
+  afterAll(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("workspace error: a --workspace value resolving to a nonexistent directory fails closed", () => {
+    expect(() =>
+      gate.validateWorkspaceDirectory({ workspaceDir: join(tmpDir, "missing"), workspaceLabel: "missing", packageRoot: tmpDir })
+    ).toThrow(/workspace error/);
+    expect(() =>
+      gate.validateWorkspaceDirectory({ workspaceDir: join(tmpDir, "missing"), workspaceLabel: "missing", packageRoot: tmpDir })
+    ).toThrow(/does not exist as a directory/);
+  });
+
+  it("workspace error: a wrong-case --workspace value fails closed on every filesystem", () => {
+    let err: unknown = null;
+    try {
+      gate.validateWorkspaceDirectory({
+        workspaceDir: join(tmpDir, "TELEMETRY"),
+        workspaceLabel: "TELEMETRY",
+        packageRoot: tmpDir
+      });
+    } catch (caught) {
+      err = caught;
+    }
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toMatch(/workspace error/);
+    // Attributed either as nonexistent (case-sensitive filesystem) or as a
+    // case mismatch (case-insensitive filesystem) — never a silent
+    // not-applicable PASS.
+    expect((err as Error).message).toMatch(/does not exist as a directory|does not match an on-disk workspace directory/);
+  });
+
+  it("workspace error: the correct-case workspace entry is accepted", () => {
+    expect(() =>
+      gate.validateWorkspaceDirectory({ workspaceDir: join(tmpDir, "telemetry"), workspaceLabel: "telemetry", packageRoot: tmpDir })
+    ).not.toThrow();
+  });
+
+  it("workspace error: a path escaping the package root is refused", () => {
+    expect(() =>
+      gate.validateWorkspaceDirectory({ workspaceDir: join(tmpDir, "..", "outside"), workspaceLabel: "..", packageRoot: tmpDir })
+    ).toThrow(/outside the package root/);
+  });
+
+  it("integration: a wrong-case --workspace fails main() with an attributable error before any audit", async () => {
+    let err: unknown = null;
+    try {
+      await gate.main(["--workspace", "TELEMETRY", "--report-file", cleanReportPath], {});
+    } catch (caught) {
+      err = caught;
+    }
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toContain("workspace error");
+    expect((err as Error).message).toContain("TELEMETRY");
+  });
+
+  it("integration: the correct-case --workspace telemetry passes main() with the documented seam", async () => {
+    let err: unknown = null;
+    try {
+      await gate.main(["--workspace", "telemetry", "--report-file", cleanReportPath], {});
+    } catch (caught) {
+      err = caught;
+    }
+    expect(err).toBeNull();
   });
 });
 
@@ -258,7 +735,7 @@ describe("shipped configuration", () => {
     expect(gate.MAX_EXPIRY_HORIZON_DAYS).toBe(90);
   });
 
-  it("records every workspace override pin in the shipped exception manifest", () => {
+  it("AC13: ships workspace-scoped pins — root pins fully cover the root overrides", () => {
     const shipped = JSON.parse(repoText("scripts/audit/audit-exceptions.json"));
     const workspaceText = repoText("pnpm-workspace.yaml");
     const result = gate.evaluateDependencyAudit({
@@ -280,9 +757,40 @@ describe("shipped configuration", () => {
       expect(result.entries.map((entry: { advisory: string }) => entry.advisory)).toContain(id);
     }
 
-    const pinned = new Set(result.entries.filter((entry: { pin: unknown }) => entry.pin).map((entry: { pin: { package: string } }) => entry.pin.package));
+    const rootPinned = new Set(
+      result.entries
+        .filter((entry: { pin: { workspace: string } }) => entry.pin && entry.pin.workspace === ".")
+        .map((entry: { pin: { package: string } }) => entry.pin.package)
+    );
     for (const overridden of gate.parseOverridesBlock(workspaceText).keys()) {
-      expect(pinned).toContain(overridden);
+      expect(rootPinned).toContain(overridden);
+    }
+  });
+
+  it("AC13: ships telemetry pins for ws and undici that fully cover the telemetry overrides", () => {
+    const shipped = JSON.parse(repoText("scripts/audit/audit-exceptions.json"));
+    const telemetryText = repoText("telemetry/pnpm-workspace.yaml");
+    const result = gate.evaluateDependencyAudit({
+      manifest: shipped,
+      reportText: report([]),
+      workspaceText: telemetryText,
+      workspaceLabel: "telemetry",
+      now: NOW
+    });
+    expect(result.errors).toEqual([]);
+    expect(result.ok).toBe(true);
+
+    for (const id of ["GHSA-96hv-2xvq-fx4p", "GHSA-vmh5-mc38-953g", "GHSA-vxpw-j846-p89q"]) {
+      expect(result.entries.map((entry: { advisory: string }) => entry.advisory)).toContain(id);
+    }
+
+    const telemetryPinned = new Set(
+      result.entries
+        .filter((entry: { pin: { workspace: string } }) => entry.pin && entry.pin.workspace === "telemetry")
+        .map((entry: { pin: { package: string } }) => entry.pin.package)
+    );
+    for (const overridden of gate.parseOverridesBlock(telemetryText).keys()) {
+      expect(telemetryPinned).toContain(overridden);
     }
   });
 
