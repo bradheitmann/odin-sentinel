@@ -1,7 +1,7 @@
 ---
 name: odin-scp
-description: "Operate and improve SCP governance for multi-agent teams: self-bootstrap and teardown of federated pods, generic role topology, TEAM PM / TEAM ODIN separation, minimal bootstrap receipts, terminal locator identity, control-plane non-implementation, delegation receipts, terminal/CMUX delivery proof and verdicts, heartbeat cadence, branch-visible claims, adversarial QA, finish audit, and safe skill dissemination. Use when introducing SCP v3.5; installing SCP skills/adapters for Codex, Claude Code, OpenCode, Droid, Crush, OpenHands, Goose, KiloCode, Cursor, Zed, Pi, or other local coding agents; assigning EXEC/TEAM/WORKER roles; or preventing premature activation from an uncommitted draft artifact."
-version: 3.6.1
+description: "Operate and improve SCP governance for multi-agent teams: self-bootstrap and teardown of federated pods, generic role topology, TEAM PM / TEAM ODIN separation, minimal bootstrap receipts, terminal locator identity, control-plane non-implementation, delegation receipts, terminal/CMUX delivery proof and verdicts, heartbeat cadence, branch-visible claims, adversarial QA, finish audit, and safe skill dissemination. Use when introducing SCP governance; installing SCP skills/adapters for Codex, Claude Code, OpenCode, Droid, Crush, OpenHands, Goose, KiloCode, Cursor, Zed, Pi, or other local coding agents; assigning EXEC/TEAM/WORKER roles; or preventing premature activation from an uncommitted draft artifact."
+version: 0.6.0
 updated: 2026-05-11
 ---
 
@@ -10,7 +10,7 @@ updated: 2026-05-11
 SCP_PUBLIC_VERSION: 0.6.0
 MIN_COMPATIBLE_CHILD_MCP: 0.4.5
 
-Public install readiness: configure the ODIN MCP server, install native skill context where supported or use full prompt fallback, keep governed team roles in CMUX, verify auth/account readiness without printing secrets, smoke-test local inference if used, and validate role compatibility before launch. Private local skill copies may differ intentionally; public release checks compare repo-internal public artifacts only.
+Public install readiness: configure the ODIN MCP server, install native skill context where supported or use full prompt fallback, keep governed team roles in CMUX, verify auth/account readiness without printing secrets, smoke-test local inference if used, and validate role compatibility before launch. Installed runtime skill copies are synchronized snapshots of the canonical skill, and a copy that differs from it is stale and must be re-synced; public release checks compare repo-internal public artifacts.
 
 Use this skill for SCP policy introduction, repo landing, adoption-gate proof, controlled dissemination, active multi-agent control loops, and automated team lifecycle management. SCP is a governance layer for multi-team agent operation; it complements other coordination layers and `AGENTS.md` files where present. It sits above them after activation.
 

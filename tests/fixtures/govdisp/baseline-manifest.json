@@ -9,8 +9,8 @@
   "files": [
     {
       "path": "protocol/bootstrap-skill.md",
-      "bytes": 135956,
-      "sha256": "fe22d30c4ddee7c173a22bea16394e62551d26bd23eceee8dd7a31c0887bc84b"
+      "bytes": 136050,
+      "sha256": "798aa845cf821b8116002185e30cfd798c22fa23aef633218ba946548e62cfd9"
     },
     {
       "path": "protocol/closeout.yaml",
@@ -174,8 +174,8 @@
     },
     {
       "path": "protocol/SCP.md",
-      "bytes": 37805,
-      "sha256": "8d618682721e5c2320de2b07ae101cb7607412917d91ac952dd14861fd3cee7d"
+      "bytes": 37894,
+      "sha256": "f3a970ec60cf91be5c9caf8dbd9f81a6537c5a4388f9d73c516f261e5f7782b2"
     },
     {
       "path": "protocol/skill-references/boot-receipt-examples.md",
@@ -184,8 +184,8 @@
     },
     {
       "path": "protocol/skill-references/canonical-introduction-prompt.md",
-      "bytes": 6734,
-      "sha256": "0719d0ccb9923d37b64d1f777e21f28dddfbf15303227cad65a033b352b97147"
+      "bytes": 6719,
+      "sha256": "3769373c956f57a78a19a342a7bc5c49a4dbde5557b04ac0e58274facd14dfaa"
     },
     {
       "path": "protocol/skill-references/harness-skill-targets.md",

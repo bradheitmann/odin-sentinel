@@ -16,9 +16,22 @@ usage() {
   cat <<'USAGE'
 Usage: sync-installations.sh [--verify-only] [--dry-run] [--emit-report PATH]
 
-Syncs the master odin-scp skill to runtime copies and
-verifies required markers. --verify-only checks current copies without writing.
---dry-run previews rsync changes without writing.
+Syncs the master odin-scp skill to runtime copies, generates the harness
+adapters from the master SKILL.md, and verifies every installation by exact
+content. --verify-only inspects the current fleet and writes nothing.
+--dry-run reports what a sync would do and writes nothing at all: no directory
+is created and no existing byte is modified.
+
+Installed copies are synchronized snapshots, not intentional forks. A target is
+verified only when its SKILL.md is byte-identical to the master SKILL.md, and an
+adapter only when it is byte-identical to the adapter bytes generated from that
+same master SKILL.md. An installation that is ABSENT is reported by name, is
+never counted as verified, and makes the run exit non-zero in every mode.
+
+Adapter generation is deterministic: an adapter is a fixed generated-file header
+line, a blank line, and the canonical SKILL.md verbatim. It carries no
+timestamp, hostname, or machine-local path, so two generations from the same
+master produce byte-identical adapters.
 
 Master resolution: the default master is the skill directory CONTAINING this
 script (the repository checkout when run from the repository). The script only
@@ -177,6 +190,10 @@ if [[ ! -f "$MASTER/SKILL.md" ]]; then
 fi
 MASTER_REAL="$(cd "$MASTER" && pwd -P)"
 
+# Marker presence on the MASTER remains a precondition: it guards against
+# propagating a truncated or wrong-file master. It is NOT the verification rule
+# for installed copies — those are verified by exact content below, so a copy
+# that drifted while still containing every marker fails.
 for marker in "${MARKERS[@]}"; do
   grep -Fq "$marker" "$MASTER/SKILL.md" || {
     echo "missing marker in master SKILL.md: $marker" >&2
@@ -184,57 +201,23 @@ for marker in "${MARKERS[@]}"; do
   }
 done
 
-for adapter in "${ADAPTERS[@]}"; do
-  if [[ ! -f "$adapter" ]]; then
-    echo "missing adapter: $adapter" >&2
-    exit 1
-  fi
-  for marker in "${MARKERS[@]}"; do
-    grep -Fq "$marker" "$adapter" || {
-      echo "missing marker in adapter $adapter: $marker" >&2
-      exit 1
-    }
-  done
-done
+# Deterministic adapter derivation from the canonical SKILL.md. No timestamp, no
+# hostname, no machine-local path, no run-varying input of any kind.
+ADAPTER_HEADER="<!-- GENERATED FILE: odin-scp adapter derived from the canonical SKILL.md. Do not hand-edit; re-run sync-installations.sh. -->"
 
-rsync_args=(-a --delete)
-if [[ "$DRY_RUN" == true ]]; then
-  rsync_args+=(--dry-run)
-fi
-
-if [[ "$VERIFY_ONLY" == false ]]; then
-  for target in "${TARGETS[@]}"; do
-    mkdir -p "$target"
-    if [[ "$(cd "$target" && pwd -P)" == "$MASTER_REAL" ]]; then
-      emit "skipping target that resolves to master (nothing ever writes back into master): $target"
-      continue
-    fi
-    if [[ "$DRY_RUN" == true ]]; then
-      emit "DRY-RUN target: $target"
-      rsync "${rsync_args[@]}" "$MASTER/" "$target/" | while IFS= read -r line; do
-        emit "  $line"
-      done
-    else
-      rsync "${rsync_args[@]}" "$MASTER/" "$target/"
-    fi
-  done
-fi
+adapter_canonical_bytes() {
+  printf '%s\n\n' "$ADAPTER_HEADER"
+  cat "$MASTER/SKILL.md"
+}
 
 master_hash="$(shasum -a 256 "$MASTER/SKILL.md" | awk '{print $1}')"
-hash_mismatch=false
-for target in "${TARGETS[@]}"; do
-  if [[ ! -f "$target/SKILL.md" ]]; then
-    emit "missing target SKILL.md: $target/SKILL.md"
-    hash_mismatch=true
-    continue
+adapter_hash="$(adapter_canonical_bytes | shasum -a 256 | awk '{print $1}')"
+
+physical_path() {
+  if [[ -d "$1" ]]; then
+    (cd "$1" && pwd -P)
   fi
-  target_hash="$(shasum -a 256 "$target/SKILL.md" | awk '{print $1}')"
-  if [[ "$target_hash" != "$master_hash" ]]; then
-    emit "hash mismatch: $target/SKILL.md"
-    emit "  master=$master_hash target=$target_hash"
-    hash_mismatch=true
-  fi
-done
+}
 
 mode="sync"
 if [[ "$VERIFY_ONLY" == true ]]; then
@@ -243,20 +226,121 @@ elif [[ "$DRY_RUN" == true ]]; then
   mode="dry-run"
 fi
 
-if [[ "$hash_mismatch" == true ]]; then
-  emit "SCP skill sync found hash mismatches"
+if [[ "$mode" == "sync" ]]; then
+  for target in "${TARGETS[@]}"; do
+    if [[ "$(physical_path "$target")" == "$MASTER_REAL" ]]; then
+      emit "skipping target that resolves to master (nothing ever writes back into master): $target"
+      continue
+    fi
+    mkdir -p "$target"
+    rsync -a --delete "$MASTER/" "$target/"
+  done
+
+  for adapter in "${ADAPTERS[@]}"; do
+    adapter_dir="$(dirname "$adapter")"
+    if [[ "$(physical_path "$adapter_dir")" == "$MASTER_REAL" ]]; then
+      emit "skipping adapter that resolves into master (nothing ever writes back into master): $adapter"
+      continue
+    fi
+    mkdir -p "$adapter_dir"
+    adapter_canonical_bytes > "$adapter"
+    emit "generated adapter: $adapter"
+  done
+elif [[ "$mode" == "dry-run" ]]; then
+  # A dry run reports the plan and writes NOTHING: no mkdir, no rsync, no
+  # adapter write. The verification pass below then reports the real fleet
+  # state, and any absence or drift makes the run exit non-zero.
+  for target in "${TARGETS[@]}"; do
+    if [[ "$(physical_path "$target")" == "$MASTER_REAL" ]]; then
+      emit "DRY-RUN would skip target that resolves to master: $target"
+    else
+      emit "DRY-RUN would sync native target: $target"
+    fi
+  done
+  for adapter in "${ADAPTERS[@]}"; do
+    emit "DRY-RUN would generate adapter: $adapter"
+  done
+fi
+
+# --- verification by exact content ------------------------------------------
+absent_targets=()
+drifted_targets=()
+verified_targets=0
+for target in "${TARGETS[@]}"; do
+  if [[ ! -f "$target/SKILL.md" ]]; then
+    absent_targets+=("$target/SKILL.md")
+    continue
+  fi
+  target_hash="$(shasum -a 256 "$target/SKILL.md" | awk '{print $1}')"
+  if [[ "$target_hash" != "$master_hash" ]]; then
+    drifted_targets+=("$target/SKILL.md|$target_hash")
+  else
+    verified_targets=$((verified_targets + 1))
+  fi
+done
+
+absent_adapters=()
+drifted_adapters=()
+verified_adapters=0
+for adapter in "${ADAPTERS[@]}"; do
+  if [[ ! -f "$adapter" ]]; then
+    absent_adapters+=("$adapter")
+    continue
+  fi
+  this_adapter_hash="$(shasum -a 256 "$adapter" | awk '{print $1}')"
+  if [[ "$this_adapter_hash" != "$adapter_hash" ]]; then
+    drifted_adapters+=("$adapter|$this_adapter_hash")
+  else
+    verified_adapters=$((verified_adapters + 1))
+  fi
+done
+
+if (( ${#absent_targets[@]} > 0 )); then
+  for entry in "${absent_targets[@]}"; do
+    emit "ABSENT native target: $entry"
+  done
+fi
+if (( ${#drifted_targets[@]} > 0 )); then
+  for entry in "${drifted_targets[@]}"; do
+    emit "DRIFTED native target: ${entry%%|*}"
+    emit "  master=$master_hash target=${entry##*|}"
+  done
+fi
+if (( ${#absent_adapters[@]} > 0 )); then
+  for entry in "${absent_adapters[@]}"; do
+    emit "ABSENT adapter: $entry"
+  done
+fi
+if (( ${#drifted_adapters[@]} > 0 )); then
+  for entry in "${drifted_adapters[@]}"; do
+    emit "DRIFTED adapter: ${entry%%|*}"
+    emit "  canonical=$adapter_hash adapter=${entry##*|}"
+  done
+fi
+
+failures=$(( ${#absent_targets[@]} + ${#drifted_targets[@]} + ${#absent_adapters[@]} + ${#drifted_adapters[@]} ))
+
+if (( failures > 0 )); then
+  emit "SCP skill sync found ${#absent_targets[@]} absent and ${#drifted_targets[@]} drifted native targets, ${#absent_adapters[@]} absent and ${#drifted_adapters[@]} drifted adapters"
 else
   emit "SCP skill sync verified"
 fi
 emit "mode: $mode"
 emit "master: $MASTER"
 emit "skill_sha256: $master_hash"
+emit "adapter_sha256: $adapter_hash"
 emit "native_targets: ${#TARGETS[@]}"
+emit "native_verified: $verified_targets"
+emit "native_absent: ${#absent_targets[@]}"
+emit "native_drifted: ${#drifted_targets[@]}"
 emit "adapter_targets: ${#ADAPTERS[@]}"
+emit "adapter_verified: $verified_adapters"
+emit "adapter_absent: ${#absent_adapters[@]}"
+emit "adapter_drifted: ${#drifted_adapters[@]}"
 if [[ -n "$REPORT_PATH" ]]; then
   emit "report: $REPORT_PATH"
 fi
 
-if [[ "$hash_mismatch" == true && "$DRY_RUN" == false ]]; then
+if (( failures > 0 )); then
   exit 1
 fi

@@ -119,7 +119,11 @@ const packageJson = {
 };
 
 const scpText = "SCP_PUBLIC_VERSION: 0.6.0\nMIN_COMPATIBLE_CHILD_MCP: 0.4.5\n";
-const bootstrapText = `${scpText}\nMCP server native skill full prompt fallback CMUX auth/account readiness local inference role compatibility`;
+// Truthful skill-mirror fixture: the two whole-file mirrors are byte-identical and
+// their frontmatter version equals the package version, as the fail-closed
+// version-surface checks require of the real artifacts.
+const skillFrontmatter = "---\nname: odin-scp\nversion: 0.6.0\n---\n";
+const bootstrapText = `${skillFrontmatter}${scpText}\nMCP server native skill full prompt fallback CMUX auth/account readiness local inference role compatibility`;
 
 function runWith(overrides: Record<string, unknown> = {}) {
   const publicVersionFiles = {
@@ -151,11 +155,12 @@ function runWith(overrides: Record<string, unknown> = {}) {
         }
       }
     }),
-    "plugins/odin-scp/skills/odin-scp/SKILL.md": scpText,
+    "plugins/odin-scp/skills/odin-scp/SKILL.md": bootstrapText,
     "plugins/odin-scp/skills/odin-scp/CHANGELOG.md": "safe changelog",
     "plugins/odin-scp/skills/odin-scp/agents/openai.yaml": "safe adapter",
     "plugins/odin-scp/skills/odin-scp/references/boot-receipt-examples.md": "safe boot examples",
     "plugins/odin-scp/skills/odin-scp/references/canonical-introduction-prompt.md": "safe prompt",
+    "protocol/skill-references/canonical-introduction-prompt.md": "safe prompt",
     "plugins/odin-scp/skills/odin-scp/references/harness-skill-targets.md": "safe harness targets",
     "plugins/odin-scp/skills/odin-scp/references/team-bootstrap-runbook.md": "safe runbook",
     "plugins/odin-scp/skills/odin-scp/scripts/sync-installations.sh": "safe sync script",

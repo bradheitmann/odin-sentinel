@@ -479,29 +479,189 @@ export function validateTelemetryWording(costPrivacyText) {
   return errors;
 }
 
+/**
+ * Version-surface convergence (STORY-REL070-002).
+ *
+ * The canonical skill and its whole-file mirror are one public surface with one
+ * value: the frontmatter version, the body SCP_PUBLIC_VERSION marker, and the
+ * package version must agree. Every rule below is fail-closed by construction —
+ * an absent input is a NAMED refusal, never a skipped check — and every rule is
+ * composed into runVerifyPack's error list, so a refusal reaches the operator as
+ * a non-zero exit from the audit script, `test:package`, `validate`, and
+ * `prepublishOnly` alike.
+ */
+export const SKILL_MIRROR_PAIR = ["plugins/odin-scp/skills/odin-scp/SKILL.md", "protocol/bootstrap-skill.md"];
+export const INTRO_PROMPT_MIRROR_PAIR = [
+  "plugins/odin-scp/skills/odin-scp/references/canonical-introduction-prompt.md",
+  "protocol/skill-references/canonical-introduction-prompt.md"
+];
+export const MIRROR_PAIRS = [SKILL_MIRROR_PAIR, INTRO_PROMPT_MIRROR_PAIR];
+
+/** Scanned for retired private-numbering wording. Replacement text is version-neutral. */
+export const LEGACY_PROTOCOL_WORDING_SCANNED_FILES = [...SKILL_MIRROR_PAIR, ...INTRO_PROMPT_MIRROR_PAIR];
+
+/**
+ * Scanned for wording that grants a runtime skill copy permission to differ from
+ * the canonical skill. Installed copies are synchronized snapshots; a copy that
+ * differs is stale, not an intentional fork.
+ */
+export const FORK_PERMISSION_SCANNED_FILES = [...SKILL_MIRROR_PAIR, "protocol/SCP.md", ...INTRO_PROMPT_MIRROR_PAIR];
+
+const LEGACY_PROTOCOL_WORDING_PATTERN = / *scp +v3(?:\.\d+)*/i;
+const FORK_PERMISSION_PATTERN = /private +local +skill +copies +may +differ/i;
+const FRONTMATTER_BLOCK_PATTERN = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/;
+const FRONTMATTER_VERSION_KEY_PATTERN = /^version:/;
+
+/**
+ * Invisible/format characters (Unicode Cf plus the soft hyphen and the
+ * combining grapheme joiner). These render as nothing, so a reader cannot see
+ * them, but they break a naive substring match.
+ */
+const INVISIBLE_FORMAT_PATTERN = /[\u00AD\u034F\u061C\u180E\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u206F\uFEFF]/g;
+
+/** Every Unicode whitespace form, folded to one ASCII space. */
+const UNICODE_WHITESPACE_PATTERN = /[\t\n\v\f\r\u0020\u0085\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]+/g;
+
+/**
+ * Folds scanned text before the wording checks so a disguise cannot smuggle the
+ * prohibited wording past a literal match: NFKC collapses compatibility forms
+ * (fullwidth letters, superscript digits, exotic spaces) onto their ordinary
+ * equivalents, invisible format characters are removed, and every whitespace run
+ * becomes a single ASCII space. The folded text is used for MATCHING ONLY and is
+ * never written back to any file.
+ *
+ * Scope is disguise of the same wording, not paraphrase: a sentence that grants
+ * divergence in different words is out of this check's declared reach and is
+ * governed by review, not by this pattern.
+ */
+export function foldScannedText(text) {
+  return text
+    .normalize("NFKC")
+    .replace(INVISIBLE_FORMAT_PATTERN, "")
+    .replace(UNICODE_WHITESPACE_PATTERN, " ");
+}
+
+export function parseSkillFrontmatterVersion(text, file) {
+  if (typeof text !== "string") {
+    return { errors: [`${file}: content unavailable for skill frontmatter version check`] };
+  }
+  const block = text.match(FRONTMATTER_BLOCK_PATTERN);
+  if (!block) return { errors: [`${file}: skill frontmatter block is absent`] };
+
+  // Collect EVERY version key, never just the first. A block carrying two
+  // version keys has no single answer to "what version is this?", and YAML
+  // prohibits duplicate keys outright, so it is refused rather than resolved by
+  // match order. Keys outside the frontmatter block do not count: a version
+  // relocated into the body leaves the frontmatter requirement unsatisfied.
+  const versionLines = block[1].split(/\r?\n/).filter((line) => FRONTMATTER_VERSION_KEY_PATTERN.test(line));
+  if (versionLines.length === 0) return { errors: [`${file}: skill frontmatter version key is absent`] };
+  if (versionLines.length > 1) {
+    return { errors: [`${file}: duplicate frontmatter version key (${versionLines.length} occurrences)`] };
+  }
+
+  const value = versionLines[0].slice("version:".length).trim().replace(/^["']|["']$/g, "");
+  if (!/^\d+\.\d+\.\d+$/.test(value)) {
+    return { errors: [`${file}: skill frontmatter version "${value}" is unparseable`] };
+  }
+  return { version: value, errors: [] };
+}
+
+export function validateSkillFrontmatterVersions({ skillText, bootstrapText, currentVersion }) {
+  const [skillFile, bootstrapFile] = SKILL_MIRROR_PAIR;
+  const errors = [];
+  const parsed = {};
+
+  for (const [file, text] of [[skillFile, skillText], [bootstrapFile, bootstrapText]]) {
+    const result = parseSkillFrontmatterVersion(text, file);
+    errors.push(...result.errors);
+    if (result.version !== undefined) parsed[file] = result.version;
+  }
+
+  for (const file of SKILL_MIRROR_PAIR) {
+    if (parsed[file] !== undefined && parsed[file] !== currentVersion) {
+      errors.push(`${file}: skill frontmatter version ${parsed[file]} must match package version ${currentVersion}`);
+    }
+  }
+
+  if (parsed[skillFile] !== undefined && parsed[bootstrapFile] !== undefined && parsed[skillFile] !== parsed[bootstrapFile]) {
+    errors.push(`${skillFile} and ${bootstrapFile}: skill frontmatter versions disagree (${parsed[skillFile]} vs ${parsed[bootstrapFile]})`);
+  }
+
+  return errors;
+}
+
+export function findLegacyProtocolWording(fileTextByPath) {
+  const findings = [];
+  for (const file of LEGACY_PROTOCOL_WORDING_SCANNED_FILES) {
+    const text = fileTextByPath[file];
+    if (typeof text !== "string") {
+      findings.push(`${file}: content unavailable for legacy protocol wording check`);
+      continue;
+    }
+    const match = foldScannedText(text).match(LEGACY_PROTOCOL_WORDING_PATTERN);
+    if (match) findings.push(`${file}: legacy protocol version wording "${match[0].trim()}" (matched in Unicode-folded text)`);
+  }
+  return findings;
+}
+
+export function findForkPermissionWording(fileTextByPath) {
+  const findings = [];
+  for (const file of FORK_PERMISSION_SCANNED_FILES) {
+    const text = fileTextByPath[file];
+    if (typeof text !== "string") {
+      findings.push(`${file}: content unavailable for fork-permission check`);
+      continue;
+    }
+    const match = foldScannedText(text).match(FORK_PERMISSION_PATTERN);
+    if (match) findings.push(`${file}: fork-permission wording "${match[0]}" (matched in Unicode-folded text)`);
+  }
+  return findings;
+}
+
+export function validateMirrorPairParity(fileTextByPath) {
+  const errors = [];
+  for (const [left, right] of MIRROR_PAIRS) {
+    const leftText = fileTextByPath[left];
+    const rightText = fileTextByPath[right];
+    let unavailable = false;
+    for (const [file, text] of [[left, leftText], [right, rightText]]) {
+      if (typeof text !== "string") {
+        errors.push(`${file}: content unavailable for mirror parity check`);
+        unavailable = true;
+      }
+    }
+    if (unavailable) continue;
+    if (leftText !== rightText) errors.push(`${left} and ${right}: mirror pair is not byte-identical`);
+  }
+  return errors;
+}
+
+export const PUBLIC_VERSION_FILES = [
+  "README.md",
+  "docs/guides/quick-start.md",
+  "docs/guides/quickstart-prompts.md",
+  "docs/reference/client-compatibility.md",
+  "docs/reference/distribution.md",
+  "docs/reference/public-surface-audit.md",
+  "src/protocol/version.ts",
+  ".claude-plugin/marketplace.json",
+  "protocol/SCP.md",
+  "protocol/bootstrap-skill.md",
+  "protocol/skill-references/canonical-introduction-prompt.md",
+  "plugins/odin-scp/.claude-plugin/plugin.json",
+  "plugins/odin-scp/skills/odin-scp/SKILL.md",
+  "plugins/odin-scp/skills/odin-scp/CHANGELOG.md",
+  "plugins/odin-scp/skills/odin-scp/agents/openai.yaml",
+  "plugins/odin-scp/skills/odin-scp/references/boot-receipt-examples.md",
+  "plugins/odin-scp/skills/odin-scp/references/canonical-introduction-prompt.md",
+  "plugins/odin-scp/skills/odin-scp/references/harness-skill-targets.md",
+  "plugins/odin-scp/skills/odin-scp/references/team-bootstrap-runbook.md",
+  "plugins/odin-scp/skills/odin-scp/scripts/sync-installations.sh",
+  "plugins/odin-scp/README.md"
+];
+
 function readPublicVersionFiles() {
-  return Object.fromEntries([
-    "README.md",
-    "docs/guides/quick-start.md",
-    "docs/guides/quickstart-prompts.md",
-    "docs/reference/client-compatibility.md",
-    "docs/reference/distribution.md",
-    "docs/reference/public-surface-audit.md",
-    "src/protocol/version.ts",
-    ".claude-plugin/marketplace.json",
-    "protocol/SCP.md",
-    "protocol/bootstrap-skill.md",
-    "plugins/odin-scp/.claude-plugin/plugin.json",
-    "plugins/odin-scp/skills/odin-scp/SKILL.md",
-    "plugins/odin-scp/skills/odin-scp/CHANGELOG.md",
-    "plugins/odin-scp/skills/odin-scp/agents/openai.yaml",
-    "plugins/odin-scp/skills/odin-scp/references/boot-receipt-examples.md",
-    "plugins/odin-scp/skills/odin-scp/references/canonical-introduction-prompt.md",
-    "plugins/odin-scp/skills/odin-scp/references/harness-skill-targets.md",
-    "plugins/odin-scp/skills/odin-scp/references/team-bootstrap-runbook.md",
-    "plugins/odin-scp/skills/odin-scp/scripts/sync-installations.sh",
-    "plugins/odin-scp/README.md"
-  ].map((file) => [file, readFileSync(file, "utf8")]));
+  return Object.fromEntries(PUBLIC_VERSION_FILES.map((file) => [file, readFileSync(file, "utf8")]));
 }
 
 function parsePackOutput(output) {
@@ -514,6 +674,25 @@ function parsePackOutput(output) {
 export function runVerifyPack({ pack, packageJson, publicVersionFiles, costPrivacyText, packFileTextByPath }) {
   const packPaths = pack.files.map((file) => file.path);
   const packFileTexts = packFileTextByPath ?? readPackFileTexts(packPaths);
+
+  // Version-surface convergence runs FIRST and short-circuits on an unavailable
+  // input. An absent public-surface file is a named refusal in its own right;
+  // it must never reach a downstream check that would dereference it and turn a
+  // governance refusal into an incidental crash.
+  const versionSurfaceErrors = [
+    ...validateSkillFrontmatterVersions({
+      skillText: publicVersionFiles[SKILL_MIRROR_PAIR[0]],
+      bootstrapText: publicVersionFiles[SKILL_MIRROR_PAIR[1]],
+      currentVersion: packageJson.version
+    }),
+    ...findLegacyProtocolWording(publicVersionFiles),
+    ...findForkPermissionWording(publicVersionFiles),
+    ...validateMirrorPairParity(publicVersionFiles)
+  ];
+  if (versionSurfaceErrors.some((error) => error.includes("content unavailable"))) {
+    throw new Error(`Package release sync failed:\n${versionSurfaceErrors.join("\n")}`);
+  }
+
   const errors = [
     ...validatePackageMetadata(packageJson),
     ...validatePackFileList(packPaths),
@@ -539,6 +718,7 @@ export function runVerifyPack({ pack, packageJson, publicVersionFiles, costPriva
       currentVersion: packageJson.version,
       expectedToolCount: extractToolCount(packageJson.description)
     }),
+    ...versionSurfaceErrors,
     ...validateBootstrapReadiness(publicVersionFiles["protocol/bootstrap-skill.md"]),
     ...validateTelemetryWording(costPrivacyText)
   ];
