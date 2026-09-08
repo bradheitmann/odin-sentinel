@@ -411,3 +411,307 @@ describe("Unicode-folded wording scans", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// STORY-REL070-003 — a changelog release section describes the version it is
+// named after. A version reference is HISTORICAL, and must not be reported,
+// exactly when the nearest preceding `## ` heading names that same version.
+// Everything else keeps current strictness. All fixtures here are in-memory
+// strings, per the slice's fixture policy; no new fixture file or directory
+// is introduced.
+// ---------------------------------------------------------------------------
+
+const CHANGELOG_FILE = "plugins/odin-scp/skills/odin-scp/CHANGELOG.md";
+const FIXTURE_FILE = "fixture-changelog.md";
+
+/**
+ * A synthetic changelog using version numbers unrelated to the real package
+ * version or the real minimum-compatible version, so this fixture proves the
+ * structural rule on its own terms rather than piggybacking on the real
+ * CHANGELOG's current-version coincidence.
+ */
+const CHANGELOG_STRUCTURE_FIXTURE = [
+  "# Changelog",
+  "",
+  "## Unreleased",
+  "",
+  "- server version 8.4.9 is still pending and must be reported.",
+  "",
+  "## 8.4.2 - 2026-01-01",
+  "",
+  "- Bump public version to 8.4.2 across doctrine headers; minimum compatible child mcp version 0.4.5 unchanged.",
+  "- Earlier note: public version 8.4.1 was previously the minimum compatible child mcp version 0.4.5 baseline.",
+  "",
+  "## 8.4.1 - 2025-12-01",
+  "",
+  "- Bump public version to 8.4.1 across doctrine headers.",
+  ""
+].join("\n");
+
+describe("changelog release-section historical version exemption (STORY-REL070-003)", () => {
+  it("AC1: silences a version reference named by its own enclosing release heading, in two distinct sections", () => {
+    const findings = verifyPack.findStaleVersionReferences({ [FIXTURE_FILE]: CHANGELOG_STRUCTURE_FIXTURE }, "0.6.0");
+    // 8.4.2 appears only inside the `## 8.4.2` section it names -- fully silenced.
+    expect(findings).not.toContain(`${FIXTURE_FILE}: stale version reference 8.4.2`);
+    // 8.4.1 appears TWICE in the fixture: once as a foreign version inside the
+    // `## 8.4.2` section (still reported, AC3) and once inside its OWN
+    // `## 8.4.1` section (historical, silenced). Exactly one finding for it
+    // proves the second occurrence was silenced without touching the first.
+    expect(findings.filter((f: string) => f === `${FIXTURE_FILE}: stale version reference 8.4.1`)).toHaveLength(1);
+  });
+
+  it("AC1 (integration): the composed runVerifyPack pipeline exits 0 on a purely historical release section", () => {
+    const historicalOnly = [
+      "# Changelog",
+      "",
+      "## Unreleased",
+      "",
+      "## 8.4.2 - 2026-01-01",
+      "",
+      "- Bump public version to 8.4.2 across doctrine headers; minimum compatible child mcp version 0.4.5 unchanged.",
+      ""
+    ].join("\n");
+    const result = runVerifyPackProcess({ [CHANGELOG_FILE]: historicalOnly });
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("VERIFY_PACK_PASS");
+  });
+
+  it("AC2: `## Unreleased` is NOT historical -- a marker-bearing version there is still reported, by name", () => {
+    const findings = verifyPack.findStaleVersionReferences({ [FIXTURE_FILE]: CHANGELOG_STRUCTURE_FIXTURE }, "0.6.0");
+    expect(findings).toContain(`${FIXTURE_FILE}: stale version reference 8.4.9`);
+  });
+
+  it("AC3: only the section's OWN version is exempt -- a foreign version inside a named section is still reported, by name", () => {
+    const findings = verifyPack.findStaleVersionReferences({ [FIXTURE_FILE]: CHANGELOG_STRUCTURE_FIXTURE }, "0.6.0");
+    expect(findings).toContain(`${FIXTURE_FILE}: stale version reference 8.4.1`);
+  });
+
+  it("AC1/AC2/AC3 combined: the fixture produces exactly these two findings, in line order", () => {
+    const findings = verifyPack.findStaleVersionReferences({ [FIXTURE_FILE]: CHANGELOG_STRUCTURE_FIXTURE }, "0.6.0");
+    expect(findings).toEqual([
+      `${FIXTURE_FILE}: stale version reference 8.4.9`,
+      `${FIXTURE_FILE}: stale version reference 8.4.1`
+    ]);
+  });
+
+  it("AC4: a `## <version>` heading line carries no marker phrase and stays unreported, exactly as before", () => {
+    const headingOnly = "## 8.4.2 - 2026-01-01\n";
+    expect(verifyPack.findStaleVersionReferences({ [FIXTURE_FILE]: headingOnly }, "1.0.0", "1.0.0")).toEqual([]);
+  });
+
+  it("AC5: identical marker-bearing text in a scanned file with no release headings is still reported", () => {
+    const result = runVerifyPackProcess({
+      "README.md": "Bump public version to 8.4.2 for internal tooling.\n"
+    });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("README.md: stale version reference 8.4.2");
+  });
+
+  it("AC8: the minimum compatible version stays allowed on every line, inside and outside a named section", () => {
+    // CHANGELOG_STRUCTURE_FIXTURE embeds 0.4.5 (the real MINIMUM_COMPATIBLE_CHILD_MCP_VERSION)
+    // once inside `## Unreleased` and once inside the `## 8.4.2` section; neither is reported.
+    const findings = verifyPack.findStaleVersionReferences({ [FIXTURE_FILE]: CHANGELOG_STRUCTURE_FIXTURE }, "0.6.0");
+    expect(findings.some((f: string) => f.includes("0.4.5"))).toBe(false);
+  });
+
+  it("Functional 9: adds no off-switch parameter or environment read to the exported scan", () => {
+    const source = verifyPack.findStaleVersionReferences.toString();
+    expect(source).not.toMatch(/process\.env/);
+    const params = source
+      .slice(source.indexOf("(") + 1, source.indexOf(")"))
+      .split(",")
+      .map((s: string) => s.trim());
+    expect(params).toEqual([
+      "fileTextByPath",
+      "currentVersion",
+      "minimumCompatibleVersion = MINIMUM_COMPATIBLE_CHILD_MCP_VERSION"
+    ]);
+    expect(verifyPack.releaseSectionVersionByLine.toString()).not.toMatch(/process\.env/);
+    expect(verifyPack.releaseSectionVersionByLine.toString()).not.toMatch(/["']0\.6\.0["']/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC12 / Functional 12 -- simulated-bump proof against the REAL on-disk
+// scanned files. The bumped version is derived from the package version at
+// test time, never hardcoded. The same simulation at the pre-change baseline
+// produced exactly one finding (the CHANGELOG's own 0.6.0 entry); after this
+// story it must produce zero, while a genuinely stale reference injected into
+// `## Unreleased` must still be caught.
+// ---------------------------------------------------------------------------
+
+describe("simulated-bump proof (STORY-REL070-003, AC12/Functional 12)", () => {
+  it("turns the single baseline CHANGELOG finding into zero, while still catching a stale Unreleased reference", () => {
+    const currentVersion: string = packageJson.version;
+    const versionParts = currentVersion.split(".").map(Number);
+    const bumpedVersion = `${versionParts[0]}.${versionParts[1] + 1}.0`;
+    expect(bumpedVersion).not.toBe(currentVersion);
+
+    const realFiles = publicVersionFilesFromDisk();
+    const bumpedFiles = Object.fromEntries(
+      Object.entries(realFiles).map(([file, text]) =>
+        file === CHANGELOG_FILE ? [file, text] : [file, text.split(currentVersion).join(bumpedVersion)]
+      )
+    );
+
+    expect(verifyPack.findStaleVersionReferences(bumpedFiles, bumpedVersion)).toEqual([]);
+
+    const injectedLine = "- server version 4.2.1 is a deliberately injected stale reference for this test.";
+    const changelogWithInjectedStale = bumpedFiles[CHANGELOG_FILE].replace(
+      "## Unreleased\n",
+      `## Unreleased\n\n${injectedLine}\n`
+    );
+    const bumpedFilesWithInjectedStale = { ...bumpedFiles, [CHANGELOG_FILE]: changelogWithInjectedStale };
+
+    expect(verifyPack.findStaleVersionReferences(bumpedFilesWithInjectedStale, bumpedVersion)).toEqual([
+      `${CHANGELOG_FILE}: stale version reference 4.2.1`
+    ]);
+
+    // The real CHANGELOG on disk is never written by this test.
+    expect(readFileSync(new URL(CHANGELOG_FILE, REPO_ROOT), "utf8")).toBe(realFiles[CHANGELOG_FILE]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Round-2 hardening -- two edge shapes that previously FAILED OPEN (granted an
+// exemption a stricter reading would refuse). Both changes are strictly
+// narrowing: a version reference that was already reported stays reported;
+// only a previously-silenced case can newly become a finding.
+// ---------------------------------------------------------------------------
+
+describe("fenced code blocks never establish a changelog section heading (round 2, edge shape 1)", () => {
+  it("does not let a `## <version>` line inside a fence exempt its own content, or content after the fence closes", () => {
+    const text = [
+      "# Changelog",
+      "",
+      "## Unreleased",
+      "",
+      "- server version 8.4.9 must be reported (outside any fence).",
+      "",
+      "```markdown",
+      "## 0.7.5 - 2026-02-02",
+      "- Bump public version to 0.7.5 across doctrine headers.",
+      "```",
+      "",
+      "- public version 0.7.5 mentioned again, still inside Unreleased, still reported.",
+      ""
+    ].join("\n");
+
+    // Under the pre-round-2 code this fixture produced exactly ONE finding
+    // (8.4.9): the fenced example heading incorrectly exempted both 0.7.5
+    // mentions. It must now produce all three.
+    expect(verifyPack.findStaleVersionReferences({ [FIXTURE_FILE]: text }, "0.6.0")).toEqual([
+      `${FIXTURE_FILE}: stale version reference 8.4.9`,
+      `${FIXTURE_FILE}: stale version reference 0.7.5`,
+      `${FIXTURE_FILE}: stale version reference 0.7.5`
+    ]);
+  });
+
+  it("a closing fence must be the SAME character and AT LEAST the same length as the opener", () => {
+    const shorterCloseDoesNotClose = [
+      "# Changelog",
+      "",
+      "## Unreleased",
+      "",
+      "````",
+      "## 0.5.1 - 2026-05-01",
+      "``",
+      "- public version 0.5.1 still inside the still-open longer fence.",
+      "````",
+      "",
+      "- public version 0.5.1 after the fence closes, still Unreleased, still reported.",
+      ""
+    ].join("\n");
+    expect(verifyPack.findStaleVersionReferences({ [FIXTURE_FILE]: shorterCloseDoesNotClose }, "0.6.0")).toEqual([
+      `${FIXTURE_FILE}: stale version reference 0.5.1`,
+      `${FIXTURE_FILE}: stale version reference 0.5.1`
+    ]);
+
+    const differentCharacterDoesNotClose = [
+      "# Changelog",
+      "",
+      "## Unreleased",
+      "",
+      "```",
+      "~~~",
+      "## 0.5.2 - 2026-06-01",
+      "- public version 0.5.2 still inside the backtick fence.",
+      "```",
+      "",
+      "- public version 0.5.2 after fence closes, still reported.",
+      ""
+    ].join("\n");
+    expect(verifyPack.findStaleVersionReferences({ [FIXTURE_FILE]: differentCharacterDoesNotClose }, "0.6.0")).toEqual([
+      `${FIXTURE_FILE}: stale version reference 0.5.2`,
+      `${FIXTURE_FILE}: stale version reference 0.5.2`
+    ]);
+  });
+
+  it("a real heading after a closed fence resumes normal historical tracking", () => {
+    const text = [
+      "# Changelog",
+      "",
+      "## Unreleased",
+      "",
+      "```",
+      "## 0.5.1 - 2026-05-01",
+      "```",
+      "",
+      "## 6.6.6 - 2026-07-01",
+      "",
+      "- Bump public version to 6.6.6 across doctrine headers."
+    ].join("\n");
+    // The fenced fake heading changes nothing; the real `## 6.6.6` heading
+    // after it still establishes a genuine, working historical exemption.
+    expect(verifyPack.findStaleVersionReferences({ [FIXTURE_FILE]: text }, "0.6.0")).toEqual([]);
+  });
+});
+
+describe("a pre-release or build-metadata heading version never exempts the bare version (round 2, edge shape 2)", () => {
+  it("`## 0.9.3-rc.1` does not exempt a bare 0.9.3 reference inside its section", () => {
+    const text = [
+      "# Changelog",
+      "",
+      "## 0.9.3-rc.1 - 2026-03-01",
+      "",
+      "- Bump public version to 0.9.3 across doctrine headers.",
+      ""
+    ].join("\n");
+    expect(verifyPack.findStaleVersionReferences({ [FIXTURE_FILE]: text }, "0.6.0")).toEqual([
+      `${FIXTURE_FILE}: stale version reference 0.9.3`
+    ]);
+  });
+
+  it("`## 2.1.0+build.7` (build metadata) does not exempt a bare 2.1.0 reference inside its section", () => {
+    const text = [
+      "# Changelog",
+      "",
+      "## 2.1.0+build.7 - 2026-04-01",
+      "",
+      "- server version 2.1.0 changed.",
+      ""
+    ].join("\n");
+    expect(verifyPack.findStaleVersionReferences({ [FIXTURE_FILE]: text }, "0.6.0")).toEqual([
+      `${FIXTURE_FILE}: stale version reference 2.1.0`
+    ]);
+  });
+
+  it("contrasts with a bare (non-suffixed) heading, which still exempts its own version as before", () => {
+    const text = [
+      "# Changelog",
+      "",
+      "## 5.5.5-rc.1 - 2026-08-01",
+      "",
+      "- Bump public version to 5.5.5 across doctrine headers.",
+      "",
+      "## 5.5.4 - 2026-07-01",
+      "",
+      "- Bump public version to 5.5.4 across doctrine headers.",
+      ""
+    ].join("\n");
+    const findings = verifyPack.findStaleVersionReferences({ [FIXTURE_FILE]: text }, "0.6.0");
+    expect(findings).toContain(`${FIXTURE_FILE}: stale version reference 5.5.5`);
+    expect(findings).not.toContain(`${FIXTURE_FILE}: stale version reference 5.5.4`);
+  });
+});

@@ -266,6 +266,72 @@ function readPackFileTexts(paths) {
   );
 }
 
+// A release section in any scanned file describes the version its own `## `
+// heading names. This is a purely structural read of the document: the
+// version bound to line N is whatever bare version appears in the nearest
+// `## ` heading at or above line N, or null if that heading names no bare
+// version (for example an unreleased/untitled section heading, or a heading
+// whose version is qualified by a pre-release or build-metadata suffix) or
+// no `## ` heading precedes the line at all. No file path, file name, or
+// version literal is consulted here -- any file shaped this way gets the
+// same read, and a file with no such heading yields null for every line,
+// which is exactly today's behavior.
+//
+// A `## ` line that appears INSIDE a fenced code block is example text, not a
+// real release heading, and must not establish or change the enclosing
+// section. Fence state is tracked with the same open/close rule Markdown
+// itself uses: a fence opens on a line (after up to 3 leading spaces) of 3+
+// backticks or 3+ tildes, optionally followed by an info string, and closes
+// only on a later line (after up to 3 leading spaces) consisting solely of
+// the SAME fence character repeated at least as many times as the opener --
+// a shorter or differently-charactered run of fence characters does not
+// close it. Content lines inside a fence are otherwise scanned exactly as
+// today; only heading recognition is suppressed there.
+const RELEASE_HEADING_LINE_PATTERN = /^##[ \t]+/;
+// The negative lookahead refuses to bind a heading's version when it is
+// immediately followed by a pre-release or build-metadata delimiter: such a
+// heading does not name the bare version, so no bare-version exemption may
+// be derived from it. This is a structural read of the heading text itself,
+// never a literal version comparison.
+const RELEASE_HEADING_VERSION_PATTERN = /^##[ \t]+.*?\b(\d+\.\d+\.\d+)\b(?![-+])/;
+const FENCE_OPEN_PATTERN = /^ {0,3}(`{3,}|~{3,})/;
+const FENCE_CLOSE_LINE_PATTERN = /^ {0,3}(`+|~+)[ \t]*$/;
+
+export function releaseSectionVersionByLine(text) {
+  const lines = text.split("\n");
+  const sectionVersionByLine = new Array(lines.length).fill(null);
+  let enclosingVersion = null;
+  let openFence = null; // { char, length } while inside a fenced code block
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+
+    if (openFence) {
+      const closeMatch = line.match(FENCE_CLOSE_LINE_PATTERN);
+      if (closeMatch && closeMatch[1][0] === openFence.char && closeMatch[1].length >= openFence.length) {
+        openFence = null;
+      }
+      sectionVersionByLine[index] = enclosingVersion;
+      continue;
+    }
+
+    const openMatch = line.match(FENCE_OPEN_PATTERN);
+    if (openMatch) {
+      openFence = { char: openMatch[1][0], length: openMatch[1].length };
+      sectionVersionByLine[index] = enclosingVersion;
+      continue;
+    }
+
+    if (RELEASE_HEADING_LINE_PATTERN.test(line)) {
+      const headingMatch = line.match(RELEASE_HEADING_VERSION_PATTERN);
+      enclosingVersion = headingMatch ? headingMatch[1] : null;
+    }
+    sectionVersionByLine[index] = enclosingVersion;
+  }
+
+  return sectionVersionByLine;
+}
+
 export function findStaleVersionReferences(fileTextByPath, currentVersion, minimumCompatibleVersion = MINIMUM_COMPATIBLE_CHILD_MCP_VERSION) {
   const allowed = new Set([currentVersion, minimumCompatibleVersion]);
   const findings = [];
@@ -291,11 +357,16 @@ export function findStaleVersionReferences(fileTextByPath, currentVersion, minim
   };
 
   for (const [file, text] of Object.entries(fileTextByPath)) {
-    for (const line of text.split("\n")) {
+    const lines = text.split("\n");
+    const sectionVersionByLine = releaseSectionVersionByLine(text);
+    for (let index = 0; index < lines.length; index += 1) {
+      const line = lines[index];
       if (!relevantVersionLine(line)) continue;
       const matches = line.match(versionPattern) ?? [];
       for (const version of matches) {
-        if (!allowed.has(version)) findings.push(`${file}: stale version reference ${version}`);
+        if (allowed.has(version)) continue;
+        if (version === sectionVersionByLine[index]) continue;
+        findings.push(`${file}: stale version reference ${version}`);
       }
     }
   }
