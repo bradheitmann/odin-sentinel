@@ -557,11 +557,29 @@ describe("simulated-bump proof (STORY-REL070-003, AC12/Functional 12)", () => {
 
     expect(verifyPack.findStaleVersionReferences(bumpedFiles, bumpedVersion)).toEqual([]);
 
+    // Derive the injection point from the document itself -- the first `## `
+    // release heading, whatever it names -- rather than the literal word
+    // "Unreleased". A real version bump cuts Unreleased into a dated section in
+    // the same change that runs this simulation, so hardcoding "## Unreleased\n"
+    // would silently no-op once that heading no longer exists.
+    const changelogLines = bumpedFiles[CHANGELOG_FILE].split("\n");
+    const firstHeadingIndex = changelogLines.findIndex((line) => line.startsWith("## "));
+    expect(firstHeadingIndex).toBeGreaterThanOrEqual(0);
+
     const injectedLine = "- server version 4.2.1 is a deliberately injected stale reference for this test.";
-    const changelogWithInjectedStale = bumpedFiles[CHANGELOG_FILE].replace(
-      "## Unreleased\n",
-      `## Unreleased\n\n${injectedLine}\n`
-    );
+    const changelogWithInjectedStale = [
+      ...changelogLines.slice(0, firstHeadingIndex + 1),
+      "",
+      injectedLine,
+      ...changelogLines.slice(firstHeadingIndex + 1)
+    ].join("\n");
+
+    // The injection must actually have applied. A silent no-op (e.g. a
+    // hardcoded search string that no longer matches) would make the
+    // assertion below vacuously true instead of a real proof.
+    expect(changelogWithInjectedStale).not.toBe(bumpedFiles[CHANGELOG_FILE]);
+    expect(changelogWithInjectedStale).toContain(injectedLine);
+
     const bumpedFilesWithInjectedStale = { ...bumpedFiles, [CHANGELOG_FILE]: changelogWithInjectedStale };
 
     expect(verifyPack.findStaleVersionReferences(bumpedFilesWithInjectedStale, bumpedVersion)).toEqual([

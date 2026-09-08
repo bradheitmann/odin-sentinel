@@ -10,17 +10,17 @@
     {
       "path": "protocol/bootstrap-skill.md",
       "bytes": 136050,
-      "sha256": "798aa845cf821b8116002185e30cfd798c22fa23aef633218ba946548e62cfd9"
+      "sha256": "af7633b5731946d42b97d94785e8fab4b34a77771821cb83f9b3c1212d85ad2e"
     },
     {
       "path": "protocol/closeout.yaml",
       "bytes": 770,
-      "sha256": "eeb0055e126fbe07e84cb09b1dfd20ca1ece540874ec96f8595d4f05729fd8f2"
+      "sha256": "4ddd5e7fcd88efd20eff795b655a593947fe5f9ad817789c397bfdf2be9a1c8b"
     },
     {
       "path": "protocol/delegation.yaml",
       "bytes": 4073,
-      "sha256": "5a36812835b87a3624375cb94aa3a216ec02e1f54667395c1c30d134a80bd783"
+      "sha256": "adb0235461e0b8eee2f083967068b36a11a5d3415016654a462fa1c1886405b0"
     },
     {
       "path": "protocol/mission-frontrun/droids-scrutiny-feature-reviewer.md",
@@ -50,7 +50,7 @@
     {
       "path": "protocol/model-profiles.yaml",
       "bytes": 5895,
-      "sha256": "c5bc0de089db50e6425ce835b1afca8e4b9598d0355db47a2052b32fdf42367e"
+      "sha256": "1b732468db23164da88cf3ddde3cc37d97aa5ec71151b5f5abbc8231279cfdf9"
     },
     {
       "path": "protocol/receipts/boot-receipt.yaml",
@@ -170,12 +170,12 @@
     {
       "path": "protocol/roles.yaml",
       "bytes": 8385,
-      "sha256": "49f8dcd3e66084727d7bb67293066606a7faaf181f1cacebd628a25b3d166bff"
+      "sha256": "7d30f14206dd2b1eab74efb10b81cdce014c9de90eaee8e96569dbc397a43ed8"
     },
     {
       "path": "protocol/SCP.md",
       "bytes": 37894,
-      "sha256": "f3a970ec60cf91be5c9caf8dbd9f81a6537c5a4388f9d73c516f261e5f7782b2"
+      "sha256": "e49f5ee775c8772502bcbf762bac5047a51eff0d4310d3fd0e6f36332514540d"
     },
     {
       "path": "protocol/skill-references/boot-receipt-examples.md",
@@ -200,7 +200,7 @@
     {
       "path": "protocol/topology.yaml",
       "bytes": 4827,
-      "sha256": "59e6f9aa5fdb218320c65d4fa769d44aca28dac423acb71c1d4e246508f72bbf"
+      "sha256": "fc6deeba18032fc1d0ea3ea3b441bcab7009e9c167d120c0181e65b7f46a4fcf"
     },
     {
       "path": "src/mcp/server.ts",
@@ -255,7 +255,7 @@
     {
       "path": "src/protocol/service.ts",
       "bytes": 253551,
-      "sha256": "f31ed3f8618cfe5ce867c160f94fc63770983dfbe9f15b8a9f1b3da5fb40f3ef"
+      "sha256": "f11e074b46488fea84719a25271aeff29b420a8995868b35d0ea34bc2031cf32"
     },
     {
       "path": "src/protocol/surface-layout.ts",
@@ -270,7 +270,7 @@
     {
       "path": "src/protocol/version.ts",
       "bytes": 1142,
-      "sha256": "abe1fb5fdfd6d2b5c1be526915e97b16eab8e1fee873e765e12e4b84d4619a14"
+      "sha256": "c39d0f08d06c0ca333ad6d89580d3b8e72c6e80ac211b569c736d870aa96b4b6"
     }
   ]
 }
