@@ -12,6 +12,28 @@
 - BREAKING (doctrine): installed runtime skill copies are synchronized snapshots of the canonical skill; a differing copy is stale and must be re-synced. All three doctrine copies (`SKILL.md`, `protocol/bootstrap-skill.md`, and `protocol/SCP.md`) previously granted local copies permission to diverge; they now state the snapshot rule while keeping their existing release-check claims. `verify-pack.mjs` refuses any doctrine or reference copy that still grants that permission, by name and with a non-zero exit.
 - BREAKING (fleet script): `scripts/sync-installations.sh` generates the three harness adapters deterministically from the canonical `SKILL.md` instead of aborting with `missing adapter`, verifies every native target and adapter by exact content rather than by marker presence, reports every ABSENT installation by name and never counts it as verified, and exits non-zero on absence or drift in every mode. `--dry-run` now writes nothing at all: it no longer creates target directories, and a dry run that finds drift or absence exits non-zero instead of exiting 0 while printing a failure line. The 13 native targets and 3 adapters, the targets-file overrides, `--emit-report`, and the never-write-back-into-master rule are unchanged.
 
+### Release lineage (lane disposition, 2026-09-21)
+
+0.7.0 was assembled on the integration branch from eight story lanes. Each
+lane was retired only after a recorded proof that the integration branch
+already carries its content; nothing was discarded.
+
+| Lane branch | Lane tip | Landed as | Proof |
+| --- | --- | --- | --- |
+| `lane/govedge-s1` | `3694c6f` | `790a110` (STORY-GOVEDGE-S1) | `git cherry` patch-equivalent; `git diff 3694c6f 790a110` empty |
+| `lane/govedge-s2` | `eef801c` | `e95fef1` (STORY-GOVEDGE-S2) | `git cherry` patch-equivalent; interdiff of the two commit patches empty (lane was based before S1) |
+| `lane/govedge-s3-t2` | `7eac03d` | `3226d32` (STORY-GOVEDGE-S3) | `git cherry` patch-equivalent; `git diff 7eac03d 3226d32` empty |
+| `lane/govedge-s3-t3` | `e95fef1` + staged draft | `3226d32` supersedes | branch tip is an ancestor; the uncommitted 8-file staged draft differed from `3226d32` and is preserved as tag `rescue/govedge-s3-t3-staged-20260921` (`9b5aa07`) |
+| `lane/w2-f41c8` | `e95fef1` + staged draft | `3226d32` supersedes | branch tip is an ancestor; staged draft preserved as tag `rescue/w2-f41c8-staged-20260921` (`bfe29ab`) |
+| `lane/rel070-001` | `89d3c85` | `a003ac2` (STORY-REL070-001) | `git cherry` patch-equivalent; `git diff 89d3c85 a003ac2` empty |
+| `lane/rel070-002` | `7d92957` | `ab946da` (STORY-REL070-002) | `git cherry` patch-equivalent; `git diff 7d92957 ab946da` empty |
+| `lane/rel070-003` | `ffde2ba` | `cfcac76` (STORY-REL070-003) | `git cherry` patch-equivalent; `git diff ffde2ba cfcac76` empty |
+
+The eight lane worktrees (`odin-wt-s1`, `odin-wt-s2`, `odin-wt-s3-t2`,
+`odin-wt-s3-t3`, `odin-wt-f41c8`, `odin-wt-rel070-001/002/003`) and the
+eight `lane/*` branches were removed after these proofs. The two rescue tags
+are local maintainer refs and are not part of the release.
+
 ## 0.6.0 - 2026-08-23
 
 - Registry compatibility mode is ACTIVE BY DEFAULT (Amendment 46, operator order): an unset ODIN_GOVDISP_REGISTRY_MCP enables the registry MCP surface (48 tools plus the odin://registry/{scope}/events resource template), the registry-mode validator branches, and the odin-watch FINDING_OPENED emission; ODIN_GOVDISP_REGISTRY_MCP=0 (or any non-truthy value) is the explicit opt-out returning byte-baseline behavior. The WAVE-4 deferral now applies to prose retirement only, not to registry activation.
