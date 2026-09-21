@@ -62,6 +62,13 @@
       "expires": "2026-11-20",
       "rationale": "undici is bundled through wrangler in the telemetry worker. The override pins a patched version so the advisory does not resolve in the installed tree. Review whether the pin is still needed when wrangler next moves.",
       "pin": { "package": "undici", "range": "^7.28.0", "workspace": "telemetry" }
+    },
+    {
+      "advisory": "GHSA-rgj7-g3m4-5g8c",
+      "owner": "ODIN Sentinel maintainers",
+      "expires": "2026-11-20",
+      "rationale": "sharp is transitive through wrangler -> miniflare in the telemetry worker (dev-only tooling; the worker never invokes sharp or libheif). The override pins the patched release so the advisory does not resolve in the installed tree. Review whether the pin is still needed when wrangler next moves.",
+      "pin": { "package": "sharp", "range": "^0.35.4", "workspace": "telemetry" }
     }
   ]
 }

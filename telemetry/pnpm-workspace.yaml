@@ -6,9 +6,12 @@ allowBuilds:
 # ws  >= 8.21.0: GHSA memory-exhaustion DoS fix (was pinned 8.20.1)
 # undici >= 7.28.0: TLS validation bypass, WebSocket DoS, cross-origin
 #                   routing, header injection, and related advisories
+# sharp >= 0.35.4: GHSA-rgj7-g3m4-5g8c (bundled libheif advisories), transitive
+#                  through wrangler -> miniflare; the worker never invokes sharp
 overrides:
   ws: "^8.21.0"
   undici: "^7.28.0"
+  sharp: "^0.35.4"
 
 # Both esbuild advisories are unreachable here: esbuild is wrangler's
 # bundled build tool (Node-only; the high is Deno-specific, the low is
