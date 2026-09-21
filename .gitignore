@@ -52,3 +52,6 @@ research/
 
 # Generated architecture map (local render artifact)
 ODIN-ARCHITECTURE-MAP.html
+
+# Re-entry briefings and their kit: contributor artifacts, never published surface
+docs/briefings/

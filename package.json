@@ -29,6 +29,7 @@
     ".claude-plugin",
     "dist",
     "docs",
+    "!docs/briefings",
     "plugins",
     "protocol",
     "templates",
