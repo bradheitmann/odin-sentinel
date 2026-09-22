@@ -190,12 +190,18 @@ describe("frontmatter version refusals", () => {
   });
 
   it("(c) refuses two frontmatter versions that disagree while one still matches the package", () => {
+    // Derive the disagreeing version from the real package version instead of
+    // hardcoding one: a literal (this test once said 0.7.1) silently becomes a
+    // no-op injection the day the package reaches that version, and the
+    // refusal it claims to prove is then never exercised.
+    const disagreeingVersion = packageJson.version.replace(/(\d+)$/, (patch: string) => String(Number(patch) + 1));
+    expect(disagreeingVersion).not.toBe(packageJson.version);
     const result = runVerifyPackProcess({
-      [BOOTSTRAP_FILE]: repoText(BOOTSTRAP_FILE).replace(/^version: .*$/m, "version: 0.7.1")
+      [BOOTSTRAP_FILE]: repoText(BOOTSTRAP_FILE).replace(/^version: .*$/m, `version: ${disagreeingVersion}`)
     });
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain(
-      `${SKILL_FILE} and ${BOOTSTRAP_FILE}: skill frontmatter versions disagree (${packageJson.version} vs 0.7.1)`
+      `${SKILL_FILE} and ${BOOTSTRAP_FILE}: skill frontmatter versions disagree (${packageJson.version} vs ${disagreeingVersion})`
     );
   });
 

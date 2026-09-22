@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.1 - 2026-09-22
+
+- Patch re-cut of 0.7.0. The `v0.7.0` tag (1f7d132) was cut before GHSA-rgj7-g3m4-5g8c (sharp, bundled libheif) was published, and its Release-validation run failed in `telemetry-validate` once the advisory landed. Tags never move, so this release is cut from `main` after 1fb15c0, which pins `sharp` to `^0.35.4` in the telemetry worker workspace (dev-only tooling through wrangler -> miniflare; the worker never invokes sharp) and records the advisory in `scripts/audit/audit-exceptions.json` with owner, expiry 2026-11-20, rationale, and pin linkage.
+- No protocol, tool, resource, or behaviour changes relative to 0.7.0. Every version-authority surface moves 0.7.0 -> 0.7.1 in one change; the govdisp baseline fixture is regenerated; MIN_COMPATIBLE_CHILD_MCP stays 0.4.5.
+- The six `refs/sprint-rescue/lane-*` safety pins recorded in the 0.7.0 release lineage were deleted after re-proving each original patch byte-identical to its landed cherry-pick; the two `rescue/*` draft tags were deleted because their sole content (the GOVEDGE-HARNESS-IDENTITY-UNIQUENESS amendment and its implementation) landed as `3226d32` under STORY-GOVEDGE-S3, which is COMPLETE with a PASS holdout.
+
 ## 0.7.0 - 2026-09-08
 
 - Dependency audit now runs on the publish path: `scripts/audit/dependency-audit.mjs` joins the `validate` chain as `audit:deps`, so `prepublishOnly` fails closed and a tree carrying an unaccepted high-severity advisory cannot be published. Accepted advisories are recorded in `scripts/audit/audit-exceptions.json` with an owner, an expiry, and a rationale per entry; the manifest is validated before the audit runs and a malformed or expired entry fails the gate on its own.
