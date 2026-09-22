@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -486,5 +486,78 @@ describe("master safety", () => {
     expect(result.stdout).toContain(`DRY-RUN would skip target that resolves to master: ${inside}`);
     expect(result.stdout).toContain(`DRY-RUN would skip adapter that resolves into master: ${fleet.adapters[0]}`);
     expect(result.stdout).toContain(`DRY-RUN would sync native target: ${fleet.targets[0]}`);
+  });
+
+  it("resolves link/.. by the filesystem, not lexically, for adapters and native targets", () => {
+    const fleet = makeFleet(["alpha", "dotdot"], ["one.md", "dotdot.md"]);
+    const adapterDir = dirname(fleet.adapters[1]);
+    mkdirSync(adapterDir, { recursive: true });
+    // `s` points INTO master/references, so `s/../SKILL.md` is master/SKILL.md on
+    // disk while a lexical reading would place it in the adapter directory.
+    symlinkSync(join(fleet.master, "references"), join(adapterDir, "s"));
+    symlinkSync("s/../SKILL.md", fleet.adapters[1]);
+    const targetDir = dirname(fleet.targets[1]);
+    mkdirSync(join(targetDir, "scripts"), { recursive: true });
+    symlinkSync(join(fleet.master, "references"), join(targetDir, "t"));
+    symlinkSync("t/../scripts", fleet.targets[1]);
+
+    const masterBefore = snapshot(fleet.master);
+    const result = runBounded([], fleet.env);
+
+    expect(result.error).toBeUndefined();
+    expect(snapshot(fleet.master)).toEqual(masterBefore);
+    expect(result.stdout).toContain(`skipping adapter that resolves into master (nothing ever writes back into master): ${fleet.adapters[1]}`);
+    expect(result.stdout).toContain(`skipping target that resolves to master (nothing ever writes back into master): ${fleet.targets[1]}`);
+  });
+
+  it("skips a dangling native target link written with a trailing slash", () => {
+    const fleet = makeFleet(["alpha", "dangling"], ["one.md"]);
+    mkdirSync(dirname(fleet.targets[1]), { recursive: true });
+    symlinkSync(join(fleet.master, "new-dir"), fleet.targets[1]);
+    writeFileSync(join(fleet.root, "targets.txt"), `${fleet.targets[1]}/\n${fleet.targets[0]}\n`);
+
+    const masterBefore = snapshot(fleet.master);
+    const dry = runBounded(["--dry-run"], fleet.env);
+    expect(dry.stdout).toContain(`DRY-RUN would skip target that resolves to master: ${fleet.targets[1]}/`);
+
+    const result = runBounded([], fleet.env);
+    expect(result.error).toBeUndefined();
+    expect(snapshot(fleet.master)).toEqual(masterBefore);
+    expect(result.stdout).toContain(`skipping target that resolves to master (nothing ever writes back into master): ${fleet.targets[1]}/`);
+    expect(sha256File(join(fleet.targets[0], "SKILL.md"))).toBe(sha256File(join(fleet.master, "SKILL.md")));
+  });
+
+  it("skips an adapter hard-linked to a master file", () => {
+    const fleet = makeFleet(["alpha"], ["hardlinked.md"]);
+    mkdirSync(dirname(fleet.adapters[0]), { recursive: true });
+    linkSync(join(fleet.master, "SKILL.md"), fleet.adapters[0]);
+
+    const masterBefore = snapshot(fleet.master);
+    const result = runBounded([], fleet.env);
+
+    expect(result.error).toBeUndefined();
+    expect(snapshot(fleet.master)).toEqual(masterBefore);
+    expect(result.stdout).toContain(`skipping adapter that resolves into master (nothing ever writes back into master): ${fleet.adapters[0]}`);
+    expect(result.stdout).toContain(`DRIFTED adapter: ${fleet.adapters[0]}`);
+  });
+
+  it("matches master by identity, not spelling, on a case-insensitive filesystem", () => {
+    const fleet = makeFleet(["alpha"], ["one.md", "case.md"]);
+    const upper = fleet.master.replace(/master$/, "MASTER");
+    if (!existsSync(upper)) {
+      // Case-sensitive filesystem: a case variant is a different, absent path; nothing to guard.
+      return;
+    }
+    mkdirSync(dirname(fleet.adapters[1]), { recursive: true });
+    symlinkSync(join(upper, "SKILL.md"), fleet.adapters[1]);
+    writeFileSync(join(fleet.root, "targets.txt"), `${fleet.targets[0]}\n${join(upper, "references", "new")}\n`);
+
+    const masterBefore = snapshot(fleet.master);
+    const result = runBounded([], fleet.env);
+
+    expect(result.error).toBeUndefined();
+    expect(snapshot(fleet.master)).toEqual(masterBefore);
+    expect(result.stdout).toContain(`skipping adapter that resolves into master (nothing ever writes back into master): ${fleet.adapters[1]}`);
+    expect(result.stdout).toContain(`skipping target that resolves to master (nothing ever writes back into master): ${join(upper, "references", "new")}`);
   });
 });

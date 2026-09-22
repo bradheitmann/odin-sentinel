@@ -36,9 +36,11 @@ master produce byte-identical adapters.
 Master resolution: the default master is the skill directory CONTAINING this
 script (the repository checkout when run from the repository). The script only
 reads master and writes targets; a native target or adapter whose physical
-location (symlinks followed, including a symlinked adapter file) equals master,
-lies inside master, or is an ancestor of master is skipped (verification still
-judges it by exact content), so nothing ever writes back into master.
+write location (symlinks resolved by the kernel, compared with master by
+filesystem identity rather than path spelling) is master, lies inside master,
+or is an existing ancestor of master, and an adapter file that shares an inode
+with any master file, is skipped (verification still judges it by exact
+content), so nothing ever writes back into master.
 
 Verify the master link is intact (run from anywhere):
   bash <skill-dir>/scripts/sync-installations.sh --verify-only
@@ -215,17 +217,33 @@ adapter_canonical_bytes() {
 master_hash="$(shasum -a 256 "$MASTER/SKILL.md" | awk '{print $1}')"
 adapter_hash="$(adapter_canonical_bytes | shasum -a 256 | awk '{print $1}')"
 
-# Physical location of a target or adapter path, whether or not it exists yet.
-# A symlinked final component is followed (a dangling link resolves to where a
-# write would land), and a not-yet-existing path resolves through its nearest
-# existing ancestor, so a write through any link or into any nested path is
-# attributed to the directory it would actually modify.
-physical_location() {
-  local path="$1" link hops=0 suffix=""
+# Master-overlap guard. Nothing ever writes back into master, so every target
+# and adapter is attributed to the directory a write would physically land in
+# and compared with master by filesystem identity (`-ef`: device + inode),
+# never by path spelling. Identity is immune to case-insensitive spellings,
+# `link/..` text, symlinked intermediate directories, and hard links.
+
+strip_trailing_slashes() {
+  local path="$1"
+  while [[ "$path" == */ && "$path" != "/" ]]; do
+    path="${path%/}"
+  done
+  printf '%s\n' "$path"
+}
+
+# Print the physical directory a write to PATH lands in: PATH itself when it is
+# (or links to) an existing directory, otherwise the nearest existing ancestor
+# of the location a symlinked final component points at (dangling links
+# included). Every existing component is resolved by the kernel (`cd -P`),
+# never lexically. Returns 1 when the location cannot be attributed (a symlink
+# loop, a dangling intermediate link, or `.`/`..` inside the not-yet-existing
+# part); callers treat that as an overlap and skip.
+write_anchor() {
+  local path link part hops=0
+  path="$(strip_trailing_slashes "$1")"
   while [[ -L "$path" ]]; do
     hops=$((hops + 1))
     if (( hops > 40 )); then
-      echo "symlink loop resolving: $1" >&2
       return 1
     fi
     link="$(readlink "$path")"
@@ -233,33 +251,86 @@ physical_location() {
       /*) path="$link" ;;
       *) path="$(dirname "$path")/$link" ;;
     esac
+    path="$(strip_trailing_slashes "$path")"
   done
   if [[ -d "$path" ]]; then
-    (cd "$path" && pwd -P)
+    (cd -P "$path" && pwd -P)
     return
   fi
-  local dir base
-  dir="$(dirname "$path")"
-  base="$(basename "$path")"
-  while [[ ! -d "$dir" ]]; do
-    suffix="/$(basename "$dir")${suffix}"
+  while :; do
+    part="$(basename "$path")"
+    path="$(dirname "$path")"
+    case "$part" in
+      .|..) return 1 ;;
+    esac
+    if [[ -d "$path" ]]; then
+      break
+    fi
+    if [[ -L "$path" ]]; then
+      return 1
+    fi
+  done
+  (cd -P "$path" && pwd -P)
+}
+
+# True when the existing physical directory $1 is master or lies inside it.
+dir_within_master() {
+  local dir="$1"
+  while :; do
+    if [[ "$dir" -ef "$MASTER_REAL" ]]; then
+      return 0
+    fi
+    if [[ "$dir" == "/" || "$dir" == "." || -z "$dir" ]]; then
+      return 1
+    fi
     dir="$(dirname "$dir")"
   done
-  dir="$(cd "$dir" && pwd -P)"
-  printf '%s%s/%s\n' "${dir%/}" "$suffix" "$base"
 }
 
-# Overlap with master: equal to it, inside it, or an ancestor of it. Any of the
-# three would let a write (or rsync --delete) modify master bytes.
-overlaps_master() {
-  local location="$1"
-  [[ "$location" == "$MASTER_REAL" || "$location" == "$MASTER_REAL"/* || "$MASTER_REAL" == "${location%/}"/* ]]
+# True when the existing directory $1 is a proper ancestor of master.
+dir_is_master_ancestor() {
+  local dir="$MASTER_REAL"
+  while [[ "$dir" != "/" && "$dir" != "." && -n "$dir" ]]; do
+    dir="$(dirname "$dir")"
+    if [[ "$dir" -ef "$1" ]]; then
+      return 0
+    fi
+  done
+  return 1
 }
 
+# A native target overlaps master when rsync would write inside master, or
+# when it is an existing directory above master (rsync --delete would reach it).
 target_overlaps_master() {
-  local location
-  location="$(physical_location "$1")" || return 0
-  overlaps_master "$location"
+  local anchor
+  anchor="$(write_anchor "$1")" || return 0
+  if dir_within_master "$anchor"; then
+    return 0
+  fi
+  if [[ -d "$(strip_trailing_slashes "$1")" ]] && dir_is_master_ancestor "$anchor"; then
+    return 0
+  fi
+  return 1
+}
+
+# An adapter overlaps master when its write would land inside master, or when
+# the existing adapter file shares an inode with any master file (a hard link,
+# or a symlink that resolves to one).
+adapter_overlaps_master() {
+  local adapter anchor master_file
+  adapter="$(strip_trailing_slashes "$1")"
+  anchor="$(write_anchor "$adapter")" || return 0
+  if dir_within_master "$anchor"; then
+    return 0
+  fi
+  if [[ -e "$adapter" ]]; then
+    while IFS= read -r -d '' master_file; do
+      if [[ "$adapter" -ef "$master_file" ]]; then
+        return 0
+      fi
+    done < <(find "$MASTER_REAL" -type f -print0)
+  fi
+  return 1
 }
 
 mode="sync"
@@ -281,7 +352,7 @@ if [[ "$mode" == "sync" ]]; then
 
   for adapter in "${ADAPTERS[@]}"; do
     adapter_dir="$(dirname "$adapter")"
-    if target_overlaps_master "$adapter"; then
+    if adapter_overlaps_master "$adapter"; then
       emit "skipping adapter that resolves into master (nothing ever writes back into master): $adapter"
       continue
     fi
@@ -301,7 +372,7 @@ elif [[ "$mode" == "dry-run" ]]; then
     fi
   done
   for adapter in "${ADAPTERS[@]}"; do
-    if target_overlaps_master "$adapter"; then
+    if adapter_overlaps_master "$adapter"; then
       emit "DRY-RUN would skip adapter that resolves into master: $adapter"
     else
       emit "DRY-RUN would generate adapter: $adapter"
