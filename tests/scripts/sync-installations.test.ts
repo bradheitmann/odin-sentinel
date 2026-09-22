@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -402,5 +402,89 @@ describe("master safety", () => {
     const masterBefore = snapshot(fleet.master);
     expect(runScript([], fleet.env).status).toBe(0);
     expect(snapshot(fleet.master)).toEqual(masterBefore);
+  });
+
+  // Physical-overlap guard (STORY-SYNCGUARD-001): the skip must follow the
+  // PHYSICAL location a write would land on, not compare path strings. The
+  // pre-fix failure mode for a symlinked adapter is unbounded self-append
+  // growth of master SKILL.md by a `cat` child, which a spawn timeout alone
+  // would not stop, so each case caps file size for the script and every child
+  // it spawns (ulimit -f, 1024-byte units: 20 MiB) and also carries a timeout.
+  const runBounded = (args: string[], env: Record<string, string>) => {
+    const baseEnv = Object.fromEntries(
+      Object.entries(process.env).filter(([key]) => !key.startsWith("SCP_"))
+    ) as Record<string, string>;
+    return spawnSync("bash", ["-c", 'ulimit -f 20480 && exec bash "$0" "$@"', SCRIPT_PATH, ...args], {
+      encoding: "utf8",
+      env: { ...baseEnv, ...env },
+      timeout: 20_000
+    });
+  };
+
+  it("skips an adapter symlinked to master SKILL.md and leaves master byte-identical", () => {
+    const fleet = makeFleet(["alpha"], ["one.md", "linked.md"]);
+    mkdirSync(dirname(fleet.adapters[1]), { recursive: true });
+    symlinkSync(join(fleet.master, "SKILL.md"), fleet.adapters[1]);
+
+    const masterBefore = snapshot(fleet.master);
+    const result = runBounded([], fleet.env);
+
+    expect(result.error).toBeUndefined();
+    expect(snapshot(fleet.master)).toEqual(masterBefore);
+    expect(result.stdout).toContain(`skipping adapter that resolves into master (nothing ever writes back into master): ${fleet.adapters[1]}`);
+    expect(result.stdout).toContain(`DRIFTED adapter: ${fleet.adapters[1]}`);
+    expect(result.stdout).toContain("adapter_verified: 1");
+    expect(readFileSync(fleet.adapters[0], "utf8")).toBe(expectedAdapterBytes(fleet.master));
+  });
+
+  it("skips an adapter whose dangling symlink points at a new file inside master", () => {
+    const fleet = makeFleet(["alpha"], ["dangling.md"]);
+    mkdirSync(dirname(fleet.adapters[0]), { recursive: true });
+    symlinkSync(join(fleet.master, "not-yet-there", "odin-scp.md"), fleet.adapters[0]);
+
+    const masterBefore = snapshot(fleet.master);
+    const result = runBounded([], fleet.env);
+
+    expect(result.error).toBeUndefined();
+    expect(snapshot(fleet.master)).toEqual(masterBefore);
+    expect(result.stdout).toContain(`skipping adapter that resolves into master (nothing ever writes back into master): ${fleet.adapters[0]}`);
+  });
+
+  it("skips native targets that are a symlink to master, inside master, or an ancestor of master", () => {
+    const fleet = makeFleet(["alpha", "linked"], ["one.md"]);
+    mkdirSync(dirname(fleet.targets[1]), { recursive: true });
+    symlinkSync(fleet.master, fleet.targets[1]);
+    const inside = join(fleet.master, "references", "nested-target");
+    const ancestor = fleet.root;
+    writeFileSync(join(fleet.root, "targets.txt"), `${fleet.targets[0]}\n${fleet.targets[1]}\n${inside}\n${ancestor}\n`);
+
+    const masterBefore = snapshot(fleet.master);
+    const rootListingBefore = readdirSync(fleet.root).sort();
+    const result = runBounded([], fleet.env);
+
+    expect(result.error).toBeUndefined();
+    expect(snapshot(fleet.master)).toEqual(masterBefore);
+    expect(readdirSync(fleet.root).sort()).toEqual(rootListingBefore);
+    for (const skipped of [fleet.targets[1], inside, ancestor]) {
+      expect(result.stdout).toContain(`skipping target that resolves to master (nothing ever writes back into master): ${skipped}`);
+    }
+    expect(sha256File(join(fleet.targets[0], "SKILL.md"))).toBe(sha256File(join(fleet.master, "SKILL.md")));
+  });
+
+  it("reports every overlapping target and adapter as a skip in dry-run and writes nothing", () => {
+    const fleet = makeFleet(["alpha"], ["linked.md"]);
+    mkdirSync(dirname(fleet.adapters[0]), { recursive: true });
+    symlinkSync(join(fleet.master, "SKILL.md"), fleet.adapters[0]);
+    const inside = join(fleet.master, "references", "nested-target");
+    writeFileSync(join(fleet.root, "targets.txt"), `${fleet.targets[0]}\n${inside}\n`);
+
+    const masterBefore = snapshot(fleet.master);
+    const result = runBounded(["--dry-run"], fleet.env);
+
+    expect(result.error).toBeUndefined();
+    expect(snapshot(fleet.master)).toEqual(masterBefore);
+    expect(result.stdout).toContain(`DRY-RUN would skip target that resolves to master: ${inside}`);
+    expect(result.stdout).toContain(`DRY-RUN would skip adapter that resolves into master: ${fleet.adapters[0]}`);
+    expect(result.stdout).toContain(`DRY-RUN would sync native target: ${fleet.targets[0]}`);
   });
 });

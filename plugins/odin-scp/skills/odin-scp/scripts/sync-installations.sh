@@ -35,8 +35,10 @@ master produce byte-identical adapters.
 
 Master resolution: the default master is the skill directory CONTAINING this
 script (the repository checkout when run from the repository). The script only
-reads master and writes targets; a target that resolves to the same directory
-as master is skipped, so nothing ever writes back into master.
+reads master and writes targets; a native target or adapter whose physical
+location (symlinks followed, including a symlinked adapter file) equals master,
+lies inside master, or is an ancestor of master is skipped (verification still
+judges it by exact content), so nothing ever writes back into master.
 
 Verify the master link is intact (run from anywhere):
   bash <skill-dir>/scripts/sync-installations.sh --verify-only
@@ -213,10 +215,51 @@ adapter_canonical_bytes() {
 master_hash="$(shasum -a 256 "$MASTER/SKILL.md" | awk '{print $1}')"
 adapter_hash="$(adapter_canonical_bytes | shasum -a 256 | awk '{print $1}')"
 
-physical_path() {
-  if [[ -d "$1" ]]; then
-    (cd "$1" && pwd -P)
+# Physical location of a target or adapter path, whether or not it exists yet.
+# A symlinked final component is followed (a dangling link resolves to where a
+# write would land), and a not-yet-existing path resolves through its nearest
+# existing ancestor, so a write through any link or into any nested path is
+# attributed to the directory it would actually modify.
+physical_location() {
+  local path="$1" link hops=0 suffix=""
+  while [[ -L "$path" ]]; do
+    hops=$((hops + 1))
+    if (( hops > 40 )); then
+      echo "symlink loop resolving: $1" >&2
+      return 1
+    fi
+    link="$(readlink "$path")"
+    case "$link" in
+      /*) path="$link" ;;
+      *) path="$(dirname "$path")/$link" ;;
+    esac
+  done
+  if [[ -d "$path" ]]; then
+    (cd "$path" && pwd -P)
+    return
   fi
+  local dir base
+  dir="$(dirname "$path")"
+  base="$(basename "$path")"
+  while [[ ! -d "$dir" ]]; do
+    suffix="/$(basename "$dir")${suffix}"
+    dir="$(dirname "$dir")"
+  done
+  dir="$(cd "$dir" && pwd -P)"
+  printf '%s%s/%s\n' "${dir%/}" "$suffix" "$base"
+}
+
+# Overlap with master: equal to it, inside it, or an ancestor of it. Any of the
+# three would let a write (or rsync --delete) modify master bytes.
+overlaps_master() {
+  local location="$1"
+  [[ "$location" == "$MASTER_REAL" || "$location" == "$MASTER_REAL"/* || "$MASTER_REAL" == "${location%/}"/* ]]
+}
+
+target_overlaps_master() {
+  local location
+  location="$(physical_location "$1")" || return 0
+  overlaps_master "$location"
 }
 
 mode="sync"
@@ -228,7 +271,7 @@ fi
 
 if [[ "$mode" == "sync" ]]; then
   for target in "${TARGETS[@]}"; do
-    if [[ "$(physical_path "$target")" == "$MASTER_REAL" ]]; then
+    if target_overlaps_master "$target"; then
       emit "skipping target that resolves to master (nothing ever writes back into master): $target"
       continue
     fi
@@ -238,7 +281,7 @@ if [[ "$mode" == "sync" ]]; then
 
   for adapter in "${ADAPTERS[@]}"; do
     adapter_dir="$(dirname "$adapter")"
-    if [[ "$(physical_path "$adapter_dir")" == "$MASTER_REAL" ]]; then
+    if target_overlaps_master "$adapter"; then
       emit "skipping adapter that resolves into master (nothing ever writes back into master): $adapter"
       continue
     fi
@@ -251,14 +294,18 @@ elif [[ "$mode" == "dry-run" ]]; then
   # adapter write. The verification pass below then reports the real fleet
   # state, and any absence or drift makes the run exit non-zero.
   for target in "${TARGETS[@]}"; do
-    if [[ "$(physical_path "$target")" == "$MASTER_REAL" ]]; then
+    if target_overlaps_master "$target"; then
       emit "DRY-RUN would skip target that resolves to master: $target"
     else
       emit "DRY-RUN would sync native target: $target"
     fi
   done
   for adapter in "${ADAPTERS[@]}"; do
-    emit "DRY-RUN would generate adapter: $adapter"
+    if target_overlaps_master "$adapter"; then
+      emit "DRY-RUN would skip adapter that resolves into master: $adapter"
+    else
+      emit "DRY-RUN would generate adapter: $adapter"
+    fi
   done
 fi
 
