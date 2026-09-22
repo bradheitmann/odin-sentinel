@@ -40,7 +40,8 @@ write location (symlinks resolved by the kernel, compared with master by
 filesystem identity rather than path spelling) is master, lies inside master,
 or is an existing ancestor of master, and an adapter file that shares an inode
 with any master file, is skipped (verification still judges it by exact
-content), so nothing ever writes back into master.
+content), so nothing ever writes back into master. A location that cannot be
+attributed (a symlink loop, a newline in a path or link text) is skipped too.
 
 Verify the master link is intact (run from anywhere):
   bash <skill-dir>/scripts/sync-installations.sh --verify-only
@@ -192,7 +193,16 @@ if [[ ! -f "$MASTER/SKILL.md" ]]; then
   echo "missing master SKILL.md: $MASTER/SKILL.md" >&2
   exit 1
 fi
-MASTER_REAL="$(cd "$MASTER" && pwd -P)"
+# Physical master, resolved by the kernel (`cd -P`) exactly as the reads of
+# "$MASTER/SKILL.md" and rsync of "$MASTER/" resolve it; a sentinel keeps any
+# trailing newline in the name. The overlap guard compares against this.
+MASTER_REAL="$(cd -P "$MASTER" && pwd -P && printf x)"
+MASTER_REAL="${MASTER_REAL%x}"
+MASTER_REAL="${MASTER_REAL%$'\n'}"
+if [[ "$MASTER_REAL" == *$'\n'* ]]; then
+  echo "refusing a master path containing a newline: $MASTER" >&2
+  exit 1
+fi
 
 # Marker presence on the MASTER remains a precondition: it guards against
 # propagating a truncated or wrong-file master. It is NOT the verification rule
@@ -231,46 +241,66 @@ strip_trailing_slashes() {
   printf '%s\n' "$path"
 }
 
-# Print the physical directory a write to PATH lands in: PATH itself when it is
-# (or links to) an existing directory, otherwise the nearest existing ancestor
-# of the location a symlinked final component points at (dangling links
-# included). Every existing component is resolved by the kernel (`cd -P`),
-# never lexically. Returns 1 when the location cannot be attributed (a symlink
-# loop, a dangling intermediate link, or `.`/`..` inside the not-yet-existing
-# part); callers treat that as an overlap and skip.
+# Set ANCHOR to the physical directory a write to PATH lands in: PATH itself
+# when it is (or links to) an existing directory, otherwise the nearest existing
+# ancestor of the location a symlinked final component points at (dangling
+# links included). Every existing component is resolved by the kernel
+# (`cd -P`), never lexically, and the physical path is captured with a sentinel
+# so no trailing newline is lost. Returns 1 when the location cannot be
+# attributed (a newline in the path, in any link text, or in the physical
+# anchor, a symlink loop, a
+# dangling intermediate link, or `.`/`..` inside the not-yet-existing part);
+# callers treat that as an overlap and skip.
+ANCHOR=""
 write_anchor() {
   local path link part hops=0
+  ANCHOR=""
+  if [[ "$1" == *$'\n'* ]]; then
+    return 1
+  fi
   path="$(strip_trailing_slashes "$1")"
   while [[ -L "$path" ]]; do
     hops=$((hops + 1))
     if (( hops > 40 )); then
       return 1
     fi
-    link="$(readlink "$path")"
+    # `-n` prints the link text alone: without it the reader's own terminator
+    # makes a text ending in a newline indistinguishable from one without.
+    link="$(readlink -n "$path" && printf x)"
+    link="${link%x}"
+    if [[ -z "$link" || "$link" == *$'\n'* ]]; then
+      return 1
+    fi
     case "$link" in
       /*) path="$link" ;;
       *) path="$(dirname "$path")/$link" ;;
     esac
     path="$(strip_trailing_slashes "$path")"
   done
-  if [[ -d "$path" ]]; then
-    (cd -P "$path" && pwd -P)
-    return
+  if [[ ! -d "$path" ]]; then
+    while :; do
+      part="$(basename "$path")"
+      path="$(dirname "$path")"
+      case "$part" in
+        .|..) return 1 ;;
+      esac
+      if [[ -d "$path" ]]; then
+        break
+      fi
+      if [[ -L "$path" ]]; then
+        return 1
+      fi
+    done
   fi
-  while :; do
-    part="$(basename "$path")"
-    path="$(dirname "$path")"
-    case "$part" in
-      .|..) return 1 ;;
-    esac
-    if [[ -d "$path" ]]; then
-      break
-    fi
-    if [[ -L "$path" ]]; then
-      return 1
-    fi
-  done
-  (cd -P "$path" && pwd -P)
+  ANCHOR="$(cd -P "$path" && pwd -P && printf x)" || return 1
+  ANCHOR="${ANCHOR%x}"
+  ANCHOR="${ANCHOR%$'\n'}"
+  # A newline anywhere in the physical path (an intermediate link or directory
+  # name) cannot be walked safely by the dirname-based ancestry checks below.
+  if [[ "$ANCHOR" == *$'\n'* ]]; then
+    ANCHOR=""
+    return 1
+  fi
 }
 
 # True when the existing physical directory $1 is master or lies inside it.
@@ -303,7 +333,8 @@ dir_is_master_ancestor() {
 # when it is an existing directory above master (rsync --delete would reach it).
 target_overlaps_master() {
   local anchor
-  anchor="$(write_anchor "$1")" || return 0
+  write_anchor "$1" || return 0
+  anchor="$ANCHOR"
   if dir_within_master "$anchor"; then
     return 0
   fi
@@ -319,7 +350,8 @@ target_overlaps_master() {
 adapter_overlaps_master() {
   local adapter anchor master_file
   adapter="$(strip_trailing_slashes "$1")"
-  anchor="$(write_anchor "$adapter")" || return 0
+  write_anchor "$adapter" || return 0
+  anchor="$ANCHOR"
   if dir_within_master "$anchor"; then
     return 0
   fi

@@ -560,4 +560,90 @@ describe("master safety", () => {
     expect(result.stdout).toContain(`skipping adapter that resolves into master (nothing ever writes back into master): ${fleet.adapters[1]}`);
     expect(result.stdout).toContain(`skipping target that resolves to master (nothing ever writes back into master): ${join(upper, "references", "new")}`);
   });
+
+  it("guards the physical master when SCP_SKILL_MASTER spells it through link/..", () => {
+    const fleet = makeFleet(["alpha"], ["one.md", "linked.md"]);
+    // `a/s` points at `<root>/sub`, so the kernel reads `<root>/a/s/../master` as
+    // the real master while a lexical reading names the decoy `<root>/a/master`.
+    mkdirSync(join(fleet.root, "sub"), { recursive: true });
+    mkdirSync(join(fleet.root, "a", "master"), { recursive: true });
+    symlinkSync(join(fleet.root, "sub"), join(fleet.root, "a", "s"));
+    const spelled = join(fleet.root, "a", "s") + "/../master";
+    mkdirSync(dirname(fleet.adapters[1]), { recursive: true });
+    symlinkSync(join(fleet.master, "SKILL.md"), fleet.adapters[1]);
+    const inside = join(fleet.master, "references", "nested-target");
+    writeFileSync(join(fleet.root, "targets.txt"), `${fleet.targets[0]}\n${inside}\n`);
+
+    const masterBefore = snapshot(fleet.master);
+    const result = runBounded([], { ...fleet.env, SCP_SKILL_MASTER: spelled });
+
+    expect(result.error).toBeUndefined();
+    expect(snapshot(fleet.master)).toEqual(masterBefore);
+    expect(result.stdout).toContain(`skipping adapter that resolves into master (nothing ever writes back into master): ${fleet.adapters[1]}`);
+    expect(result.stdout).toContain(`skipping target that resolves to master (nothing ever writes back into master): ${inside}`);
+    expect(sha256File(join(fleet.targets[0], "SKILL.md"))).toBe(sha256File(join(fleet.master, "SKILL.md")));
+  });
+
+  it("guards the physical master for a relative SCP_SKILL_MASTER run from a symlinked cwd", () => {
+    const fleet = makeFleet(["alpha"], ["one.md", "linked.md"]);
+    // The shell's logical PWD is `<home>/wd` (a link to master/scripts), so a
+    // logical `cd ..` lands in `<home>` while the kernel reads `..` as master.
+    const wd = join(fleet.home, "wd");
+    symlinkSync(join(fleet.master, "scripts"), wd);
+    mkdirSync(dirname(fleet.adapters[1]), { recursive: true });
+    symlinkSync(join(fleet.master, "SKILL.md"), fleet.adapters[1]);
+
+    const baseEnv = Object.fromEntries(
+      Object.entries(process.env).filter(([key]) => !key.startsWith("SCP_"))
+    ) as Record<string, string>;
+    const masterBefore = snapshot(fleet.master);
+    const result = spawnSync("bash", ["-c", 'ulimit -f 20480 && exec bash "$0" "$@"', SCRIPT_PATH], {
+      cwd: wd,
+      encoding: "utf8",
+      env: { ...baseEnv, ...fleet.env, SCP_SKILL_MASTER: "..", PWD: wd },
+      timeout: 20_000
+    });
+
+    expect(result.error).toBeUndefined();
+    expect(snapshot(fleet.master)).toEqual(masterBefore);
+    expect(result.stdout).toContain(`skipping adapter that resolves into master (nothing ever writes back into master): ${fleet.adapters[1]}`);
+    expect(readFileSync(fleet.adapters[0], "utf8")).toBe(expectedAdapterBytes(fleet.master));
+  });
+
+  it("skips a native target whose link text ends in a newline instead of misattributing it", () => {
+    const fleet = makeFleet(["alpha", "nl"], ["one.md"]);
+    const targetDir = dirname(fleet.targets[1]);
+    mkdirSync(targetDir, { recursive: true });
+    // `nl` -> "t\n", and "t\n" -> master/references. Stripping the newline would
+    // attribute the write to the absent `t` beside it; the kernel writes into master.
+    symlinkSync("t\n", fleet.targets[1]);
+    symlinkSync(join(fleet.master, "references"), join(targetDir, "t\n"));
+
+    const masterBefore = snapshot(fleet.master);
+    const dry = runBounded(["--dry-run"], fleet.env);
+    expect(dry.stdout).toContain(`DRY-RUN would skip target that resolves to master: ${fleet.targets[1]}`);
+
+    const result = runBounded([], fleet.env);
+    expect(result.error).toBeUndefined();
+    expect(snapshot(fleet.master)).toEqual(masterBefore);
+    expect(result.stdout).toContain(`skipping target that resolves to master (nothing ever writes back into master): ${fleet.targets[1]}`);
+    expect(sha256File(join(fleet.targets[0], "SKILL.md"))).toBe(sha256File(join(fleet.master, "SKILL.md")));
+  });
+
+  it("skips an adapter whose link text ends in a newline and never counts it verified", () => {
+    const fleet = makeFleet(["alpha"], ["one.md", "nl.md"]);
+    const adapterDir = dirname(fleet.adapters[1]);
+    mkdirSync(adapterDir, { recursive: true });
+    symlinkSync("d\n", fleet.adapters[1]);
+    symlinkSync(join(fleet.master, "new.md"), join(adapterDir, "d\n"));
+
+    const masterBefore = snapshot(fleet.master);
+    const result = runBounded([], fleet.env);
+
+    expect(result.error).toBeUndefined();
+    expect(snapshot(fleet.master)).toEqual(masterBefore);
+    expect(existsSync(join(fleet.master, "new.md"))).toBe(false);
+    expect(result.stdout).toContain(`skipping adapter that resolves into master (nothing ever writes back into master): ${fleet.adapters[1]}`);
+    expect(result.stdout).toContain("adapter_verified: 1");
+  });
 });
