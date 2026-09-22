@@ -29,8 +29,8 @@ already carries its content; nothing was discarded.
 | `lane/govedge-s1` | `3694c6f` | `790a110` (STORY-GOVEDGE-S1) | `git cherry` patch-equivalent; `git diff 3694c6f 790a110` empty |
 | `lane/govedge-s2` | `eef801c` | `e95fef1` (STORY-GOVEDGE-S2) | `git cherry` patch-equivalent; interdiff of the two commit patches empty (lane was based before S1) |
 | `lane/govedge-s3-t2` | `7eac03d` | `3226d32` (STORY-GOVEDGE-S3) | `git cherry` patch-equivalent; `git diff 7eac03d 3226d32` empty |
-| `lane/govedge-s3-t3` | `e95fef1` + staged draft | `3226d32` supersedes | branch tip is an ancestor; the uncommitted 8-file staged draft differed from `3226d32` and is preserved as tag `rescue/govedge-s3-t3-staged-20260921` (`9b5aa07`) |
-| `lane/w2-f41c8` | `e95fef1` + staged draft | `3226d32` supersedes | branch tip is an ancestor; staged draft preserved as tag `rescue/w2-f41c8-staged-20260921` (`bfe29ab`) |
+| `lane/govedge-s3-t3` | `e95fef1` + staged draft | `3226d32` supersedes | branch tip is an ancestor; the uncommitted 8-file staged draft differed from `3226d32` and was preserved as tag `rescue/govedge-s3-t3-staged-20260921` (`9b5aa07`) until 0.7.1, when the tag was deleted as superseded (see the 0.7.1 entry) |
+| `lane/w2-f41c8` | `e95fef1` + staged draft | `3226d32` supersedes | branch tip is an ancestor; staged draft was preserved as tag `rescue/w2-f41c8-staged-20260921` (`bfe29ab`) until 0.7.1, when the tag was deleted as superseded (see the 0.7.1 entry) |
 | `lane/rel070-001` | `89d3c85` | `a003ac2` (STORY-REL070-001) | `git cherry` patch-equivalent; `git diff 89d3c85 a003ac2` empty |
 | `lane/rel070-002` | `7d92957` | `ab946da` (STORY-REL070-002) | `git cherry` patch-equivalent; `git diff 7d92957 ab946da` empty |
 | `lane/rel070-003` | `ffde2ba` | `cfcac76` (STORY-REL070-003) | `git cherry` patch-equivalent; `git diff ffde2ba cfcac76` empty |
