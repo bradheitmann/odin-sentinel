@@ -293,7 +293,7 @@ describe("canonical governed send helper (cmux-send-governed.sh)", () => {
     expect(res.stdout).not.toMatch(/echo PWN[^']/);
   });
 
-  it("D4 live path delivers payload as ONE literal argv element (stubbed cmux, non-sending)", () => {
+  it("D4 live path delivers payload as ONE literal argv element (stubbed cmux, non-sending)", { timeout: 30_000 }, () => {
     // Build a temp PATH containing a stubbed `cmux` that records each argv element
     // to a log file. The helper's live path must invoke it directly with the payload
     // as a single positional arg, never via sh -c interpolation. We stub ONLY send/

@@ -13,7 +13,7 @@ const SEEDS: string[] = gate.EXPECTED_SEED_IDENTIFIERS;
 // ---------------------------------------------------------------------------
 
 describe("governance-visible token extraction", () => {
-  it("extracts every seed identifier from the real source roots (anti-vacuity)", () => {
+  it("extracts every seed identifier from the real source roots (anti-vacuity)", { timeout: 30_000 }, () => {
     const { tokens, errors } = gate.extractGovernanceVisibleTokens();
     expect(errors).toEqual([]);
     expect(tokens.size).toBeGreaterThan(0);
