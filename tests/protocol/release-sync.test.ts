@@ -346,6 +346,28 @@ describe("release sync audit helpers", () => {
     ]);
   });
 
+  it("still checks changelog text outside earlier release sections for unpinned install references", () => {
+    const unpinned = "- Install with pnpm dlx --package @bradheitmann/odin-sentinel odin-sentinel-mcp";
+    const cases: Array<[string, string[]]> = [
+      // C1: a non-release heading after the old releases ends the old section.
+      ["## 0.4.10 - 2026-01-02\n\n## 0.4.9 - 2026-01-01\n\n- old\n\n## Upgrading\n\n" + unpinned + "\n", ["9"]],
+      // C2: an example heading inside a code fence does not end the current section.
+      ["## 0.4.10 - 2026-01-02\n\n```\n## 0.4.9 - example\n```\n\n" + unpinned + "\n", ["7"]],
+      // C3: a current heading written with a colon is still the current section.
+      ["## 0.4.10: 2026-01-02\n\n" + unpinned + "\n", ["3"]],
+      // C4: a later, planned release section is checked.
+      ["## 0.5.0 - planned\n\n" + unpinned + "\n\n## 0.4.10 - 2026-01-02\n", ["3"]]
+    ];
+    for (const [changelog, lineNumbers] of cases) {
+      expect(verifyPack.findUnpinnedInstallReferences({ "CHANGELOG.md": changelog }, "0.4.10")).toEqual(
+        lineNumbers.map((line) => `CHANGELOG.md:${line}: install command must pin @bradheitmann/odin-sentinel@0.4.10`)
+      );
+    }
+    expect(verifyPack.isEarlierVersion("0.4.9", "0.4.10")).toBe(true);
+    expect(verifyPack.isEarlierVersion("0.4.10", "0.4.10")).toBe(false);
+    expect(verifyPack.isEarlierVersion("0.5.0", "0.4.10")).toBe(false);
+  });
+
   it("rejects split-line unpinned package references in install config", () => {
     expect(verifyPack.findUnpinnedInstallReferences({
       "README.md": '"args": [\n  "dlx",\n  "--package",\n  "@bradheitmann/odin-sentinel",\n  "odin-sentinel-mcp"\n]'
