@@ -68,6 +68,9 @@ Environment overrides:
   SCP_ADAPTER_TARGETS_FILE Optional newline-delimited adapter file list.
                           In both lists, blank lines and lines starting with #
                           are ignored, and a leading ~/ expands to $HOME/.
+                          Nothing else is expanded: a line that is a bare ~ or
+                          starts with $HOME or ${HOME} stops the run in every
+                          mode before anything is written.
 USAGE
 }
 
@@ -158,10 +161,20 @@ read_targets_file() {
       # pattern is itself tilde-expanded to $HOME/, so a literal "~/" line would
       # never match and would be used as a path relative to the working directory.
       \~/*) line="${HOME}/${line#\~/}" ;;
+      # Only ~/ is expanded. A bare ~ or an unexpanded $HOME / ${HOME} line was
+      # meant to name the home directory but would be used relative to the
+      # working directory, so it is refused before anything is written.
+      \~|\$HOME|\$HOME/*|\$\{HOME\}|\$\{HOME\}/*)
+        echo "refusing unexpanded home line in $target_file (only a leading ~/ is expanded): $line" >&2
+        unexpanded_home_lines=$((unexpanded_home_lines + 1))
+        continue
+        ;;
     esac
     eval "$target_var+=(\"\$line\")"
   done < "$target_file"
 }
+
+unexpanded_home_lines=0
 
 if [[ -n "${SCP_SKILL_TARGETS_FILE:-}" ]]; then
   read_targets_file TARGETS "$SCP_SKILL_TARGETS_FILE"
@@ -169,6 +182,11 @@ fi
 
 if [[ -n "${SCP_ADAPTER_TARGETS_FILE:-}" ]]; then
   read_targets_file ADAPTERS "$SCP_ADAPTER_TARGETS_FILE"
+fi
+
+if (( unexpanded_home_lines > 0 )); then
+  echo "nothing was written; write the line(s) above as ~/... or as an absolute path" >&2
+  exit 1
 fi
 
 MARKERS=(

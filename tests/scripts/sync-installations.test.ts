@@ -1038,3 +1038,59 @@ describe("sync hardening: special files, backslash paths, HOME targets", () => {
     expect(sha256File(join(fleet.targets[0], "SKILL.md"))).toBe(sha256File(join(fleet.master, "SKILL.md")));
   });
 });
+
+describe("sync hardening: unexpanded home lines in the targets files", () => {
+  // Only a leading ~/ is expanded. A bare ~ or a $HOME / ${HOME} line would be
+  // used relative to the working directory, so it stops the run in every mode.
+  const HOME_LINES = ["~", "$HOME", "$HOME/", "${HOME}", "${HOME}/skills/alpha"];
+
+  function runIn(cwd: string, args: string[], env: Record<string, string>) {
+    const baseEnv = Object.fromEntries(
+      Object.entries(process.env).filter(([key]) => !key.startsWith("SCP_"))
+    ) as Record<string, string>;
+    return spawnSync("bash", [SCRIPT_PATH, ...args], {
+      cwd,
+      encoding: "utf8",
+      env: { ...baseEnv, ...env },
+      timeout: 20_000,
+      killSignal: "SIGKILL"
+    });
+  }
+
+  it("refuses a bare ~ or an unexpanded $HOME native target line in every mode and writes nothing", () => {
+    const fleet = makeFleet(["alpha"], ["one.md"]);
+    const cwd = join(fleet.root, "cwd");
+    mkdirSync(cwd);
+    writeFileSync(join(fleet.home, "sentinel.txt"), "keep me\n");
+
+    for (const line of HOME_LINES) {
+      writeFileSync(join(fleet.root, "targets.txt"), `${fleet.targets[0]}\n${line}\n`);
+      for (const args of [["--verify-only"], ["--dry-run"], []]) {
+        const before = snapshot(fleet.root);
+        const result = runIn(cwd, args, fleet.env);
+        expect(result.error).toBeUndefined();
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(`refusing unexpanded home line in ${join(fleet.root, "targets.txt")} (only a leading ~/ is expanded): ${line}\n`);
+        expect(snapshot(fleet.root)).toEqual(before);
+      }
+    }
+    expect(readdirSync(cwd)).toEqual([]);
+    expect(existsSync(fleet.targets[0])).toBe(false);
+    expect(readFileSync(join(fleet.home, "sentinel.txt"), "utf8")).toBe("keep me\n");
+  });
+
+  it("refuses an unexpanded $HOME adapter line before any native target is written", () => {
+    const fleet = makeFleet(["alpha"], ["one.md"]);
+    const cwd = join(fleet.root, "cwd");
+    mkdirSync(cwd);
+    writeFileSync(join(fleet.root, "adapters.txt"), `${fleet.adapters[0]}\n$HOME/prompts/two.md\n`);
+
+    const before = snapshot(fleet.root);
+    const result = runIn(cwd, [], fleet.env);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(`refusing unexpanded home line in ${join(fleet.root, "adapters.txt")} (only a leading ~/ is expanded): $HOME/prompts/two.md\n`);
+    expect(snapshot(fleet.root)).toEqual(before);
+    expect(readdirSync(cwd)).toEqual([]);
+    expect(existsSync(fleet.targets[0])).toBe(false);
+  });
+});
