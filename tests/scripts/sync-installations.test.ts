@@ -697,6 +697,46 @@ describe("full-tree verification", () => {
     expect(snapshot(fleet.root)).toEqual(before);
   });
 
+  it("fails a target where a file became a directory or a directory became a file", () => {
+    const fleet = syncedFleet();
+    rmSync(join(fleet.targets[0], "CHANGELOG.md"));
+    mkdirSync(join(fleet.targets[0], "CHANGELOG.md"));
+    rmSync(join(fleet.targets[1], "agents"), { recursive: true });
+    writeFileSync(join(fleet.targets[1], "agents"), "not a directory\n");
+
+    const result = runScript(["--verify-only"], fleet.env);
+    expect(result.status).not.toBe(0);
+    expect(result.stdout).toContain(`DRIFTED native target: ${fleet.targets[0]}\n`);
+    expect(result.stdout).toContain(`DRIFTED native target: ${fleet.targets[1]}\n`);
+    expect(result.stdout).toContain("native_verified: 0");
+    expect(result.stdout).not.toContain("SCP skill sync verified");
+  });
+
+  it("fails a target where a file was replaced by a dangling symlink", () => {
+    const fleet = syncedFleet();
+    const replaced = join(fleet.targets[0], "references", "boot-receipt-examples.md");
+    rmSync(replaced);
+    symlinkSync(join(fleet.root, "does-not-exist.md"), replaced);
+
+    expectTreeDrift(runScript(["--verify-only"], fleet.env), fleet.targets[0]);
+  });
+
+  it("reports a write-mode skipped target inside master as drifted when its tree differs", () => {
+    const fleet = makeFleet(["alpha"]);
+    const inside = join(fleet.master, "references", "nested");
+    mkdirSync(inside, { recursive: true });
+    cpSync(join(fleet.master, "SKILL.md"), join(inside, "SKILL.md"));
+    writeFileSync(join(fleet.root, "targets.txt"), `${fleet.targets[0]}\n${inside}\n`);
+
+    const masterBefore = snapshot(fleet.master);
+    const result = runScript([], fleet.env);
+    expect(snapshot(fleet.master)).toEqual(masterBefore);
+    expect(result.status).not.toBe(0);
+    expect(result.stdout).toContain(`DRIFTED native target: ${inside}\n`);
+    expect(result.stdout).toContain("native_verified: 1");
+    expect(result.stdout).not.toContain("SCP skill sync verified");
+  });
+
   it("repairs tree drift in write mode and then verifies with a zero exit", () => {
     const fleet = syncedFleet();
     writeFileSync(join(fleet.targets[0], "references", "stale-extra.md"), "stale\n");

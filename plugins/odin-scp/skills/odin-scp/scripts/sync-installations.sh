@@ -416,6 +416,9 @@ fi
 # --- verification by exact content ------------------------------------------
 # A native target is a whole-directory snapshot of master: a matching SKILL.md
 # with a changed, extra, or missing file anywhere else in the tree is drift.
+# Any `diff -rq` output is drift too, whatever its exit status: Apple's diff
+# reports a file/directory type swap, a dangling link, or an unreadable path
+# and still exits 0, so the exit status alone would fail open.
 absent_targets=()
 drifted_targets=()
 drifted_details=()
@@ -429,7 +432,7 @@ for target in "${TARGETS[@]}"; do
   if [[ "$target_hash" != "$master_hash" ]]; then
     drifted_targets+=("$target/SKILL.md")
     drifted_details+=("  master=$master_hash target=$target_hash")
-  elif ! tree_diff="$(diff -rq -- "$MASTER" "$target" 2>&1)"; then
+  elif ! tree_diff="$(diff -rq -- "$MASTER" "$target" 2>&1)" || [[ -n "$tree_diff" ]]; then
     drifted_targets+=("$target")
     drifted_details+=("  tree differs from master:"$'\n'"$(printf '%s\n' "$tree_diff" | sed 's/^/    /')")
   else
