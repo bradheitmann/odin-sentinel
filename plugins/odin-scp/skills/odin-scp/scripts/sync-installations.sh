@@ -47,15 +47,16 @@ ever writes back into master. A location that cannot be
 attributed (a symlink loop, a newline in a path or link text) is skipped too.
 
 Refusals: a native target that is $HOME or `/` (by path text or filesystem
-identity) stops the run in every mode before anything is written. In write mode
-and --dry-run, a native target that is an ancestor of $HOME, that holds an entry
-other than a regular file, directory, or symlink (a FIFO, socket, or device),
-or whose own path exists and is not a directory, and an adapter whose existing
-path is not a regular file, is refused and left untouched; the other
-installations are still synced, and the run exits non-zero. An ancestor of
-$HOME that also contains master is skipped by the master-overlap guard first.
-Digests are taken from file contents on stdin, so a path containing a backslash
-hashes normally.
+identity) stops the run in every mode before anything is written. A native
+target that is an ancestor of $HOME is refused in every mode and never written
+(one that also contains master is skipped by the master-overlap guard first).
+In write mode and --dry-run, a native target that holds an entry other than a
+regular file, directory, or symlink (a FIFO, socket, or device), or whose own
+path exists and is not a directory, and an adapter whose existing path is not a
+regular file, is refused and left untouched. The other installations are still
+synced, the run exits non-zero, and the summary adds native_refused and
+adapter_refused counts (printed only when non-zero). Digests are taken from
+file contents on stdin, so a path containing a backslash hashes normally.
 
 Verify the master link is intact (run from anywhere):
   bash <skill-dir>/scripts/sync-installations.sh --verify-only
@@ -589,6 +590,15 @@ elif [[ "$mode" == "dry-run" ]]; then
       emit "DRY-RUN would generate adapter: $adapter"
     fi
   done
+else
+  # Verify-only writes nothing, but an ancestor of $HOME is still named and
+  # refused so the listing error is reported in every mode.
+  for target in "${TARGETS[@]}"; do
+    if ! target_overlaps_master "$target" && target_is_home_ancestor "$target"; then
+      emit "REFUSED native target (an ancestor of \$HOME): $target"
+      refused_targets+=("$target")
+    fi
+  done
 fi
 
 # --- verification by exact content ------------------------------------------
@@ -672,12 +682,18 @@ emit "native_targets: ${#TARGETS[@]}"
 emit "native_verified: $verified_targets"
 emit "native_absent: ${#absent_targets[@]}"
 emit "native_drifted: ${#drifted_targets[@]}"
-emit "native_refused: ${#refused_targets[@]}"
+# The refusal counts are printed only when non-zero, so a healthy run's output
+# is unchanged.
+if (( ${#refused_targets[@]} > 0 )); then
+  emit "native_refused: ${#refused_targets[@]}"
+fi
 emit "adapter_targets: ${#ADAPTERS[@]}"
 emit "adapter_verified: $verified_adapters"
 emit "adapter_absent: ${#absent_adapters[@]}"
 emit "adapter_drifted: ${#drifted_adapters[@]}"
-emit "adapter_refused: ${#refused_adapters[@]}"
+if (( ${#refused_adapters[@]} > 0 )); then
+  emit "adapter_refused: ${#refused_adapters[@]}"
+fi
 if [[ -n "$REPORT_PATH" ]]; then
   emit "report: $REPORT_PATH"
 fi

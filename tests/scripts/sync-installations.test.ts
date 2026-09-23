@@ -1146,3 +1146,43 @@ describe("sync hardening: HOME reached through a symlink", () => {
     expect(sha256File(join(fleet.targets[0], "SKILL.md"))).toBe(sha256File(join(fleet.master, "SKILL.md")));
   });
 });
+
+describe("sync hardening: refusal reporting in every mode", () => {
+  function runTimed(args: string[], env: Record<string, string>) {
+    const baseEnv = Object.fromEntries(
+      Object.entries(process.env).filter(([key]) => !key.startsWith("SCP_"))
+    ) as Record<string, string>;
+    return spawnSync("bash", [SCRIPT_PATH, ...args], {
+      encoding: "utf8",
+      env: { ...baseEnv, ...env },
+      timeout: 20_000,
+      killSignal: "SIGKILL"
+    });
+  }
+
+  it("prints no refusal counts on a healthy fleet, so its output is unchanged", () => {
+    const fleet = makeFleet(["alpha"], ["one.md"]);
+    for (const args of [[], ["--verify-only"], ["--dry-run"]]) {
+      const result = runTimed(args, fleet.env);
+      expect(result.status).toBe(0);
+      expect(result.stdout).not.toContain("_refused:");
+    }
+  });
+
+  it("names and refuses an ancestor of HOME in verify-only mode too", () => {
+    const fleet = makeFleet(["alpha"], ["one.md"]);
+    expect(runTimed([], fleet.env).status).toBe(0);
+    const upper = join(fleet.root, "users");
+    const home = join(upper, "operator");
+    mkdirSync(home, { recursive: true });
+    writeFileSync(join(fleet.root, "targets.txt"), `${fleet.targets[0]}\n${upper}\n`);
+    const env = { ...fleet.env, HOME: home };
+
+    const before = snapshot(fleet.root);
+    const result = runTimed(["--verify-only"], env);
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain(`REFUSED native target (an ancestor of $HOME): ${upper}\n`);
+    expect(result.stdout).toContain("native_refused: 1");
+    expect(snapshot(fleet.root)).toEqual(before);
+  });
+});
