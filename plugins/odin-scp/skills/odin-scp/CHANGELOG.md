@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.7.2 - 2026-09-23
+
+Fleet sync script (`scripts/sync-installations.sh` in the skill directory) fixes landed after 0.7.1. No protocol, tool, resource, or MCP behaviour changes; MIN_COMPATIBLE_CHILD_MCP stays 0.4.5.
+
+- Nothing writes back into master. A native target or adapter whose physical write location is master, lies inside master, or is an existing ancestor of master is skipped. Locations are resolved by the kernel (`cd -P`) and compared by filesystem identity (`-ef`), so symlinks, `link/..` spellings, case-variant spellings on case-insensitive volumes, and hard links are all caught. A location that cannot be attributed (a symlink loop, a newline in a path or in link text) is skipped too.
+- A native install is verified as a whole-tree snapshot of master: a matching `SKILL.md` with a changed, extra, or missing file anywhere else in the tree is reported DRIFTED. Any `diff -rq` output counts as drift, because Apple's diff exits 0 on a file/directory type swap, a dangling link, or an unreadable path.
+- In `SCP_SKILL_TARGETS_FILE` and `SCP_ADAPTER_TARGETS_FILE`, a line that starts with a tilde followed by a slash now expands to `$HOME/`. Before this fix it was used as a path relative to the working directory.
+- Write mode and `--dry-run` refuse, and leave untouched, a native target that holds a FIFO, socket, or device (openrsync blocked forever opening a FIFO as its basis file) or whose own path exists and is not a directory, and an adapter path that exists and is not a regular file. The other installations are still synced, and the run exits non-zero. New summary lines: `native_refused`, `adapter_refused`.
+- Digests are taken from file contents on stdin. Previously `shasum` escaped a backslash in the file name and prefixed the digest with a backslash, so a correct copy at such a path was reported DRIFTED.
+- A native target that is `$HOME` or `/` (a line holding only a tilde and a slash, the absolute home path, or any spelling that resolves to either) stops the run in every mode before anything is written, whether or not master is inside `$HOME`. A proper ancestor of `$HOME` is refused per target in write mode and `--dry-run`.
+- Only a leading tilde-slash is expanded in the targets files. A line that is a bare tilde, `$HOME`, `${HOME}`, or starts with `$HOME/` or `${HOME}/` stops the run in every mode before anything is written. Before this fix it was used as a path relative to the working directory.
+- Two load-sensitive tests declare a 30 s per-test timeout.
+- Release check: `scripts/audit/verify-pack.mjs` now checks only the current release section of a changelog for unpinned install references. An earlier section's publication note names the version it shipped and no longer fails a later release.
+
 ## 0.7.1 - 2026-09-22
 
 - Patch re-cut of 0.7.0. The `v0.7.0` tag (1f7d132) was cut before GHSA-rgj7-g3m4-5g8c (sharp, bundled libheif) was published, and its Release-validation run failed in `telemetry-validate` once the advisory landed. Tags never move, so this release is cut from `main` after 1fb15c0, which pins `sharp` to `^0.35.4` in the telemetry worker workspace (dev-only tooling through wrangler -> miniflare; the worker never invokes sharp) and records the advisory in `scripts/audit/audit-exceptions.json` with owner, expiry 2026-11-20, rationale, and pin linkage.

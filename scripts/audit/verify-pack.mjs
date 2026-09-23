@@ -393,7 +393,17 @@ export function findUnpinnedInstallReferences(fileTextByPath, currentVersion) {
   for (const [file, text] of Object.entries(fileTextByPath)) {
     if (AUDIT_SCRIPT_EXEMPTIONS.has(file)) continue;
     const lines = text.split("\n");
+    // A changelog's earlier release sections are history: they name the version
+    // they shipped and never change afterwards, so only the section for the
+    // current version (and any text above the first release heading) is checked.
+    const isChangelog = file === "CHANGELOG.md" || file.endsWith("/CHANGELOG.md");
+    let inPastRelease = false;
     for (const [index, line] of lines.entries()) {
+      if (isChangelog) {
+        const heading = /^## +v?(\d+\.\d+\.\d+\S*)/.exec(line);
+        if (heading) inPastRelease = heading[1] !== currentVersion;
+        if (inPastRelease) continue;
+      }
       if (!line.includes(packageName)) continue;
       const windowText = lines.slice(Math.max(0, index - 2), Math.min(lines.length, index + 3)).join(" ");
       const lowerWindow = windowText.toLowerCase();

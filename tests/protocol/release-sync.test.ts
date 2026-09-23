@@ -320,6 +320,32 @@ describe("release sync audit helpers", () => {
     ]);
   });
 
+  it("checks only the current release section of a changelog for unpinned install references", () => {
+    const changelog = [
+      "# Changelog",
+      "",
+      "## 0.4.10 - 2026-01-02",
+      "",
+      "- Install with pnpm dlx --package @bradheitmann/odin-sentinel odin-sentinel-mcp",
+      "",
+      "## 0.4.9 - 2026-01-01",
+      "",
+      "- Published: npm now serves `@bradheitmann/odin-sentinel@0.4.9`.",
+      ""
+    ].join("\n");
+    expect(verifyPack.findUnpinnedInstallReferences({
+      "plugins/odin-scp/skills/odin-scp/CHANGELOG.md": changelog
+    }, "0.4.10")).toEqual([
+      "plugins/odin-scp/skills/odin-scp/CHANGELOG.md:5: install command must pin @bradheitmann/odin-sentinel@0.4.10"
+    ]);
+    expect(verifyPack.findUnpinnedInstallReferences({
+      "docs/guide.md": changelog
+    }, "0.4.10")).toEqual([
+      "docs/guide.md:5: install command must pin @bradheitmann/odin-sentinel@0.4.10",
+      "docs/guide.md:9: install command must pin @bradheitmann/odin-sentinel@0.4.10"
+    ]);
+  });
+
   it("rejects split-line unpinned package references in install config", () => {
     expect(verifyPack.findUnpinnedInstallReferences({
       "README.md": '"args": [\n  "dlx",\n  "--package",\n  "@bradheitmann/odin-sentinel",\n  "odin-sentinel-mcp"\n]'
