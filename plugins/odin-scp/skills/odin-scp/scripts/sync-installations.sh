@@ -26,8 +26,9 @@ Installed copies are synchronized snapshots, not intentional forks. A native
 target is verified only when its SKILL.md is byte-identical to the master
 SKILL.md AND its whole directory tree is identical to the master directory
 (`diff -rq`: no changed, extra, or missing file), and an adapter only when it is
-byte-identical to the adapter bytes generated from that same master SKILL.md. An installation that is ABSENT is reported by name, is
-never counted as verified, and makes the run exit non-zero in every mode.
+byte-identical to the adapter bytes generated from that same master SKILL.md.
+An installation that is ABSENT is reported by name, is never counted as
+verified, and makes the run exit non-zero in every mode.
 
 Adapter generation is deterministic: an adapter is a fixed generated-file header
 line, a blank line, and the canonical SKILL.md verbatim. It carries no
@@ -56,6 +57,8 @@ Environment overrides:
                           skill directory containing this script.
   SCP_SKILL_TARGETS_FILE  Optional newline-delimited native target directory list.
   SCP_ADAPTER_TARGETS_FILE Optional newline-delimited adapter file list.
+                          In both lists, blank lines and lines starting with #
+                          are ignored, and a leading ~/ expands to $HOME/.
 USAGE
 }
 
@@ -142,7 +145,10 @@ read_targets_file() {
   while IFS= read -r line || [[ -n "$line" ]]; do
     case "$line" in
       ""|\#*) continue ;;
-      ~/*) line="${HOME}/${line#~/}" ;;
+      # The tilde is escaped: an unquoted ~/ in a case pattern or a ${var#...}
+      # pattern is itself tilde-expanded to $HOME/, so a literal "~/" line would
+      # never match and would be used as a path relative to the working directory.
+      \~/*) line="${HOME}/${line#\~/}" ;;
     esac
     eval "$target_var+=(\"\$line\")"
   done < "$target_file"

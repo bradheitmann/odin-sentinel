@@ -753,3 +753,65 @@ describe("full-tree verification", () => {
     expect(verify.stdout).not.toContain("DRIFTED");
   });
 });
+
+// ---------------------------------------------------------------------------
+// STORY-SYNCTILDE-001 - a leading "~/" in a targets file expands to $HOME/.
+// ---------------------------------------------------------------------------
+
+describe("targets-file tilde expansion", () => {
+  /** A fleet whose targets and adapters files name every path as "~/...". */
+  function tildeFleet() {
+    const fleet = makeFleet(["alpha"], ["one.md"]);
+    const cwd = join(fleet.root, "cwd");
+    mkdirSync(cwd, { recursive: true });
+    writeFileSync(
+      join(fleet.root, "targets.txt"),
+      "# native targets\n\n~/skills/alpha\n~/skills/beta\n"
+    );
+    writeFileSync(join(fleet.root, "adapters.txt"), "~/prompts/one.md\n");
+    return { fleet, cwd };
+  }
+
+  function runIn(cwd: string, args: string[], env: Record<string, string>) {
+    const baseEnv = Object.fromEntries(
+      Object.entries(process.env).filter(([key]) => !key.startsWith("SCP_"))
+    ) as Record<string, string>;
+    return spawnSync("bash", [SCRIPT_PATH, ...args], {
+      cwd,
+      encoding: "utf8",
+      env: { ...baseEnv, ...env }
+    });
+  }
+
+  it("writes every ~/ target and adapter under $HOME, never under the working directory", () => {
+    const { fleet, cwd } = tildeFleet();
+
+    const sync = runIn(cwd, [], fleet.env);
+    expect(sync.status).toBe(0);
+    expect(sync.stdout).toContain("SCP skill sync verified");
+    expect(readdirSync(cwd)).toEqual([]);
+
+    const masterHash = sha256File(join(fleet.master, "SKILL.md"));
+    for (const name of ["alpha", "beta"]) {
+      expect(sha256File(join(fleet.home, "skills", name, "SKILL.md"))).toBe(masterHash);
+    }
+    expect(readFileSync(join(fleet.home, "prompts", "one.md"), "utf8")).toBe(expectedAdapterBytes(fleet.master));
+
+    const verify = runIn(cwd, ["--verify-only"], fleet.env);
+    expect(verify.status).toBe(0);
+    expect(verify.stdout).toContain("native_verified: 2");
+    expect(verify.stdout).toContain("adapter_verified: 1");
+  });
+
+  it("reports an absent ~/ install by its expanded $HOME path and writes nothing", () => {
+    const { fleet, cwd } = tildeFleet();
+
+    const before = snapshot(fleet.root);
+    const result = runIn(cwd, ["--verify-only"], fleet.env);
+    expect(result.status).not.toBe(0);
+    expect(result.stdout).toContain(`ABSENT native target: ${join(fleet.home, "skills", "alpha")}/SKILL.md`);
+    expect(result.stdout).toContain(`ABSENT adapter: ${join(fleet.home, "prompts", "one.md")}`);
+    expect(result.stdout).not.toContain("~/");
+    expect(snapshot(fleet.root)).toEqual(before);
+  });
+});
