@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { cpSync, existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { closeSync, constants as fsConstants, lstatSync, openSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -813,5 +814,227 @@ describe("targets-file tilde expansion", () => {
     expect(result.stdout).toContain(`ABSENT adapter: ${join(fleet.home, "prompts", "one.md")}`);
     expect(result.stdout).not.toContain("~/");
     expect(snapshot(fleet.root)).toEqual(before);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// STORY-SYNCHARDEN-001 - special files fail closed, digests ignore path
+// spelling, and a $HOME or / target is refused.
+// ---------------------------------------------------------------------------
+
+describe("sync hardening: special files, backslash paths, HOME targets", () => {
+  /**
+   * Every run here is bounded: the pre-fix script blocks forever in write mode
+   * on a FIFO, so a timeout turns that hang into a test failure. SIGKILL goes to
+   * bash only; any rsync child left blocked opening a FIFO is released by
+   * releaseFifo() in the test's finally block.
+   */
+  function runTimed(args: string[], env: Record<string, string>, cwd?: string) {
+    const baseEnv = Object.fromEntries(
+      Object.entries(process.env).filter(([key]) => !key.startsWith("SCP_"))
+    ) as Record<string, string>;
+    return spawnSync("bash", [SCRIPT_PATH, ...args], {
+      cwd,
+      encoding: "utf8",
+      env: { ...baseEnv, ...env },
+      timeout: 20_000,
+      killSignal: "SIGKILL"
+    });
+  }
+
+  function makeFifo(path: string) {
+    mkdirSync(dirname(path), { recursive: true });
+    const made = spawnSync("mkfifo", [path]);
+    expect(made.status).toBe(0);
+  }
+
+  /** Opening read-write never blocks and unblocks any reader stuck in open(). */
+  function releaseFifo(path: string) {
+    try {
+      if (lstatSync(path).isFIFO()) closeSync(openSync(path, fsConstants.O_RDWR | fsConstants.O_NONBLOCK));
+    } catch {
+      // already gone or replaced; nothing is blocked on it
+    }
+  }
+
+  function isFifo(path: string): boolean {
+    return lstatSync(path).isFIFO();
+  }
+
+  /** Listing of a tree by lstat only, so it never opens a FIFO. */
+  function lsnapshot(dir: string): string[] {
+    const lines: string[] = [];
+    const walk = (current: string, rel: string) => {
+      for (const entry of readdirSync(current).sort()) {
+        const abs = join(current, entry);
+        const relPath = rel ? `${rel}/${entry}` : entry;
+        const st = lstatSync(abs);
+        if (st.isDirectory()) {
+          lines.push(`dir  ${relPath}`);
+          walk(abs, relPath);
+        } else if (st.isFile()) {
+          lines.push(`file ${relPath} ${sha256File(abs)}`);
+        } else {
+          lines.push(`other ${relPath} fifo=${st.isFIFO()} link=${st.isSymbolicLink()}`);
+        }
+      }
+    };
+    walk(dir, "");
+    return lines;
+  }
+
+  it("refuses a target holding a FIFO where master has a file, without hanging, and still syncs its sibling", () => {
+    const fleet = makeFleet(["alpha", "beta"], ["one.md"]);
+    const fifo = join(fleet.targets[0], "CHANGELOG.md");
+    makeFifo(fifo);
+    try {
+      const result = runTimed([], fleet.env);
+      expect(result.error).toBeUndefined();
+      expect(result.status).toBe(1);
+      expect(result.stdout).toContain(`REFUSED native target (holds a FIFO, socket, device, or non-directory; not written): ${fleet.targets[0]}: `);
+      expect(result.stdout).toContain("native_refused: 1");
+      expect(isFifo(fifo)).toBe(true);
+      expect(readdirSync(fleet.targets[0])).toEqual(["CHANGELOG.md"]);
+      expect(sha256File(join(fleet.targets[1], "SKILL.md"))).toBe(sha256File(join(fleet.master, "SKILL.md")));
+      expect(readFileSync(fleet.adapters[0], "utf8")).toBe(expectedAdapterBytes(fleet.master));
+    } finally {
+      releaseFifo(fifo);
+    }
+  });
+
+  it("refuses a synced target that gained a FIFO at an extra nested path, in write mode and dry-run", () => {
+    const fleet = makeFleet(["alpha"], ["one.md"]);
+    expect(runScript([], fleet.env).status).toBe(0);
+    const fifo = join(fleet.targets[0], "references", "extra-pipe");
+    makeFifo(fifo);
+    try {
+      const before = lsnapshot(fleet.root);
+      const dry = runTimed(["--dry-run"], fleet.env);
+      expect(dry.error).toBeUndefined();
+      expect(dry.status).toBe(1);
+      expect(dry.stdout).toContain(`DRY-RUN would refuse native target (holds a FIFO, socket, device, or non-directory): ${fleet.targets[0]}: `);
+      expect(lsnapshot(fleet.root)).toEqual(before);
+
+      const sync = runTimed([], fleet.env);
+      expect(sync.error).toBeUndefined();
+      expect(sync.status).toBe(1);
+      expect(sync.stdout).toContain(`REFUSED native target (holds a FIFO, socket, device, or non-directory; not written): ${fleet.targets[0]}: `);
+      expect(isFifo(fifo)).toBe(true);
+    } finally {
+      releaseFifo(fifo);
+    }
+  });
+
+  it("refuses a native target path that is itself a FIFO and an adapter path that is a FIFO", () => {
+    const fleet = makeFleet(["alpha", "piped"], ["one.md", "piped.md"]);
+    makeFifo(fleet.targets[1]);
+    makeFifo(fleet.adapters[1]);
+    try {
+      const result = runTimed([], fleet.env);
+      expect(result.error).toBeUndefined();
+      expect(result.status).toBe(1);
+      expect(result.stdout).toContain(`REFUSED native target (holds a FIFO, socket, device, or non-directory; not written): ${fleet.targets[1]}: `);
+      expect(result.stdout).toContain(`REFUSED adapter (exists and is not a regular file; not written): ${fleet.adapters[1]}`);
+      expect(result.stdout).toContain("adapter_refused: 1");
+      expect(isFifo(fleet.targets[1])).toBe(true);
+      expect(isFifo(fleet.adapters[1])).toBe(true);
+      expect(sha256File(join(fleet.targets[0], "SKILL.md"))).toBe(sha256File(join(fleet.master, "SKILL.md")));
+      expect(readFileSync(fleet.adapters[0], "utf8")).toBe(expectedAdapterBytes(fleet.master));
+    } finally {
+      releaseFifo(fleet.targets[1]);
+      releaseFifo(fleet.adapters[1]);
+    }
+  });
+
+  it("verifies a target and an adapter whose paths contain a backslash", () => {
+    const fleet = makeFleet(["back\\slash"], ["one\\two.md"]);
+
+    const sync = runTimed([], fleet.env);
+    expect(sync.status).toBe(0);
+    expect(sync.stdout).toContain("SCP skill sync verified");
+
+    const verify = runTimed(["--verify-only"], fleet.env);
+    expect(verify.status).toBe(0);
+    expect(verify.stdout).toContain("native_verified: 1");
+    expect(verify.stdout).toContain("adapter_verified: 1");
+    expect(verify.stdout).not.toContain("DRIFTED");
+  });
+
+  it("reports a plain 64-hex skill_sha256 for a master whose path contains a backslash", () => {
+    const fleet = makeFleet(["alpha"], ["one.md"]);
+    const master = join(fleet.root, "mas\\ter");
+    cpSync(fleet.master, master, { recursive: true });
+    const env = { ...fleet.env, SCP_SKILL_MASTER: master };
+
+    const sync = runTimed([], env);
+    expect(sync.status).toBe(0);
+    expect(sync.stdout).toContain(`skill_sha256: ${sha256File(join(master, "SKILL.md"))}\n`);
+    expect(sync.stdout).toMatch(/^skill_sha256: [0-9a-f]{64}$/m);
+  });
+
+  it("refuses a bare ~/ target line outright in every mode when master is outside HOME", () => {
+    const fleet = makeFleet(["alpha"], ["one.md"]);
+    writeFileSync(join(fleet.home, "sentinel.txt"), "keep me\n");
+    writeFileSync(join(fleet.root, "targets.txt"), `${fleet.targets[0]}\n~/\n`);
+
+    for (const args of [["--verify-only"], ["--dry-run"], []]) {
+      const before = snapshot(fleet.root);
+      const result = runTimed(args, fleet.env);
+      expect(result.error).toBeUndefined();
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(`refusing native target that is $HOME or /: ${fleet.home}/`);
+      expect(snapshot(fleet.root)).toEqual(before);
+    }
+    expect(readFileSync(join(fleet.home, "sentinel.txt"), "utf8")).toBe("keep me\n");
+    expect(existsSync(fleet.targets[0])).toBe(false);
+  });
+
+  it("refuses the absolute HOME path outright even when master is inside HOME", () => {
+    const fleet = makeFleet(["alpha"], ["one.md"]);
+    const master = join(fleet.home, "skills", "odin-scp");
+    cpSync(fleet.master, master, { recursive: true });
+    writeFileSync(join(fleet.root, "targets.txt"), `${fleet.targets[0]}\n${fleet.home}/\n`);
+    const env = { ...fleet.env, SCP_SKILL_MASTER: master };
+
+    const before = snapshot(fleet.root);
+    const result = runTimed([], env);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(`refusing native target that is $HOME or /: ${fleet.home}/`);
+    expect(snapshot(fleet.root)).toEqual(before);
+    expect(existsSync(fleet.targets[0])).toBe(false);
+  });
+
+  it("refuses / outright in verify-only and dry-run", () => {
+    const fleet = makeFleet(["alpha"], ["one.md"]);
+    writeFileSync(join(fleet.root, "targets.txt"), `${fleet.targets[0]}\n/\n`);
+
+    for (const args of [["--verify-only"], ["--dry-run"]]) {
+      const result = runTimed(args, fleet.env);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("refusing native target that is $HOME or /: /\n");
+      expect(result.stdout).not.toContain("DRY-RUN would sync native target: /\n");
+    }
+  });
+
+  it("refuses an ancestor of HOME that is not an ancestor of master and still syncs the rest", () => {
+    const fleet = makeFleet(["alpha"], ["one.md"]);
+    const upper = join(fleet.root, "users");
+    const home = join(upper, "operator");
+    mkdirSync(home, { recursive: true });
+    writeFileSync(join(home, "sentinel.txt"), "keep me\n");
+    writeFileSync(join(fleet.root, "targets.txt"), `${fleet.targets[0]}\n${upper}\n`);
+    const env = { ...fleet.env, HOME: home };
+
+    const upperBefore = snapshot(upper);
+    const dry = runTimed(["--dry-run"], env);
+    expect(dry.status).toBe(1);
+    expect(dry.stdout).toContain(`DRY-RUN would refuse native target (an ancestor of $HOME): ${upper}\n`);
+
+    const result = runTimed([], env);
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain(`REFUSED native target (an ancestor of $HOME; not written): ${upper}\n`);
+    expect(snapshot(upper)).toEqual(upperBefore);
+    expect(sha256File(join(fleet.targets[0], "SKILL.md"))).toBe(sha256File(join(fleet.master, "SKILL.md")));
   });
 });

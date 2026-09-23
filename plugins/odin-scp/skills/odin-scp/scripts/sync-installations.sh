@@ -45,6 +45,15 @@ with any master file, is skipped (verification still judges it by exact
 content), so nothing ever writes back into master. A location that cannot be
 attributed (a symlink loop, a newline in a path or link text) is skipped too.
 
+Refusals: a native target that is $HOME or `/` (by path text or filesystem
+identity) stops the run in every mode before anything is written. In write mode
+and --dry-run, a native target that is an ancestor of $HOME, that holds an entry
+other than a regular file, directory, or symlink (a FIFO, socket, or device),
+or whose own path exists and is not a directory, and an adapter whose existing
+path is not a regular file, is refused and left untouched; the other
+installations are still synced, and the run exits non-zero. Digests are taken
+from file contents on stdin, so a path containing a backslash hashes normally.
+
 Verify the master link is intact (run from anywhere):
   bash <skill-dir>/scripts/sync-installations.sh --verify-only
 With SCP_SKILL_MASTER unset, the reported "master:" line must name <skill-dir>
@@ -231,7 +240,14 @@ adapter_canonical_bytes() {
   cat "$MASTER/SKILL.md"
 }
 
-master_hash="$(shasum -a 256 "$MASTER/SKILL.md" | awk '{print $1}')"
+# Digests are taken from the bytes on stdin. Given a file NAME, shasum escapes
+# a backslash or newline in the name and prefixes the digest with `\`, so a
+# correct copy at such a path would be reported as drifted.
+sha256_of_file() {
+  shasum -a 256 < "$1" | awk '{print $1}'
+}
+
+master_hash="$(sha256_of_file "$MASTER/SKILL.md")"
 adapter_hash="$(adapter_canonical_bytes | shasum -a 256 | awk '{print $1}')"
 
 # Master-overlap guard. Nothing ever writes back into master, so every target
@@ -372,6 +388,104 @@ adapter_overlaps_master() {
   return 1
 }
 
+# A native target that is $HOME or `/` is refused outright, in every mode and
+# before anything is written, whether or not master lies inside $HOME:
+# `rsync -a --delete` into it would delete the operator's files. It is matched
+# by path text (trailing slashes stripped) and, when it exists, by filesystem
+# identity, so a symlink or `x/..` spelling of $HOME is caught too.
+home_text() {
+  strip_trailing_slashes "${HOME:-}"
+}
+
+target_is_home_or_root() {
+  local path home
+  path="$(strip_trailing_slashes "$1")"
+  home="$(home_text)"
+  if [[ "$path" == "/" || ( -n "$home" && "$path" == "$home" ) ]]; then
+    return 0
+  fi
+  if [[ -d "$path" ]]; then
+    if [[ "$path" -ef / ]] || [[ -n "$home" && "$path" -ef "$home" ]]; then
+      return 0
+    fi
+  fi
+  return 1
+}
+
+# A proper ancestor of $HOME (by path text or by identity) is just as
+# destructive to sync into. Write mode and --dry-run refuse it per target, after
+# the master-overlap guard, and the run exits non-zero.
+target_is_home_ancestor() {
+  local path home dir
+  path="$(strip_trailing_slashes "$1")"
+  home="$(home_text)"
+  if [[ -z "$home" ]]; then
+    return 1
+  fi
+  if [[ "$home" == "$path"/* ]]; then
+    return 0
+  fi
+  if [[ -d "$path" && -d "$home" ]]; then
+    dir="$home"
+    while [[ "$dir" != "/" && "$dir" != "." && -n "$dir" ]]; do
+      dir="$(dirname "$dir")"
+      if [[ "$path" -ef "$dir" ]]; then
+        return 0
+      fi
+    done
+  fi
+  return 1
+}
+
+home_refusals=0
+for target in "${TARGETS[@]}"; do
+  if target_is_home_or_root "$target"; then
+    echo "refusing native target that is \$HOME or /: $target" >&2
+    home_refusals=$((home_refusals + 1))
+  fi
+done
+if (( home_refusals > 0 )); then
+  echo "nothing was written; remove the line(s) above from the target list" >&2
+  exit 1
+fi
+
+# rsync opens an existing destination file as its basis, and openrsync blocks
+# forever opening a FIFO there; a socket or device is no better. Before any
+# write, a native target is scanned (symlinks are not followed) and refused
+# when it holds any entry other than a regular file, directory, or symlink, or
+# when its own path exists and is not a directory. Sets SPECIAL to the entry.
+SPECIAL=""
+target_holds_special() {
+  local path found
+  SPECIAL=""
+  path="$(strip_trailing_slashes "$1")"
+  if [[ ! -e "$path" ]]; then
+    return 1
+  fi
+  if [[ ! -d "$path" ]]; then
+    SPECIAL="$path (not a directory)"
+    return 0
+  fi
+  if ! found="$(find "$path/" ! -type f ! -type d ! -type l -print -quit 2>/dev/null)"; then
+    SPECIAL="$path (could not be scanned)"
+    return 0
+  fi
+  if [[ -n "$found" ]]; then
+    SPECIAL="$found"
+    return 0
+  fi
+  return 1
+}
+
+# Writing the adapter bytes into an existing FIFO would block until a reader
+# appears, so an adapter path that exists and is not a regular file is refused.
+adapter_is_special() {
+  [[ -e "$1" && ! -f "$1" ]]
+}
+
+refused_targets=()
+refused_adapters=()
+
 mode="sync"
 if [[ "$VERIFY_ONLY" == true ]]; then
   mode="verify-only"
@@ -385,6 +499,16 @@ if [[ "$mode" == "sync" ]]; then
       emit "skipping target that resolves to master (nothing ever writes back into master): $target"
       continue
     fi
+    if target_is_home_ancestor "$target"; then
+      emit "REFUSED native target (an ancestor of \$HOME; not written): $target"
+      refused_targets+=("$target")
+      continue
+    fi
+    if target_holds_special "$target"; then
+      emit "REFUSED native target (holds a FIFO, socket, device, or non-directory; not written): $target: $SPECIAL"
+      refused_targets+=("$target")
+      continue
+    fi
     mkdir -p "$target"
     rsync -a --delete "$MASTER/" "$target/"
   done
@@ -393,6 +517,11 @@ if [[ "$mode" == "sync" ]]; then
     adapter_dir="$(dirname "$adapter")"
     if adapter_overlaps_master "$adapter"; then
       emit "skipping adapter that resolves into master (nothing ever writes back into master): $adapter"
+      continue
+    fi
+    if adapter_is_special "$adapter"; then
+      emit "REFUSED adapter (exists and is not a regular file; not written): $adapter"
+      refused_adapters+=("$adapter")
       continue
     fi
     mkdir -p "$adapter_dir"
@@ -406,6 +535,12 @@ elif [[ "$mode" == "dry-run" ]]; then
   for target in "${TARGETS[@]}"; do
     if target_overlaps_master "$target"; then
       emit "DRY-RUN would skip target that resolves to master: $target"
+    elif target_is_home_ancestor "$target"; then
+      emit "DRY-RUN would refuse native target (an ancestor of \$HOME): $target"
+      refused_targets+=("$target")
+    elif target_holds_special "$target"; then
+      emit "DRY-RUN would refuse native target (holds a FIFO, socket, device, or non-directory): $target: $SPECIAL"
+      refused_targets+=("$target")
     else
       emit "DRY-RUN would sync native target: $target"
     fi
@@ -413,6 +548,9 @@ elif [[ "$mode" == "dry-run" ]]; then
   for adapter in "${ADAPTERS[@]}"; do
     if adapter_overlaps_master "$adapter"; then
       emit "DRY-RUN would skip adapter that resolves into master: $adapter"
+    elif adapter_is_special "$adapter"; then
+      emit "DRY-RUN would refuse adapter (exists and is not a regular file): $adapter"
+      refused_adapters+=("$adapter")
     else
       emit "DRY-RUN would generate adapter: $adapter"
     fi
@@ -434,7 +572,7 @@ for target in "${TARGETS[@]}"; do
     absent_targets+=("$target/SKILL.md")
     continue
   fi
-  target_hash="$(shasum -a 256 "$target/SKILL.md" | awk '{print $1}')"
+  target_hash="$(sha256_of_file "$target/SKILL.md")"
   if [[ "$target_hash" != "$master_hash" ]]; then
     drifted_targets+=("$target/SKILL.md")
     drifted_details+=("  master=$master_hash target=$target_hash")
@@ -454,7 +592,7 @@ for adapter in "${ADAPTERS[@]}"; do
     absent_adapters+=("$adapter")
     continue
   fi
-  this_adapter_hash="$(shasum -a 256 "$adapter" | awk '{print $1}')"
+  this_adapter_hash="$(sha256_of_file "$adapter")"
   if [[ "$this_adapter_hash" != "$adapter_hash" ]]; then
     drifted_adapters+=("$adapter|$this_adapter_hash")
   else
@@ -485,7 +623,7 @@ if (( ${#drifted_adapters[@]} > 0 )); then
   done
 fi
 
-failures=$(( ${#absent_targets[@]} + ${#drifted_targets[@]} + ${#absent_adapters[@]} + ${#drifted_adapters[@]} ))
+failures=$(( ${#absent_targets[@]} + ${#drifted_targets[@]} + ${#absent_adapters[@]} + ${#drifted_adapters[@]} + ${#refused_targets[@]} + ${#refused_adapters[@]} ))
 
 if (( failures > 0 )); then
   emit "SCP skill sync found ${#absent_targets[@]} absent and ${#drifted_targets[@]} drifted native targets, ${#absent_adapters[@]} absent and ${#drifted_adapters[@]} drifted adapters"
@@ -500,10 +638,12 @@ emit "native_targets: ${#TARGETS[@]}"
 emit "native_verified: $verified_targets"
 emit "native_absent: ${#absent_targets[@]}"
 emit "native_drifted: ${#drifted_targets[@]}"
+emit "native_refused: ${#refused_targets[@]}"
 emit "adapter_targets: ${#ADAPTERS[@]}"
 emit "adapter_verified: $verified_adapters"
 emit "adapter_absent: ${#absent_adapters[@]}"
 emit "adapter_drifted: ${#drifted_adapters[@]}"
+emit "adapter_refused: ${#refused_adapters[@]}"
 if [[ -n "$REPORT_PATH" ]]; then
   emit "report: $REPORT_PATH"
 fi
