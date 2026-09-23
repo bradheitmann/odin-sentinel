@@ -1079,6 +1079,18 @@ describe("sync hardening: unexpanded home lines in the targets files", () => {
     expect(readFileSync(join(fleet.home, "sentinel.txt"), "utf8")).toBe("keep me\n");
   });
 
+  it("leaves lines that only start with the letters of $HOME, such as $HOMEX, outside the rule", () => {
+    const fleet = makeFleet(["alpha"], ["one.md"]);
+    const cwd = join(fleet.root, "cwd");
+    mkdirSync(cwd);
+    writeFileSync(join(fleet.root, "targets.txt"), `${fleet.targets[0]}\n$HOMEX\n`);
+
+    const result = runIn(cwd, [], fleet.env);
+    expect(result.status).toBe(0);
+    expect(result.stderr).not.toContain("refusing unexpanded home line");
+    expect(sha256File(join(cwd, "$HOMEX", "SKILL.md"))).toBe(sha256File(join(fleet.master, "SKILL.md")));
+  });
+
   it("refuses an unexpanded $HOME adapter line before any native target is written", () => {
     const fleet = makeFleet(["alpha"], ["one.md"]);
     const cwd = join(fleet.root, "cwd");

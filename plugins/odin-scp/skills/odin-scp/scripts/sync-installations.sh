@@ -37,12 +37,13 @@ master produce byte-identical adapters.
 
 Master resolution: the default master is the skill directory CONTAINING this
 script (the repository checkout when run from the repository). The script only
-reads master and writes targets; a native target or adapter whose physical
-write location (symlinks resolved by the kernel, compared with master by
-filesystem identity rather than path spelling) is master, lies inside master,
-or is an existing ancestor of master, and an adapter file that shares an inode
-with any master file, is skipped (verification still judges it by exact
-content), so nothing ever writes back into master. A location that cannot be
+reads master and writes targets; a native target whose physical write
+location (symlinks resolved by the kernel, compared with master by filesystem
+identity rather than path spelling) is master, lies inside master, or is an
+existing ancestor of master, an adapter whose physical write location is master
+or lies inside master, and an adapter file that shares an inode with any master
+file, is skipped (verification still judges it by exact content), so nothing
+ever writes back into master. A location that cannot be
 attributed (a symlink loop, a newline in a path or link text) is skipped too.
 
 Refusals: a native target that is $HOME or `/` (by path text or filesystem
@@ -51,8 +52,10 @@ and --dry-run, a native target that is an ancestor of $HOME, that holds an entry
 other than a regular file, directory, or symlink (a FIFO, socket, or device),
 or whose own path exists and is not a directory, and an adapter whose existing
 path is not a regular file, is refused and left untouched; the other
-installations are still synced, and the run exits non-zero. Digests are taken
-from file contents on stdin, so a path containing a backslash hashes normally.
+installations are still synced, and the run exits non-zero. An ancestor of
+$HOME that also contains master is skipped by the master-overlap guard first.
+Digests are taken from file contents on stdin, so a path containing a backslash
+hashes normally.
 
 Verify the master link is intact (run from anywhere):
   bash <skill-dir>/scripts/sync-installations.sh --verify-only
@@ -68,9 +71,10 @@ Environment overrides:
   SCP_ADAPTER_TARGETS_FILE Optional newline-delimited adapter file list.
                           In both lists, blank lines and lines starting with #
                           are ignored, and a leading ~/ expands to $HOME/.
-                          Nothing else is expanded: a line that is a bare ~ or
-                          starts with $HOME or ${HOME} stops the run in every
-                          mode before anything is written.
+                          Nothing else is expanded: a line that is exactly ~,
+                          $HOME or ${HOME}, or that starts with $HOME/ or
+                          ${HOME}/, stops the run in every mode before
+                          anything is written.
 USAGE
 }
 
