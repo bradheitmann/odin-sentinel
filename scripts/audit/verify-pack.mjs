@@ -389,6 +389,14 @@ export function isEarlierVersion(a, b) {
   return false;
 }
 
+/** True when every mention of the package on the line is pinned, and pinned to `version`. */
+export function pinsOnlyVersion(line, packageName, version) {
+  const mentions = line.split(packageName).length - 1;
+  const pins = [...line.matchAll(new RegExp(`${packageName.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")}@([0-9A-Za-z.+-]+)`, "g"))]
+    .map((match) => match[1].replace(/\.+$/, ""));
+  return mentions > 0 && pins.length === mentions && pins.every((pin) => pin === version);
+}
+
 export function findUnpinnedInstallReferences(fileTextByPath, currentVersion) {
   const findings = [];
   const packageName = "@bradheitmann/odin-sentinel";
@@ -408,17 +416,18 @@ export function findUnpinnedInstallReferences(fileTextByPath, currentVersion) {
   for (const [file, text] of Object.entries(fileTextByPath)) {
     if (AUDIT_SCRIPT_EXEMPTIONS.has(file)) continue;
     const lines = text.split("\n");
-    // A changelog's sections for EARLIER releases are history: they name the
-    // version they shipped and never change afterwards, so they are skipped.
-    // Section binding reuses releaseSectionVersionByLine (fences ignored, a
-    // non-release heading ends the section); every other line is checked,
-    // including the current and any later-version section.
+    // A changelog's sections for EARLIER releases are history: a line there
+    // that pins the package to that section's own version (for example a
+    // publication note) never changes afterwards, so it is accepted. Section
+    // binding reuses releaseSectionVersionByLine (fences ignored, a non-release
+    // heading ends the section). Every other line is checked, including an
+    // unpinned or differently pinned reference in an earlier section.
     const isChangelog = file === "CHANGELOG.md" || file.endsWith("/CHANGELOG.md");
     const sectionVersionByLine = isChangelog ? releaseSectionVersionByLine(text) : null;
     for (const [index, line] of lines.entries()) {
       if (!line.includes(packageName)) continue;
       const sectionVersion = sectionVersionByLine?.[index] ?? null;
-      if (sectionVersion !== null && isEarlierVersion(sectionVersion, currentVersion)) continue;
+      if (sectionVersion !== null && isEarlierVersion(sectionVersion, currentVersion) && pinsOnlyVersion(line, packageName, sectionVersion)) continue;
       const windowText = lines.slice(Math.max(0, index - 2), Math.min(lines.length, index + 3)).join(" ");
       const lowerWindow = windowText.toLowerCase();
       if (!commandMarkers.some((marker) => lowerWindow.includes(marker))) continue;

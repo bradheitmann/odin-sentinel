@@ -368,6 +368,17 @@ describe("release sync audit helpers", () => {
     expect(verifyPack.isEarlierVersion("0.5.0", "0.4.10")).toBe(false);
   });
 
+  it("accepts an earlier changelog section's line only when it pins that section's own version", () => {
+    const changelog = (line: string) => `## 0.4.10 - 2026-01-02\n\n- current\n\n## 0.4.8 - 2025-12-01\n\n${line}\n`;
+    const finding = ["CHANGELOG.md:7: install command must pin @bradheitmann/odin-sentinel@0.4.10"];
+    const check = (line: string) => verifyPack.findUnpinnedInstallReferences({ "CHANGELOG.md": changelog(line) }, "0.4.10");
+    expect(check("- Published: npm now serves `@bradheitmann/odin-sentinel@0.4.8`.")).toEqual([]);
+    expect(check("- npm i -g @bradheitmann/odin-sentinel")).toEqual(finding);
+    expect(check("- npm i -g @bradheitmann/odin-sentinel@latest")).toEqual(finding);
+    expect(check("- npm i -g @bradheitmann/odin-sentinel@0.4.7")).toEqual(finding);
+    expect(check("- npm i @bradheitmann/odin-sentinel@0.4.8 or @bradheitmann/odin-sentinel")).toEqual(finding);
+  });
+
   it("rejects split-line unpinned package references in install config", () => {
     expect(verifyPack.findUnpinnedInstallReferences({
       "README.md": '"args": [\n  "dlx",\n  "--package",\n  "@bradheitmann/odin-sentinel",\n  "odin-sentinel-mcp"\n]'
