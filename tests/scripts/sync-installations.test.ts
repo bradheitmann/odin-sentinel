@@ -1094,3 +1094,43 @@ describe("sync hardening: unexpanded home lines in the targets files", () => {
     expect(existsSync(fleet.targets[0])).toBe(false);
   });
 });
+
+describe("sync hardening: HOME reached through a symlink", () => {
+  function runTimed(args: string[], env: Record<string, string>) {
+    const baseEnv = Object.fromEntries(
+      Object.entries(process.env).filter(([key]) => !key.startsWith("SCP_"))
+    ) as Record<string, string>;
+    return spawnSync("bash", [SCRIPT_PATH, ...args], {
+      encoding: "utf8",
+      env: { ...baseEnv, ...env },
+      timeout: 20_000,
+      killSignal: "SIGKILL"
+    });
+  }
+
+  it("refuses a directory that physically contains a symlinked HOME, in dry-run and write mode", () => {
+    const fleet = makeFleet(["alpha"], ["one.md"]);
+    const real = join(fleet.root, "real");
+    const realHome = join(real, "home");
+    const links = join(fleet.root, "links");
+    mkdirSync(realHome, { recursive: true });
+    mkdirSync(links, { recursive: true });
+    symlinkSync(realHome, join(links, "home"));
+    writeFileSync(join(realHome, "sentinel.txt"), "keep me\n");
+    writeFileSync(join(fleet.root, "targets.txt"), `${fleet.targets[0]}\n${real}\n`);
+    const env = { ...fleet.env, HOME: join(links, "home") };
+
+    const realBefore = snapshot(real);
+    const dry = runTimed(["--dry-run"], env);
+    expect(dry.status).toBe(1);
+    expect(dry.stdout).toContain(`DRY-RUN would refuse native target (an ancestor of $HOME): ${real}\n`);
+
+    const result = runTimed([], env);
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain(`REFUSED native target (an ancestor of $HOME; not written): ${real}\n`);
+    expect(snapshot(real)).toEqual(realBefore);
+    expect(readFileSync(join(realHome, "sentinel.txt"), "utf8")).toBe("keep me\n");
+    expect(sha256File(join(fleet.targets[0], "SKILL.md"))).toBe(sha256File(join(fleet.master, "SKILL.md")));
+  });
+});

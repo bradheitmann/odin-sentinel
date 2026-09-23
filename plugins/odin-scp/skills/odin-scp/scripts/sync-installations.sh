@@ -432,9 +432,12 @@ target_is_home_or_root() {
 
 # A proper ancestor of $HOME (by path text or by identity) is just as
 # destructive to sync into. Write mode and --dry-run refuse it per target, after
-# the master-overlap guard, and the run exits non-zero.
+# the master-overlap guard, and the run exits non-zero. Both the ancestors of
+# the $HOME text and the ancestors of its physical location (symlinks resolved
+# by `cd -P`) are compared, so a $HOME that is itself a symlink still protects
+# the directories that really contain it.
 target_is_home_ancestor() {
-  local path home dir
+  local path home dir home_real
   path="$(strip_trailing_slashes "$1")"
   home="$(home_text)"
   if [[ -z "$home" ]]; then
@@ -451,6 +454,15 @@ target_is_home_ancestor() {
         return 0
       fi
     done
+    if home_real="$(cd -P "$home" 2>/dev/null && pwd -P)"; then
+      dir="$home_real"
+      while [[ "$dir" != "/" && -n "$dir" ]]; do
+        dir="$(dirname "$dir")"
+        if [[ "$path" -ef "$dir" ]]; then
+          return 0
+        fi
+      done
+    fi
   fi
   return 1
 }
