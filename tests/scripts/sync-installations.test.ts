@@ -647,3 +647,69 @@ describe("master safety", () => {
     expect(result.stdout).toContain("adapter_verified: 1");
   });
 });
+
+// ---------------------------------------------------------------------------
+// STORY-SYNCVERIFY-001 - a native install is verified as a whole-tree snapshot.
+// ---------------------------------------------------------------------------
+
+describe("full-tree verification", () => {
+  function syncedFleet(): Fleet {
+    const fleet = makeFleet();
+    expect(runScript([], fleet.env).status).toBe(0);
+    return fleet;
+  }
+
+  function expectTreeDrift(result: ReturnType<typeof runScript>, target: string) {
+    expect(result.status).not.toBe(0);
+    expect(result.stdout).toContain(`DRIFTED native target: ${target}\n`);
+    expect(result.stdout).toContain("tree differs from master");
+    expect(result.stdout).toContain("native_verified: 1");
+    expect(result.stdout).toContain("native_drifted: 1");
+    expect(result.stdout).not.toContain("SCP skill sync verified");
+  }
+
+  it("fails a target whose SKILL.md matches but another file changed", () => {
+    const fleet = syncedFleet();
+    const script = join(fleet.targets[0], "scripts", "sync-installations.sh");
+    writeFileSync(script, `${readFileSync(script, "utf8")}\n# locally appended drift\n`);
+
+    const before = snapshot(fleet.root);
+    const result = runScript(["--verify-only"], fleet.env);
+    expectTreeDrift(result, fleet.targets[0]);
+    expect(snapshot(fleet.root)).toEqual(before);
+  });
+
+  it("fails a target that carries an extra file", () => {
+    const fleet = syncedFleet();
+    writeFileSync(join(fleet.targets[1], "references", "stale-extra.md"), "stale\n");
+
+    expectTreeDrift(runScript(["--verify-only"], fleet.env), fleet.targets[1]);
+  });
+
+  it("fails a target that is missing a file, in dry-run too, and writes nothing", () => {
+    const fleet = syncedFleet();
+    rmSync(join(fleet.targets[0], "CHANGELOG.md"));
+
+    expectTreeDrift(runScript(["--verify-only"], fleet.env), fleet.targets[0]);
+
+    const before = snapshot(fleet.root);
+    expectTreeDrift(runScript(["--dry-run"], fleet.env), fleet.targets[0]);
+    expect(snapshot(fleet.root)).toEqual(before);
+  });
+
+  it("repairs tree drift in write mode and then verifies with a zero exit", () => {
+    const fleet = syncedFleet();
+    writeFileSync(join(fleet.targets[0], "references", "stale-extra.md"), "stale\n");
+    rmSync(join(fleet.targets[1], "CHANGELOG.md"));
+
+    const sync = runScript([], fleet.env);
+    expect(sync.status).toBe(0);
+    expect(sync.stdout).toContain("SCP skill sync verified");
+    expect(existsSync(join(fleet.targets[0], "references", "stale-extra.md"))).toBe(false);
+
+    const verify = runScript(["--verify-only"], fleet.env);
+    expect(verify.status).toBe(0);
+    expect(verify.stdout).toContain("native_verified: 2");
+    expect(verify.stdout).not.toContain("DRIFTED");
+  });
+});

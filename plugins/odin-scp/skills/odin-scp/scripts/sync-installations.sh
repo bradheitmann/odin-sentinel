@@ -22,10 +22,11 @@ content. --verify-only inspects the current fleet and writes nothing.
 --dry-run reports what a sync would do and writes nothing at all: no directory
 is created and no existing byte is modified.
 
-Installed copies are synchronized snapshots, not intentional forks. A target is
-verified only when its SKILL.md is byte-identical to the master SKILL.md, and an
-adapter only when it is byte-identical to the adapter bytes generated from that
-same master SKILL.md. An installation that is ABSENT is reported by name, is
+Installed copies are synchronized snapshots, not intentional forks. A native
+target is verified only when its SKILL.md is byte-identical to the master
+SKILL.md AND its whole directory tree is identical to the master directory
+(`diff -rq`: no changed, extra, or missing file), and an adapter only when it is
+byte-identical to the adapter bytes generated from that same master SKILL.md. An installation that is ABSENT is reported by name, is
 never counted as verified, and makes the run exit non-zero in every mode.
 
 Adapter generation is deterministic: an adapter is a fixed generated-file header
@@ -413,8 +414,11 @@ elif [[ "$mode" == "dry-run" ]]; then
 fi
 
 # --- verification by exact content ------------------------------------------
+# A native target is a whole-directory snapshot of master: a matching SKILL.md
+# with a changed, extra, or missing file anywhere else in the tree is drift.
 absent_targets=()
 drifted_targets=()
+drifted_details=()
 verified_targets=0
 for target in "${TARGETS[@]}"; do
   if [[ ! -f "$target/SKILL.md" ]]; then
@@ -423,7 +427,11 @@ for target in "${TARGETS[@]}"; do
   fi
   target_hash="$(shasum -a 256 "$target/SKILL.md" | awk '{print $1}')"
   if [[ "$target_hash" != "$master_hash" ]]; then
-    drifted_targets+=("$target/SKILL.md|$target_hash")
+    drifted_targets+=("$target/SKILL.md")
+    drifted_details+=("  master=$master_hash target=$target_hash")
+  elif ! tree_diff="$(diff -rq -- "$MASTER" "$target" 2>&1)"; then
+    drifted_targets+=("$target")
+    drifted_details+=("  tree differs from master:"$'\n'"$(printf '%s\n' "$tree_diff" | sed 's/^/    /')")
   else
     verified_targets=$((verified_targets + 1))
   fi
@@ -451,9 +459,9 @@ if (( ${#absent_targets[@]} > 0 )); then
   done
 fi
 if (( ${#drifted_targets[@]} > 0 )); then
-  for entry in "${drifted_targets[@]}"; do
-    emit "DRIFTED native target: ${entry%%|*}"
-    emit "  master=$master_hash target=${entry##*|}"
+  for i in "${!drifted_targets[@]}"; do
+    emit "DRIFTED native target: ${drifted_targets[$i]}"
+    emit "${drifted_details[$i]}"
   done
 fi
 if (( ${#absent_adapters[@]} > 0 )); then
