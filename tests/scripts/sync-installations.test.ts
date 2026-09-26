@@ -1186,3 +1186,211 @@ describe("sync hardening: refusal reporting in every mode", () => {
     expect(snapshot(fleet.root)).toEqual(before);
   });
 });
+
+// ---------------------------------------------------------------------------
+// STORY-SYNCPINS-001 - the fleet sync keeps each harness MCP config's
+// odin-sentinel pin on the master's release. Every config lives under the
+// scratch root; the pin list is always overridden or resolved under the
+// scratch HOME.
+// ---------------------------------------------------------------------------
+
+describe("sync MCP pins: harness configs follow the master's release", () => {
+  const PACKAGE = "@bradheitmann/odin-sentinel";
+
+  function runTimed(args: string[], env: Record<string, string>) {
+    const baseEnv = Object.fromEntries(
+      Object.entries(process.env).filter(([key]) => !key.startsWith("SCP_"))
+    ) as Record<string, string>;
+    return spawnSync("bash", [SCRIPT_PATH, ...args], {
+      encoding: "utf8",
+      env: { ...baseEnv, ...env },
+      timeout: 20_000,
+      killSignal: "SIGKILL"
+    });
+  }
+
+  function masterRelease(master: string): string {
+    const match = /^SCP_PUBLIC_VERSION:\s*(\d+\.\d+\.\d+)\s*$/m.exec(readFileSync(join(master, "SKILL.md"), "utf8"));
+    if (!match) throw new Error("master SKILL.md has no SCP_PUBLIC_VERSION line");
+    return match[1];
+  }
+
+  function jsonConfig(...versions: string[]): string {
+    const args = versions.map((version) => `"${PACKAGE}@${version}"`).join(", ");
+    return `{\n  "mcpServers": {\n    "odin-sentinel": { "command": "pnpm", "args": ["dlx", "--package", ${args}, "odin-sentinel-mcp"] }\n  },\n  "other": "keep"\n}`;
+  }
+
+  /** A healthy scratch fleet (already synced once) plus an MCP config list file. */
+  function pinFleet(configPaths: string[]) {
+    const fleet = makeFleet(["alpha"], ["one.md"]);
+    expect(runTimed([], fleet.env).status).toBe(0);
+    const listFile = join(fleet.root, "mcp-configs.txt");
+    writeFileSync(listFile, `${configPaths.map((name) => join(fleet.root, name)).join("\n")}\n`);
+    return { fleet, env: { ...fleet.env, SCP_MCP_CONFIG_TARGETS_FILE: listFile }, release: masterRelease(fleet.master) };
+  }
+
+  it("rewrites only the version text of stale pins, through the same file, in write mode", () => {
+    const { fleet, env, release } = pinFleet(["cfg/link.json"]);
+    const real = join(fleet.root, "cfg", "real.json");
+    const link = join(fleet.root, "cfg", "link.json");
+    mkdirSync(dirname(real), { recursive: true });
+    const before = jsonConfig("0.0.1", "0.0.2");
+    writeFileSync(real, before, { mode: 0o600 });
+    symlinkSync(real, link);
+    const inode = statSync(real).ino;
+
+    const result = runTimed([], env);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain(`repinned MCP config: ${link} (0.0.1 0.0.2 -> ${release})\n`);
+    expect(result.stdout).toContain("SCP skill sync verified");
+    expect(result.stdout).toContain(`mcp_pin_release: ${release}\nmcp_pin_configs: 1\nmcp_pin_current: 1\nmcp_pin_stale: 0\n`);
+    expect(result.stdout).toContain("mcp_pin_repinned: 1\n");
+    expect(readFileSync(real, "utf8")).toBe(
+      before.replace(`${PACKAGE}@0.0.1`, `${PACKAGE}@${release}`).replace(`${PACKAGE}@0.0.2`, `${PACKAGE}@${release}`)
+    );
+    expect(statSync(real).ino).toBe(inode);
+    expect(statSync(real).mode & 0o777).toBe(0o600);
+    expect(lstatSync(link).isSymbolicLink()).toBe(true);
+
+    const again = runTimed([], env);
+    expect(again.status).toBe(0);
+    expect(again.stdout).not.toContain("repinned MCP config");
+  });
+
+  it("reports a stale pin in --dry-run and --verify-only, writes nothing, and exits non-zero", () => {
+    const { fleet, env, release } = pinFleet(["cfg/settings.json"]);
+    const cfg = join(fleet.root, "cfg", "settings.json");
+    mkdirSync(dirname(cfg), { recursive: true });
+    writeFileSync(cfg, jsonConfig("0.0.1"));
+
+    const before = snapshot(fleet.root);
+    const dry = runTimed(["--dry-run"], env);
+    expect(dry.status).toBe(1);
+    expect(dry.stdout).toContain(`DRY-RUN would repin MCP config: ${cfg} (0.0.1 -> ${release})\n`);
+    expect(dry.stdout).toContain(`STALE MCP pin: ${cfg} (0.0.1; master ${release})\n`);
+    expect(dry.stdout).toContain(", 1 stale and 0 unmanaged MCP pins\n");
+    expect(snapshot(fleet.root)).toEqual(before);
+
+    const verify = runTimed(["--verify-only"], env);
+    expect(verify.status).toBe(1);
+    expect(verify.stdout).toContain(`STALE MCP pin: ${cfg} (0.0.1; master ${release})\n`);
+    expect(verify.stdout).toContain("mcp_pin_stale: 1\n");
+    expect(verify.stdout).not.toContain("DRY-RUN");
+    expect(snapshot(fleet.root)).toEqual(before);
+  });
+
+  it("never rewrites a pin that is newer than master, a prerelease, or not a release number", () => {
+    const { fleet, env, release } = pinFleet(["cfg/newer.json", "cfg/pre.yaml", "cfg/tag.toml"]);
+    const files = {
+      "newer.json": jsonConfig("999.0.0"),
+      "pre.yaml": `extensions:\n  odin-sentinel:\n    args:\n      - "${PACKAGE}@${release}-rc.1"\n`,
+      "tag.toml": `args = ["dlx", "--package", "${PACKAGE}@latest", "odin-sentinel-mcp"]\n`
+    };
+    mkdirSync(join(fleet.root, "cfg"), { recursive: true });
+    for (const [name, text] of Object.entries(files)) writeFileSync(join(fleet.root, "cfg", name), text);
+
+    const result = runTimed([], env);
+    expect(result.status).toBe(1);
+    for (const [name, pin] of [["newer.json", "999.0.0"], ["pre.yaml", `${release}-rc.1`], ["tag.toml", "latest"]]) {
+      expect(result.stdout).toContain(
+        `UNMANAGED MCP pin (not an older release; never rewritten): ${join(fleet.root, "cfg", name)} (${pin}; master ${release})\n`
+      );
+    }
+    expect(result.stdout).toContain("mcp_pin_unmanaged: 3\n");
+    expect(result.stdout).not.toContain("repinned MCP config");
+    for (const [name, text] of Object.entries(files)) expect(readFileSync(join(fleet.root, "cfg", name), "utf8")).toBe(text);
+  });
+
+  it("repins only the exact stale token, not a longer pin that starts with it", () => {
+    const { fleet, env, release } = pinFleet(["cfg/mixed.json"]);
+    const cfg = join(fleet.root, "cfg", "mixed.json");
+    mkdirSync(dirname(cfg), { recursive: true });
+    writeFileSync(cfg, `["${PACKAGE}@0.0.1", "${PACKAGE}@0.0.1-rc.2"]`);
+
+    const result = runTimed([], env);
+    expect(result.status).toBe(1);
+    expect(readFileSync(cfg, "utf8")).toBe(`["${PACKAGE}@${release}", "${PACKAGE}@0.0.1-rc.2"]`);
+    expect(result.stdout).toContain(`UNMANAGED MCP pin (not an older release; never rewritten): ${cfg} (0.0.1-rc.2; master ${release})\n`);
+  });
+
+  it("ignores absent configs and configs without a pin, and then prints no pin lines", () => {
+    const { fleet, env } = pinFleet(["cfg/absent.json", "cfg/unrelated.json"]);
+    mkdirSync(join(fleet.root, "cfg"), { recursive: true });
+    writeFileSync(join(fleet.root, "cfg", "unrelated.json"), `{"mcpServers": {"other": {"command": "pnpm"}}}\n`);
+
+    for (const args of [[], ["--verify-only"], ["--dry-run"]]) {
+      const result = runTimed(args, env);
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain("SCP skill sync verified");
+      expect(result.stdout).not.toContain("mcp_pin_");
+      expect(result.stdout).not.toContain("MCP");
+    }
+  });
+
+  it("refuses a config path that exists and is not a regular file, without reading it", () => {
+    const { fleet, env, release } = pinFleet(["cfg/fifo.json", "cfg/dir.json", "cfg/ok.json"]);
+    mkdirSync(join(fleet.root, "cfg", "dir.json"), { recursive: true });
+    const fifo = join(fleet.root, "cfg", "fifo.json");
+    const made = spawnSync("mkfifo", [fifo]);
+    expect(made.status).toBe(0);
+    writeFileSync(join(fleet.root, "cfg", "ok.json"), jsonConfig("0.0.1"));
+
+    for (const args of [["--verify-only"], ["--dry-run"], []]) {
+      const result = runTimed(args, env);
+      expect(result.error).toBeUndefined();
+      expect(result.status).toBe(1);
+      expect(result.stdout).toContain(`REFUSED MCP config (exists and is not a regular file; not read): ${fifo}\n`);
+      expect(result.stdout).toContain(`REFUSED MCP config (exists and is not a regular file; not read): ${join(fleet.root, "cfg", "dir.json")}\n`);
+      expect(result.stdout).toContain("mcp_pin_refused: 2\n");
+    }
+    expect(lstatSync(fifo).isFIFO()).toBe(true);
+    expect(readFileSync(join(fleet.root, "cfg", "ok.json"), "utf8")).toBe(jsonConfig(release));
+  });
+
+  it("takes the release from the master SKILL.md and refuses to judge pins when it has none", () => {
+    const { fleet, env, release } = pinFleet(["cfg/settings.json"]);
+    const cfg = join(fleet.root, "cfg", "settings.json");
+    mkdirSync(dirname(cfg), { recursive: true });
+    writeFileSync(cfg, jsonConfig(release));
+
+    const skillPath = join(fleet.master, "SKILL.md");
+    const skill = readFileSync(skillPath, "utf8");
+    writeFileSync(skillPath, skill.replace(`SCP_PUBLIC_VERSION: ${release}`, "SCP_PUBLIC_VERSION: 999.1.2"));
+    const bumped = runTimed([], env);
+    expect(bumped.status).toBe(0);
+    expect(bumped.stdout).toContain(`repinned MCP config: ${cfg} (${release} -> 999.1.2)\n`);
+    expect(readFileSync(cfg, "utf8")).toBe(jsonConfig("999.1.2"));
+
+    writeFileSync(skillPath, skill.replace(`SCP_PUBLIC_VERSION: ${release}\n`, ""));
+    expect(runTimed([], env).status).toBe(1);
+    const verify = runTimed(["--verify-only"], env);
+    expect(verify.status).toBe(1);
+    expect(verify.stdout).toContain("MCP pins not checked: master SKILL.md has no SCP_PUBLIC_VERSION x.y.z line\n");
+    expect(readFileSync(cfg, "utf8")).toBe(jsonConfig("999.1.2"));
+  });
+
+  it("finds harness configs at their default locations under HOME, including a path with a space", () => {
+    const fleet = makeFleet(["alpha"], ["one.md"]);
+    const release = masterRelease(fleet.master);
+    const gemini = join(fleet.home, ".gemini", "settings.json");
+    const vscode = join(fleet.home, "Library", "Application Support", "Code", "User", "mcp.json");
+    for (const path of [gemini, vscode]) {
+      mkdirSync(dirname(path), { recursive: true });
+      writeFileSync(path, jsonConfig("0.0.1"));
+    }
+
+    const result = runTimed([], fleet.env);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain(`repinned MCP config: ${gemini} (0.0.1 -> ${release})\n`);
+    expect(result.stdout).toContain(`repinned MCP config: ${vscode} (0.0.1 -> ${release})\n`);
+    for (const path of [gemini, vscode]) expect(readFileSync(path, "utf8")).toBe(jsonConfig(release));
+
+    const off = join(fleet.root, "no-mcp-configs.txt");
+    writeFileSync(off, "");
+    writeFileSync(gemini, jsonConfig("0.0.1"));
+    const disabled = runTimed(["--verify-only"], { ...fleet.env, SCP_MCP_CONFIG_TARGETS_FILE: off });
+    expect(disabled.status).toBe(0);
+    expect(disabled.stdout).not.toContain("mcp_pin_");
+    expect(readFileSync(gemini, "utf8")).toBe(jsonConfig("0.0.1"));
+  });
+});
