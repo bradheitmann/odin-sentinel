@@ -58,6 +58,20 @@ synced, the run exits non-zero, and the summary adds native_refused and
 adapter_refused counts (printed only when non-zero). Digests are taken from
 file contents on stdin, so a path containing a backslash hashes normally.
 
+MCP pins: each harness registers the ODIN MCP server in its own config file,
+pinned to one release of the odin-sentinel package. The run keeps those pins on
+the master's release, read from the master SKILL.md "SCP_PUBLIC_VERSION: x.y.z"
+line. A config file that is absent, or holds no pinned odin-sentinel reference,
+is ignored. In write mode a pin that is an x.y.z release older than master has
+its version text rewritten in place (the file keeps its inode, mode, and
+symlinks, and every other byte is unchanged). --dry-run and --verify-only write
+nothing and report each stale pin. A pin that is newer than master, a
+prerelease, or not a release number is never rewritten and is reported as
+UNMANAGED. A config path that exists and is not a regular file is refused and
+never read, and a config that resolves into master is never written. Stale,
+unmanaged, and refused pins make the run exit non-zero in every mode, and the
+mcp_pin_* summary lines are printed only when a pinned config was found.
+
 Verify the master link is intact (run from anywhere):
   bash <skill-dir>/scripts/sync-installations.sh --verify-only
 With SCP_SKILL_MASTER unset, the reported "master:" line must name <skill-dir>
@@ -70,7 +84,10 @@ Environment overrides:
                           skill directory containing this script.
   SCP_SKILL_TARGETS_FILE  Optional newline-delimited native target directory list.
   SCP_ADAPTER_TARGETS_FILE Optional newline-delimited adapter file list.
-                          In both lists, blank lines and lines starting with #
+  SCP_MCP_CONFIG_TARGETS_FILE Optional newline-delimited list of harness MCP
+                          config files whose odin-sentinel pin is kept on the
+                          master's release; an empty file turns the pass off.
+                          In all three lists, blank lines and lines starting with #
                           are ignored, and a leading ~/ expands to $HOME/.
                           Nothing else is expanded: a line that is exactly ~,
                           $HOME or ${HOME}, or that starts with $HOME/ or
@@ -149,6 +166,30 @@ ADAPTERS=(
   "${HOME}/.crush/commands/odin-scp.md"
 )
 
+# Harness config files that register the ODIN MCP server. Only the pinned
+# release in each is ever rewritten (see "MCP pins" in the usage text).
+MCP_CONFIGS=(
+  "${HOME}/.codex/config.toml"
+  "${HOME}/.factory/mcp.json"
+  "${HOME}/.cursor/mcp.json"
+  "${HOME}/.config/zed/settings.json"
+  "${HOME}/.config/goose/config.yaml"
+  "${HOME}/.config/crush/crush.json"
+  "${HOME}/.config/opencode/opencode.json"
+  "${HOME}/.config/opencode/config.json"
+  "${HOME}/.config/opencode/mcp.json"
+  "${HOME}/.config/kilo/kilo.jsonc"
+  "${HOME}/.kilocode/cli/global/settings/mcp_settings.json"
+  "${HOME}/.config/amp/settings.json"
+  "${HOME}/.gemini/settings.json"
+  "${HOME}/.qwen/settings.json"
+  "${HOME}/.openhands/config.toml"
+  "${HOME}/.openhands/mcp.json"
+  "${HOME}/.pi/mcp.json"
+  "${HOME}/Library/Application Support/Code/User/mcp.json"
+  "${HOME}/.config/Code/User/mcp.json"
+)
+
 read_targets_file() {
   target_var="$1"
   target_file="$2"
@@ -187,6 +228,10 @@ fi
 
 if [[ -n "${SCP_ADAPTER_TARGETS_FILE:-}" ]]; then
   read_targets_file ADAPTERS "$SCP_ADAPTER_TARGETS_FILE"
+fi
+
+if [[ -n "${SCP_MCP_CONFIG_TARGETS_FILE:-}" ]]; then
+  read_targets_file MCP_CONFIGS "$SCP_MCP_CONFIG_TARGETS_FILE"
 fi
 
 if (( unexpanded_home_lines > 0 )); then
@@ -518,6 +563,73 @@ adapter_is_special() {
   [[ -e "$1" && ! -f "$1" ]]
 }
 
+# --- MCP pins ----------------------------------------------------------------
+# The package whose pinned release each harness MCP config is kept on.
+PIN_PACKAGE_NAME="@bradheitmann/odin-sentinel"
+PIN_TOKEN_RE="${PIN_PACKAGE_NAME}@[0-9A-Za-z.+-]+"
+RELEASE_RE='^[0-9]+\.[0-9]+\.[0-9]+$'
+
+# The master's release: the x.y.z on its SCP_PUBLIC_VERSION line, or empty.
+PIN_RELEASE="$(sed -n 's/^SCP_PUBLIC_VERSION:[[:space:]]*\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[[:space:]]*$/\1/p' "$MASTER/SKILL.md" | head -n 1)"
+
+# Print each distinct pinned version in config file $1, one per line.
+config_pins() {
+  { LC_ALL=C grep -a -o -E "$PIN_TOKEN_RE" "$1" || true; } | sed "s#^${PIN_PACKAGE_NAME}@##" | sort -u
+}
+
+# True when x.y.z release $1 is strictly older than x.y.z release $2.
+release_older() {
+  local a1 a2 a3 b1 b2 b3
+  IFS=. read -r a1 a2 a3 <<< "$1"
+  IFS=. read -r b1 b2 b3 <<< "$2"
+  if (( 10#$a1 != 10#$b1 )); then
+    (( 10#$a1 < 10#$b1 ))
+    return
+  fi
+  if (( 10#$a2 != 10#$b2 )); then
+    (( 10#$a2 < 10#$b2 ))
+    return
+  fi
+  (( 10#$a3 < 10#$b3 ))
+}
+
+# Split the pins of config file $1 against PIN_RELEASE: STALE_PINS holds the
+# older releases (the only pins ever rewritten), OTHER_PINS every pin that is
+# neither master's release nor an older one. Both are space-separated.
+STALE_PINS=""
+OTHER_PINS=""
+classify_pins() {
+  local version
+  STALE_PINS=""
+  OTHER_PINS=""
+  while IFS= read -r version; do
+    [[ -n "$version" ]] || continue
+    if [[ "$version" == "$PIN_RELEASE" ]]; then
+      continue
+    elif [[ "$version" =~ $RELEASE_RE ]] && release_older "$version" "$PIN_RELEASE"; then
+      STALE_PINS="${STALE_PINS:+$STALE_PINS }$version"
+    else
+      OTHER_PINS="${OTHER_PINS:+$OTHER_PINS }$version"
+    fi
+  done <<< "$(config_pins "$1")"
+}
+
+# Rewrite every stale pin in config file $1 to PIN_RELEASE. Only the version
+# text after the package name changes; the result is written through the
+# existing file so its inode, mode, and any symlink to it are kept.
+repin_config() {
+  local cfg="$1" version tmp
+  local -a expressions=()
+  for version in $STALE_PINS; do
+    expressions+=(-e "s#${PIN_PACKAGE_NAME}@${version//./\\.}([^0-9A-Za-z.+-]|\$)#${PIN_PACKAGE_NAME}@${PIN_RELEASE}\\1#g")
+  done
+  tmp="$(mktemp "${TMPDIR:-/tmp}/odin-scp-pin.XXXXXX")"
+  if sed -E "${expressions[@]}" "$cfg" > "$tmp"; then
+    cat "$tmp" > "$cfg"
+  fi
+  rm -f "$tmp"
+}
+
 refused_targets=()
 refused_adapters=()
 
@@ -601,6 +713,33 @@ else
   done
 fi
 
+# MCP pins: write mode rewrites stale pins, a dry run names them, verify-only
+# does neither. A path that is not a regular file is never read here; the
+# verification below reports it.
+repinned_configs=0
+if [[ "$mode" != "verify-only" && -n "$PIN_RELEASE" ]] && (( ${#MCP_CONFIGS[@]} > 0 )); then
+  for cfg in "${MCP_CONFIGS[@]}"; do
+    if [[ ! -e "$cfg" || ! -f "$cfg" ]]; then
+      continue
+    fi
+    classify_pins "$cfg"
+    if [[ -z "$STALE_PINS" ]]; then
+      continue
+    fi
+    if adapter_overlaps_master "$cfg"; then
+      emit "skipping MCP config that resolves into master (nothing ever writes back into master): $cfg"
+      continue
+    fi
+    if [[ "$mode" == "dry-run" ]]; then
+      emit "DRY-RUN would repin MCP config: $cfg ($STALE_PINS -> $PIN_RELEASE)"
+    else
+      repin_config "$cfg"
+      repinned_configs=$((repinned_configs + 1))
+      emit "repinned MCP config: $cfg ($STALE_PINS -> $PIN_RELEASE)"
+    fi
+  done
+fi
+
 # --- verification by exact content ------------------------------------------
 # A native target is a whole-directory snapshot of master: a matching SKILL.md
 # with a changed, extra, or missing file anywhere else in the tree is drift.
@@ -644,6 +783,42 @@ for adapter in "${ADAPTERS[@]}"; do
   fi
 done
 
+pin_configs=0
+pin_current=0
+pin_release_missing=0
+stale_configs=()
+unmanaged_configs=()
+refused_configs=()
+if (( ${#MCP_CONFIGS[@]} > 0 )); then
+  for cfg in "${MCP_CONFIGS[@]}"; do
+    if [[ ! -e "$cfg" ]]; then
+      continue
+    fi
+    if [[ ! -f "$cfg" ]]; then
+      refused_configs+=("$cfg")
+      continue
+    fi
+    if [[ -z "$(config_pins "$cfg")" ]]; then
+      continue
+    fi
+    pin_configs=$((pin_configs + 1))
+    if [[ -z "$PIN_RELEASE" ]]; then
+      pin_release_missing=1
+      continue
+    fi
+    classify_pins "$cfg"
+    if [[ -n "$STALE_PINS" ]]; then
+      stale_configs+=("$cfg|$STALE_PINS")
+    fi
+    if [[ -n "$OTHER_PINS" ]]; then
+      unmanaged_configs+=("$cfg|$OTHER_PINS")
+    fi
+    if [[ -z "$STALE_PINS" && -z "$OTHER_PINS" ]]; then
+      pin_current=$((pin_current + 1))
+    fi
+  done
+fi
+
 if (( ${#absent_targets[@]} > 0 )); then
   for entry in "${absent_targets[@]}"; do
     emit "ABSENT native target: $entry"
@@ -666,11 +841,34 @@ if (( ${#drifted_adapters[@]} > 0 )); then
     emit "  canonical=$adapter_hash adapter=${entry##*|}"
   done
 fi
+if (( ${#refused_configs[@]} > 0 )); then
+  for entry in "${refused_configs[@]}"; do
+    emit "REFUSED MCP config (exists and is not a regular file; not read): $entry"
+  done
+fi
+if (( pin_release_missing > 0 )); then
+  emit "MCP pins not checked: master SKILL.md has no SCP_PUBLIC_VERSION x.y.z line"
+fi
+if (( ${#stale_configs[@]} > 0 )); then
+  for entry in "${stale_configs[@]}"; do
+    emit "STALE MCP pin: ${entry%%|*} (${entry##*|}; master $PIN_RELEASE)"
+  done
+fi
+if (( ${#unmanaged_configs[@]} > 0 )); then
+  for entry in "${unmanaged_configs[@]}"; do
+    emit "UNMANAGED MCP pin (not an older release; never rewritten): ${entry%%|*} (${entry##*|}; master $PIN_RELEASE)"
+  done
+fi
 
-failures=$(( ${#absent_targets[@]} + ${#drifted_targets[@]} + ${#absent_adapters[@]} + ${#drifted_adapters[@]} + ${#refused_targets[@]} + ${#refused_adapters[@]} ))
+pin_failures=$(( ${#stale_configs[@]} + ${#unmanaged_configs[@]} + ${#refused_configs[@]} + pin_release_missing ))
+failures=$(( ${#absent_targets[@]} + ${#drifted_targets[@]} + ${#absent_adapters[@]} + ${#drifted_adapters[@]} + ${#refused_targets[@]} + ${#refused_adapters[@]} + pin_failures ))
 
 if (( failures > 0 )); then
-  emit "SCP skill sync found ${#absent_targets[@]} absent and ${#drifted_targets[@]} drifted native targets, ${#absent_adapters[@]} absent and ${#drifted_adapters[@]} drifted adapters"
+  pin_summary=""
+  if (( pin_failures > 0 )); then
+    pin_summary=", ${#stale_configs[@]} stale and ${#unmanaged_configs[@]} unmanaged MCP pins"
+  fi
+  emit "SCP skill sync found ${#absent_targets[@]} absent and ${#drifted_targets[@]} drifted native targets, ${#absent_adapters[@]} absent and ${#drifted_adapters[@]} drifted adapters${pin_summary}"
 else
   emit "SCP skill sync verified"
 fi
@@ -693,6 +891,25 @@ emit "adapter_absent: ${#absent_adapters[@]}"
 emit "adapter_drifted: ${#drifted_adapters[@]}"
 if (( ${#refused_adapters[@]} > 0 )); then
   emit "adapter_refused: ${#refused_adapters[@]}"
+fi
+# The MCP pin lines are printed only when a pinned config (or a refused config
+# path) was found, so a run on a fleet without ODIN MCP configs is unchanged.
+if (( pin_configs > 0 || ${#refused_configs[@]} > 0 )); then
+  if [[ -n "$PIN_RELEASE" ]]; then
+    emit "mcp_pin_release: $PIN_RELEASE"
+  fi
+  emit "mcp_pin_configs: $pin_configs"
+  emit "mcp_pin_current: $pin_current"
+  emit "mcp_pin_stale: ${#stale_configs[@]}"
+  if (( ${#unmanaged_configs[@]} > 0 )); then
+    emit "mcp_pin_unmanaged: ${#unmanaged_configs[@]}"
+  fi
+  if (( ${#refused_configs[@]} > 0 )); then
+    emit "mcp_pin_refused: ${#refused_configs[@]}"
+  fi
+  if (( repinned_configs > 0 )); then
+    emit "mcp_pin_repinned: $repinned_configs"
+  fi
 fi
 if [[ -n "$REPORT_PATH" ]]; then
   emit "report: $REPORT_PATH"
