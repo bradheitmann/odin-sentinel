@@ -65,17 +65,17 @@
   "author": "ODIN Sentinel contributors",
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.29.0",
+    "@modelcontextprotocol/sdk": "1.32.1",
     "yaml": "2.8.4",
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "@types/node": "^24.13.3",
-    "@vitest/coverage-v8": "4.1.10",
-    "tsx": "^4.23.12",
+    "@types/node": "^24.19.2",
+    "@vitest/coverage-v8": "4.1.11",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3",
-    "vite": "^8.2.2",
-    "vitest": "4.1.10"
+    "vite": "^8.3.4",
+    "vitest": "4.1.11"
   },
   "engines": {
     "node": ">=22.13.0",
