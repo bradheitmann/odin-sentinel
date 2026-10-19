@@ -1,6 +1,6 @@
 {
   "name": "@bradheitmann/odin-sentinel",
-  "version": "0.7.2",
+  "version": "0.8.0",
   "publishConfig": {
     "access": "public"
   },
@@ -17,7 +17,19 @@
       "types": "./dist/src/mcp/server.d.ts",
       "import": "./dist/src/mcp/server.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./governance": {
+      "types": "./dist/src/protocol/governance.d.ts",
+      "import": "./dist/src/protocol/governance.js"
+    },
+    "./surface-layout": {
+      "types": "./dist/src/protocol/surface-layout.d.ts",
+      "import": "./dist/src/protocol/surface-layout.js"
+    },
+    "./role-identity": {
+      "types": "./dist/src/protocol/role-identity.d.ts",
+      "import": "./dist/src/protocol/role-identity.js"
+    }
   },
   "packageManager": "pnpm@11.0.3",
   "bin": {
@@ -90,7 +102,7 @@
     "url": "https://github.com/bradheitmann/odin-sentinel/issues"
   },
   "odin": {
-    "publicVersion": "0.7.2",
+    "publicVersion": "0.8.0",
     "minimumCompatibleChildMcpVersion": "0.4.5"
   }
 }

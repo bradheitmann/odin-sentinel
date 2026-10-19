@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0 - 2026-10-19
+
+- Full MCP deployment remains the default, with strict optional protocol, governance and telemetry capability selection. Disabled groups have no registered handlers; existing registry authority flags and telemetry consent/authentication remain intact.
+- Governance registry authority, attempt/depth/overhead accounting and finding lifecycle now live in a transport-independent deep module, available through `./governance`. Existing service imports remain compatible.
+- Direct `./surface-layout` and `./role-identity` exports support focused library adoption. Minimum compatible child MCP stays 0.4.5.
+
 ## 0.7.2 - 2026-09-23
 
 Fleet sync script (`scripts/sync-installations.sh` in the skill directory) fixes landed after 0.7.1. No protocol, tool, resource, or MCP behaviour changes; MIN_COMPATIBLE_CHILD_MCP stays 0.4.5.

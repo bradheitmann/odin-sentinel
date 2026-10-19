@@ -3,6 +3,7 @@ import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { resolveMcpCapabilities, type McpCapability } from "../mcp/capabilities.js";
 import { createServer } from "../mcp/server.js";
 
 /**
@@ -113,7 +114,14 @@ async function main(): Promise<void> {
     return;
   }
 
-  const server = createServer();
+  const { values } = parseArgs({
+    args: process.argv.slice(2),
+    options: { capabilities: { type: "string" } },
+    strict: true
+  });
+  const capabilities = values.capabilities === undefined ? undefined
+    : [...resolveMcpCapabilities(values.capabilities.split(","))] as McpCapability[];
+  const server = createServer({ capabilities });
   const transport = new StdioServerTransport();
 
   await server.connect(transport);
