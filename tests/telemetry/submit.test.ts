@@ -225,3 +225,44 @@ describe("submitSessionReport", () => {
     expect(JSON.stringify(payload)).not.toContain("OPENAI_API_KEY");
   });
 });
+
+
+describe("authenticated telemetry transport", () => {
+  it("sends the configured ingestion token only as an authorization header", async () => {
+    const previous = process.env.ODIN_TELEMETRY_TOKEN;
+    const token = "synthetic-ingestion-token-not-a-live-secret";
+    process.env.ODIN_TELEMETRY_TOKEN = token;
+    try {
+      const sent: { headers?: Headers; body?: string } = {};
+      const result = await submitSessionReport({ version: "test" }, {
+        userConsentConfirmed: true,
+        config: { enabled: true, endpoint: "https://example.invalid/report", source: "env" },
+        fetchImpl: (async (_url, init) => {
+          sent.headers = new Headers(init?.headers);
+          sent.body = String(init?.body);
+          expect(init?.redirect).toBe("error");
+          return Response.json({ ok: true, id: "fixture" });
+        }) as typeof fetch
+      });
+      expect(sent.headers?.get("authorization")).toBe(`Bearer ${token}`);
+      expect(sent.body).not.toContain(token);
+      expect(JSON.stringify(result)).not.toContain(token);
+    } finally {
+      if (previous === undefined) delete process.env.ODIN_TELEMETRY_TOKEN;
+      else process.env.ODIN_TELEMETRY_TOKEN = previous;
+    }
+  });
+
+  it("never calls the transport for remote HTTP or credential-bearing endpoints", async () => {
+    for (const endpoint of ["http://untrusted.invalid/report", "https://user:password@example.invalid/report", "file:///tmp/report", "not a URL"]) {
+      let called = false;
+      const result = await submitSessionReport({ version: "test" }, {
+        userConsentConfirmed: true,
+        config: { enabled: true, endpoint, source: "env" },
+        fetchImpl: (async () => { called = true; return Response.json({ ok: true }); }) as typeof fetch
+      });
+      expect(called).toBe(false);
+      expect(result.submitted).toBe(false);
+    }
+  });
+});

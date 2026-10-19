@@ -6,6 +6,7 @@
 
 export interface Env {
   DB: D1Database;
+  INGEST_TOKEN?: string;
   ALLOWED_ORIGINS?: string;
   PROTOCOL_VERSION_ALLOWLIST?: string;
 }
@@ -76,7 +77,7 @@ function selectOrigin(request: Request, env: Env): string | null {
   const origin = request.headers.get("origin");
   if (!origin) return null;
   const allowed = parseAllowedOrigins(env.ALLOWED_ORIGINS);
-  if (allowed.length === 0) return null;
+  if (origin === new URL(request.url).origin) return origin;
   return allowed.includes(origin) ? origin : null;
 }
 
@@ -255,11 +256,13 @@ async function insertReport(env: Env, report: NormalizedReport): Promise<void> {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const allowOrigin = selectOrigin(request, env);
+    if (request.headers.has("origin") && !allowOrigin)
+      return json(403, { ok: false, error: "origin_not_allowed" }, null);
 
     if (request.method === "OPTIONS") {
       const headers: Record<string, string> = {
         "access-control-allow-methods": "POST",
-        "access-control-allow-headers": "content-type",
+        "access-control-allow-headers": "content-type, authorization",
         "access-control-max-age": "86400"
       };
       if (allowOrigin) headers["access-control-allow-origin"] = allowOrigin;
@@ -275,6 +278,19 @@ export default {
       return json(404, { ok: false, error: "not_found" }, allowOrigin);
     }
 
+    // Fail closed when a deployment has not provisioned its ingestion secret.
+    // CORS is a browser policy, not authorization for anonymous clients.
+    if (!env.INGEST_TOKEN || env.INGEST_TOKEN.length < 32)
+      return json(503, { ok: false, error: "ingestion_not_configured" }, allowOrigin);
+    const supplied = request.headers.get("authorization") ?? "";
+    const hash = async (value: string) => new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)));
+    const [actual, expected] = await Promise.all([hash(supplied), hash(`Bearer ${env.INGEST_TOKEN}`)]);
+    let difference = 0;
+    for (let i = 0; i < expected.length; i++) difference |= actual[i] ^ expected[i];
+    if (difference !== 0) return json(401, { ok: false, error: "unauthorized" }, allowOrigin);
+    if (request.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== "application/json")
+      return json(415, { ok: false, error: "json_required" }, allowOrigin);
+
     const lengthHeader = request.headers.get("content-length");
     if (lengthHeader && Number.parseInt(lengthHeader, 10) > MAX_BODY_BYTES) {
       return json(413, { ok: false, error: "payload_too_large" }, allowOrigin);
@@ -282,7 +298,27 @@ export default {
 
     let body: unknown;
     try {
-      body = await request.json();
+      const reader = request.body?.getReader();
+      const chunks: Uint8Array[] = [];
+      let length = 0;
+      if (reader) {
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            length += value.byteLength;
+            if (length > MAX_BODY_BYTES) {
+              await reader.cancel();
+              return json(413, { ok: false, error: "payload_too_large" }, allowOrigin);
+            }
+            chunks.push(value);
+          }
+        } finally { reader.releaseLock(); }
+      }
+      const bytes = new Uint8Array(length);
+      let offset = 0;
+      for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+      body = JSON.parse(new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(bytes));
     } catch {
       return json(400, { ok: false, error: "invalid_json" }, allowOrigin);
     }

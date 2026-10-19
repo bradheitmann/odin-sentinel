@@ -14,15 +14,16 @@
     "deploy:configured": "wrangler deploy --config wrangler.deploy.toml",
     "dev": "wrangler dev",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "validate": "pnpm run typecheck",
+    "validate": "pnpm run typecheck && pnpm test",
     "db:create": "wrangler d1 create odin-sentinel-telemetry",
     "db:migrate": "wrangler d1 execute odin-sentinel-telemetry --remote --file schema.sql",
     "db:migrate:allowlist-columns": "wrangler d1 execute odin-sentinel-telemetry --remote --file migrations/0002_session_report_allowlist_columns.sql",
-    "db:migrate:local": "wrangler d1 execute odin-sentinel-telemetry --local --file schema.sql"
+    "db:migrate:local": "wrangler d1 execute odin-sentinel-telemetry --local --file schema.sql",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "4.20260511.1",
     "typescript": "5.9.3",
-    "wrangler": "4.125.0"
+    "wrangler": "4.149.0"
   }
 }

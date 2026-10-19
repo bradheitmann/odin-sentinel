@@ -18,6 +18,15 @@ export type SubmitOptions = {
 
 const DEFAULT_TIMEOUT_MS = 8000;
 
+function safeTransport(endpoint: string): boolean {
+  try {
+    const url = new URL(endpoint);
+    if (url.username || url.password) return false;
+    return url.protocol === "https:" || (url.protocol === "http:" &&
+      ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname));
+  } catch { return false; }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
@@ -103,6 +112,10 @@ export async function submitSessionReport(
     };
   }
 
+  if (!safeTransport(config.endpoint)) {
+    return { submitted: false, reason: "telemetry requires HTTPS or explicit loopback HTTP without URL credentials" };
+  }
+
   const redacted = redactPayload(toTelemetryPayload(report));
   const fetchImpl = options.fetchImpl ?? fetch;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
@@ -113,7 +126,11 @@ export async function submitSessionReport(
   try {
     const response = await fetchImpl(config.endpoint, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      redirect: "error",
+      headers: {
+        "content-type": "application/json",
+        ...(process.env.ODIN_TELEMETRY_TOKEN ? { authorization: `Bearer ${process.env.ODIN_TELEMETRY_TOKEN}` } : {})
+      },
       body: JSON.stringify(redacted),
       signal: controller.signal
     });
