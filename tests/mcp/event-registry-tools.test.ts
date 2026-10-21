@@ -300,23 +300,39 @@ describe("flag on: odin_append_event", () => {
     }
   });
 
-  it("rejects a non-object event with the store's named invalid_event_shape rejection", async () => {
+  it("refuses a non-object event at the schema/transport layer and still pins the store's named rejection for an invalid object", async () => {
     const base = makeTmpBase();
     const { client, server } = await connectClient({
       govdispRegistry: { env: { [FLAG_ENV_VAR]: "1" }, store: realStore, base }
     });
 
     try {
+      // Object-typed publication: a JSON string never reaches the store.
       const raw = await client.callTool({
         name: "odin_append_event",
         arguments: { scope: "obj-nonobject", event: "not an event" }
       });
       expect(raw.isError).toBe(true);
-      const result = parseTextResult(raw) as AppendToolResult;
+      const rawText = (raw.content as Array<{ type: string; text?: string }>)[0]?.text ?? "";
+      expect(rawText).toContain("-32602");
+      expect(rawText).toContain("expected object");
+      expect(existsSync(join(base, "obj-nonobject", REGISTRY_EVENTS_FILENAME))).toBe(false);
+
+      // Store validation stays the single choke point: an invalid OBJECT is
+      // still rejected by its named field, with a named code and detail.
+      const invalidObject = await client.callTool({
+        name: "odin_append_event",
+        arguments: { scope: "obj-nonobject", event: { ...attemptEvent({ event_id: "e-invalid-object" }), event_type: "ATTEMPT_STARTED", event_class: "NOT_A_CLASS" } }
+      });
+      expect(invalidObject.isError).toBe(true);
+      const result = parseTextResult(invalidObject) as AppendToolResult;
       expect(result.ok).toBe(false);
       if (result.ok) return;
-      expect(result.rejections[0].code).toBe("invalid_event_shape");
-      expect(result.rejections[0].event_class).toBe("<unknown>");
+      expect(result.rejections[0].field).toBe("event_class");
+      expect(result.rejections[0].event_class).toBe("NOT_A_CLASS");
+      expect(result.rejections[0].code.length).toBeGreaterThan(0);
+      expect(result.rejections[0].detail.length).toBeGreaterThan(0);
+      expect(existsSync(join(base, "obj-nonobject", REGISTRY_EVENTS_FILENAME))).toBe(false);
     } finally {
       await client.close();
       await server.close();

@@ -415,12 +415,12 @@ export type CreateServerOptions = {
 // genericizes a malformed payload before the store can reject it by name.
 const appendEventToolInputShape = {
   scope: z.string(),
-  event: z.unknown()
+  event: z.looseObject({})
 } as const;
 
 const queryEventsToolInputShape = {
   scope: z.string(),
-  query: z.unknown().optional()
+  query: z.looseObject({}).optional()
 } as const;
 
 function registryToolResult(result: { ok: boolean }) {
