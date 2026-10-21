@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { realpathSync } from "node:fs";
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -113,7 +114,25 @@ async function main(): Promise<void> {
     return;
   }
 
-  const server = createServer();
+  // Registry default-ON with the shipped filesystem store: bind the store into
+  // the server at CLI startup so the compatibility surface works out of the
+  // box. The import is dynamic (same posture as compact-registry above): the
+  // runtime host never statically couples to the event-registry module, so the
+  // Wave-0 runtime-isolation invariant still holds. The base resolves from the
+  // process launch cwd's `.odin/registry` — the existing storage contract — with
+  // no global/shared scope path and no invented env flag. createServer() itself
+  // keeps its zero-argument fail-closed behavior for absent stores, and the
+  // explicit ODIN_GOVDISP_REGISTRY_MCP opt-out is unaffected: it is read inside
+  // the server from the env, not here.
+  const { LOCAL_REGISTRY_BASE, appendRegistryEvent, queryRegistryEvents } = await import(
+    "../protocol/event-registry/storage.js"
+  );
+  const server = createServer({
+    govdispRegistry: {
+      store: { appendRegistryEvent, queryRegistryEvents },
+      base: resolve(process.cwd(), LOCAL_REGISTRY_BASE)
+    }
+  });
   const transport = new StdioServerTransport();
 
   await server.connect(transport);

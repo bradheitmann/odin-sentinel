@@ -65,7 +65,7 @@
   "author": "ODIN Sentinel contributors",
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.29.0",
+    "@modelcontextprotocol/sdk": "1.32.0",
     "yaml": "2.8.4",
     "zod": "4.4.3"
   },
@@ -74,7 +74,7 @@
     "@vitest/coverage-v8": "4.1.10",
     "tsx": "^4.23.12",
     "typescript": "^5.9.3",
-    "vite": "^8.2.2",
+    "vite": "^8.2.4",
     "vitest": "4.1.10"
   },
   "engines": {
