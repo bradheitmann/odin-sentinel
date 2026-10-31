@@ -176,19 +176,23 @@ pub fn blocked(screen: &str, rules: &PaneRules) -> bool {
         .any(|line| rules.blocked.iter().any(|p| line.contains(p)))
 }
 
-/// Harnesses that accept input while working (it is queued, not refused).
-///
-/// The read-back proves the queueing only when the sent text (its flattened head) and a
-/// harness queue-evidence marker are both present on the pane.
+/// Harnesses that queue sent text while busy show it in a queue region (for pi: a
+/// `Steering: <text>` line followed by the queued-messages hint). The read-back proves the
+/// queueing only when the sent text (its flattened head) and a harness queue-evidence marker
+/// appear on the SAME line: a stale `Steering:` line elsewhere on the pane, or the text still
+/// sitting in the input bar, is not evidence.
 pub fn shows_queued(screen: &str, flat: &str, rules: &PaneRules, harness: &str) -> bool {
     let head: String = flat.chars().take(40).collect();
-    if head.trim().is_empty() || !screen.contains(head.as_str()) {
+    if head.trim().is_empty() {
         return false;
     }
-    rules
-        .queue_evidence_for(harness)
-        .iter()
-        .any(|marker| screen.contains(marker.as_str()))
+    let evidence = rules.queue_evidence_for(harness);
+    if evidence.is_empty() {
+        return false;
+    }
+    screen.lines().any(|line| {
+        line.contains(head.as_str()) && evidence.iter().any(|marker| line.contains(marker.as_str()))
+    })
 }
 
 /// Only the LAST prompt-glyph line is the input bar; earlier ones are the harness echo of
@@ -576,5 +580,29 @@ mod tests {
         assert!(answered("› read this\n›   ", "read this"));
         assert!(!answered("› read this", "read this"));
         assert!(!answered("⏺ earlier\n› read this", "read this"));
+    }
+}
+
+#[cfg(test)]
+mod queue_evidence_tests {
+    use super::*;
+
+    fn rules() -> &'static PaneRules {
+        PaneRules::embedded()
+    }
+
+    #[test]
+    fn queue_evidence_must_be_on_the_same_line_as_the_text() {
+        let stale = " Steering: an older steer about something else\n\n› queue this exact line\n\n ↳ Option+Up to edit all queued messages";
+        assert!(!shows_queued(stale, "queue this exact line", rules(), "pi"));
+        let queued = " Steering: queue this exact line\n ↳ Option+Up to edit all queued messages";
+        assert!(shows_queued(queued, "queue this exact line", rules(), "pi"));
+        // A harness with no queue evidence can never prove queueing.
+        assert!(!shows_queued(
+            queued,
+            "queue this exact line",
+            rules(),
+            "codex"
+        ));
     }
 }
