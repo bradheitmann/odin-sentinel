@@ -45,6 +45,9 @@ enum Command {
         /// Pane-rules JSON file (default: the embedded rules).
         #[arg(long)]
         pane_rules: Option<PathBuf>,
+        /// Harness name for the mid-turn policy (default: ODIN_SAY_HARNESS, then detection).
+        #[arg(long)]
+        harness: Option<String>,
     },
     /// Classify a pane (blocked, busy, stale_input, idle) without sending anything.
     Status {
@@ -99,6 +102,7 @@ fn run() -> Result<i32> {
             proof,
             sender_role,
             pane_rules,
+            harness,
         } => {
             let flags = ConfigFlags {
                 proof,
@@ -106,6 +110,7 @@ fn run() -> Result<i32> {
                 pane_rules: pane_rules.clone(),
                 poll_secs,
                 wait_secs,
+                harness,
             };
             let config = Config::resolve(&flags, &|key| std::env::var(key).ok());
             let rules = rules_for(&config.pane_rules_path)?;
@@ -114,10 +119,15 @@ fn run() -> Result<i32> {
                 poll: config.poll,
                 wait: config.wait,
             };
+            let selector = odin_say::identity::HarnessSelector {
+                flag: config.harness_flag.clone(),
+                env: config.harness_env.clone(),
+            };
             let outcome = say::deliver(
                 &cmux,
                 &RealClock::from_env(),
                 &rules,
+                &selector,
                 &say::surface_locator(&surface),
                 &text.join(" "),
                 &options,

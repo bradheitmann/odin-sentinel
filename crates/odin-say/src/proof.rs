@@ -30,6 +30,12 @@ pub struct ProofEntry {
     pub polls: u32,
     /// Milliseconds spent waiting for a busy pane.
     pub waited_ms: u64,
+    /// Harness identity the mid-turn policy was selected from.
+    pub harness: String,
+    /// How that identity was obtained: flag, env, detected or unknown.
+    pub harness_source: String,
+    /// A queue-harness send whose read-back showed the text in the queue region.
+    pub queued: bool,
 }
 
 impl ProofEntry {
@@ -58,6 +64,9 @@ impl ProofEntry {
             note: outcome.note.into(),
             polls: outcome.polls,
             waited_ms: outcome.waited_ms,
+            harness: outcome.harness.harness.clone(),
+            harness_source: outcome.harness.source.as_str().into(),
+            queued: outcome.queued,
         }
     }
 }
@@ -90,6 +99,8 @@ mod tests {
             exit: 0,
             polls: 1,
             waited_ms: 0,
+            queued: false,
+            harness: crate::identity::HarnessIdentity::unknown(),
         }
     }
 

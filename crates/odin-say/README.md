@@ -24,11 +24,15 @@ harnesses submit on every embedded newline.
 2. **Blocked** (permission prompt, non-dismissible overlay): refuse at once with
    `PANE_BLOCKED_ON_PERMISSION`; nothing is typed. A dismissible overlay gets one Escape and
    the pane is re-read.
-3. **Busy**: wait, re-reading every `--poll-secs` (default 5) under a `--wait-secs`
-   (default 180) wall-clock budget; send as soon as the pane is idle. Only a pane still busy
-   when the budget is spent is refused (`PANE_STILL_THINKING`), recording the polls made and
-   the milliseconds waited. Claude Code panes queue input while working, so for them a busy
-   pane is a send, not a refusal.
+3. **Busy**: the per-harness mid-turn policy decides (see below). For a `refuse` harness,
+   wait, re-reading every `--poll-secs` (default 5) under a `--wait-secs` (default 180)
+   wall-clock budget; send as soon as the pane is idle. Only a pane still busy when the
+   budget is spent is refused (`PANE_STILL_THINKING`), recording the polls made and the
+   milliseconds waited. For a `queue` harness (pi only, on captured evidence), send
+   immediately, press Enter once, and read back: the send is a delivery only when the read
+   back shows the text in that harness's queue/steer region (`PANE_STILL_THINKING`,
+   `submitted: true`, `queued: true`); otherwise it records `INPUT_BAR_ONLY` with
+   `submitted: true` and exits non-zero, without a second Enter.
 4. **Stale input**: an idle pane whose input bar holds text gets that text submitted first.
 5. Send the flattened line, wait, send exactly one Enter, read back. If the input bar still
    shows the message, re-Enter ONCE.
@@ -42,6 +46,27 @@ lines. Leftover scrollback (for example an old `Thinking:` line above an idle pr
 makes a pane busy; matching busy words anywhere in the tail was a field defect that produced
 false refusals.
 
+## Mid-turn policy (per harness)
+
+Some harnesses buffer text typed while they are working and deliver it as a queued steer;
+typing into a harness that does not buffer strands the message. The policy is data, one row
+per harness in `pane-rules.json`:
+
+| Harness | Detect (footer/chrome) | Mid-turn | Queue evidence |
+| --- | --- | --- | --- |
+| `pi` | `(auto)`, `↑` | `queue` | `Steering:`, `Option+Up to edit all queued messages` |
+| `claude-code` | `bypass permissions on`, `↓ to manage`, `accept edits on` | `refuse` | — |
+| `codex` | `Ask Codex to do anything`, `Codex` | `refuse` | — |
+| `opencode` | `ctrl+p commands` | `refuse` | — |
+
+Only pi ships as `queue`, and only because two real pane captures show the queued steer
+(committed under `tests/fixtures/screens/`). Every other harness keeps the refuse default
+until its own capture proves buffering. An unrecognised pane is `unknown` and refuses.
+
+Identity comes from `--harness`, then `ODIN_SAY_HARNESS`, then the pane's own footer; every
+record names the harness and how it was obtained (`harness_source`: `flag`, `env`, `detected`
+or `unknown`).
+
 ## Exit codes
 
 | Code | Meaning |
@@ -52,6 +77,7 @@ false refusals.
 | 4 | stale input would not submit (`INPUT_BAR_ONLY`) |
 | 5 | the send itself failed (`INPUT_BAR_ONLY`) |
 | 6 | the message stayed in the input bar after two Enters (`INPUT_BAR_ONLY`) |
+| 7 | a queue-harness send whose read-back never showed the text queued (`INPUT_BAR_ONLY`) |
 
 A non-zero exit means NOT delivered.
 
@@ -67,7 +93,8 @@ One JSON object per attempt, append-only:
 `send_refusal` for a pre-send refusal, so a refusal can never be read as a delivery. Every
 record also carries the six CMUX delivery-proof fields (`target_surface_locator`, `submitted`,
 `verification_method`, `observed_processing_state`, `timestamp`, `sender_role`), the outcome
-`note`, and the wait evidence (`polls`, `waited_ms`).
+`note`, the wait evidence (`polls`, `waited_ms`), the harness identity (`harness`,
+`harness_source`) and `queued` (true only for a proven mid-turn queue send).
 
 ## Configuration
 
@@ -79,6 +106,7 @@ team directory is baked into the crate.
 | proof log | `--proof` | `ODIN_SAY_PROOF` | `$XDG_STATE_HOME/odin/delivery-proof.jsonl`, else `~/.local/state/odin/delivery-proof.jsonl` |
 | sender role | `--sender-role` | `ODIN_SAY_SENDER_ROLE` | `EXEC PM` |
 | pane rules | `--pane-rules` | `ODIN_SAY_PANE_RULES` | embedded `pane-rules.json` |
+| harness identity | `--harness` | `ODIN_SAY_HARNESS` | detected from the pane footer, else `unknown` |
 | pane binary | — | `ODIN_SAY_CMUX` | `cmux` on `PATH` |
 | wait poll | `--poll-secs` | — | 5 s |
 | wait budget | `--wait-secs` | — | 180 s |
@@ -90,8 +118,8 @@ sleep (end-to-end tests set it to 0).
 
 `pane-rules.json` is embedded at build time and can be replaced with `--pane-rules <file>` /
 `ODIN_SAY_PANE_RULES`. It holds the blocked/busy vocabulary, spinner glyphs, status markers,
-the dismissible overlay, Claude Code detection and the live-line window. The sender hard-codes
-none of that vocabulary.
+the dismissible overlay, the live-line window, and the per-harness identity plus mid-turn
+policy rows. The sender hard-codes none of that vocabulary or policy.
 
 ## Build and test
 

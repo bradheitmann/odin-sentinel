@@ -22,6 +22,7 @@ pub struct ConfigFlags {
     pub pane_rules: Option<PathBuf>,
     pub poll_secs: Option<u64>,
     pub wait_secs: Option<u64>,
+    pub harness: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -32,6 +33,10 @@ pub struct Config {
     pub cmux_binary: String,
     pub poll: Duration,
     pub wait: Duration,
+    /// `--harness` value, before environment and detection.
+    pub harness_flag: Option<String>,
+    /// `ODIN_SAY_HARNESS` value, used when no flag was given.
+    pub harness_env: Option<String>,
 }
 
 fn env_value(env: &dyn Fn(&str) -> Option<String>, name: &str) -> Option<String> {
@@ -78,6 +83,8 @@ impl Config {
             cmux_binary,
             poll: Duration::from_secs(flags.poll_secs.unwrap_or(DEFAULT_POLL_SECS)),
             wait: Duration::from_secs(flags.wait_secs.unwrap_or(DEFAULT_WAIT_SECS)),
+            harness_flag: flags.harness.clone().filter(|name| !name.trim().is_empty()),
+            harness_env: env_value(env, "ODIN_SAY_HARNESS"),
         }
     }
 }
