@@ -1,0 +1,7 @@
+{
+  "base_commit": "f214db808dcbc40c6ca07ff5d10152165a041edf",
+  "brief_sha256": null,
+  "done_sha256": "994f35e830be59384167685dd37779f872603442b5f3f3e27e27b55582948eb4",
+  "schema_version": "charter.dispatch/1",
+  "slice": "public-roots-charter"
+}
