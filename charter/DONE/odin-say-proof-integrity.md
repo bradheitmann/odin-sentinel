@@ -11,18 +11,23 @@ Proofs (each: name, what it guarantees, reopen step, fail-without mutant):
 1. no-record-no-send: with an unwritable proof path (read-only directory, or a path whose parent is a file), the stub cmux receives no send, the exit code is the new PROOF_LOG_UNWRITABLE code, and stderr names the path.
    - Reopen: `cd crates/odin-say && cargo test --locked` from a clean clone of the frozen tip.
    - Fail-without mutant: skip the preflight; the stub must record a send and the test must go red.
+   - reopened: OD-QA-odin-say-proof-integrity-e0c32b9 70971841c9f7d966a5eb87a4a6104c132828e1360e8a41233d3593b77f9250c5
 2. lost-record-is-loud: a write failure injected after the send exits with PROOF_RECORD_LOST (never 0) and prints the record JSON on stderr.
    - Reopen: same cargo test.
    - Fail-without mutant: map the post-send write error to exit 0; the test must go red.
+   - reopened: OD-QA-odin-say-proof-integrity-e0c32b9 70971841c9f7d966a5eb87a4a6104c132828e1360e8a41233d3593b77f9250c5
 3. single-write-records: records are written with one write per line; a test running two or more senders (threads or processes) appending N records each to one log yields exactly the expected number of lines, each valid JSON.
    - Reopen: same cargo test.
    - Fail-without mutant: split the write back into record then newline; the concurrency test must go red within its iterations (record how many).
+   - reopened: OD-QA-odin-say-proof-integrity-e0c32b9 70971841c9f7d966a5eb87a4a6104c132828e1360e8a41233d3593b77f9250c5
 4. waited-ms-is-wall-time: with the stub clock, a wait whose screen reads take time reports waited_ms equal to the monotonic elapsed time (within one poll), not just the sleeps.
    - Reopen: same cargo test.
    - Fail-without mutant: count only sleeps again; the test must go red.
+   - reopened: OD-QA-odin-say-proof-integrity-e0c32b9 70971841c9f7d966a5eb87a4a6104c132828e1360e8a41233d3593b77f9250c5
 5. no-regression: all slice 1 and slice 2 tests still pass; exit codes are documented in crates/odin-say/README.md; fmt, clippy -D warnings, tests green; CI odin-say job green on the PR.
    - Reopen: the gates below; `gh pr checks` on the PR.
    - Fail-without mutant: n/a (aggregate).
+   - reopened: OD-QA-odin-say-proof-integrity-e0c32b9 70971841c9f7d966a5eb87a4a6104c132828e1360e8a41233d3593b77f9250c5
 Gates (exact commands):
 - cd crates/odin-say && cargo +1.88.0 fmt --check && cargo +1.88.0 clippy --locked --all-targets -- -D warnings && cargo +1.88.0 test --locked   (own CARGO_TARGET_DIR outside the repo, under nice)
 - pnpm run audit:public
