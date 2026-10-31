@@ -6,6 +6,7 @@
 use odin_say::clock::FakeClock;
 use odin_say::cmux::StubCmux;
 use odin_say::config::{Config, ConfigFlags};
+use odin_say::identity::HarnessSelector;
 use odin_say::proof::{self, ProofEntry, RECORD_KIND_DELIVERY, RECORD_KIND_SEND_REFUSAL};
 use odin_say::rules::PaneRules;
 use odin_say::say::{deliver, DeliveryOptions, Outcome};
@@ -36,6 +37,7 @@ fn deliver_against(screens: &[&str], text: &str) -> Outcome {
         &cmux,
         &clock,
         PaneRules::embedded(),
+        &HarnessSelector::default(),
         SURFACE,
         text,
         &options(),
@@ -72,6 +74,9 @@ fn a_delivery_record_carries_record_kind_and_the_six_legacy_fields() {
         .is_some_and(|t| t.ends_with('Z') && t.len() == 20));
     assert!(value["polls"].as_u64().unwrap_or(0) >= 1);
     assert!(value["waited_ms"].is_u64());
+    assert_eq!(value["harness"], "codex");
+    assert_eq!(value["harness_source"], "detected");
+    assert_eq!(value["queued"], false);
 }
 
 #[test]
@@ -87,6 +92,8 @@ fn a_refusal_record_is_a_send_refusal_and_never_a_delivery() {
         value["observed_processing_state"],
         "PANE_BLOCKED_ON_PERMISSION"
     );
+    assert_eq!(value["harness"], "unknown");
+    assert_eq!(value["harness_source"], "unknown");
 }
 
 #[test]
@@ -99,6 +106,7 @@ fn a_still_thinking_refusal_records_waited_ms_and_polls() {
         &cmux,
         &clock,
         PaneRules::embedded(),
+        &HarnessSelector::default(),
         SURFACE,
         "too soon",
         &DeliveryOptions {

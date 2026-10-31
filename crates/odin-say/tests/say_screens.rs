@@ -3,10 +3,11 @@
 
 use odin_say::clock::FakeClock;
 use odin_say::cmux::StubCmux;
+use odin_say::identity::{identify, HarnessSelector};
 use odin_say::rules::PaneRules;
 use odin_say::say::{
-    answered, blocked, busy, classify, claude_code, deliver, input_bar, stale_input,
-    DeliveryOptions, DeliveryState, Outcome, PaneState,
+    answered, blocked, busy, classify, deliver, input_bar, stale_input, DeliveryOptions,
+    DeliveryState, Outcome, PaneState,
 };
 use std::time::Duration;
 
@@ -31,7 +32,15 @@ fn options(poll_secs: u64, wait_secs: u64) -> DeliveryOptions {
 
 fn run(cmux: &StubCmux, text: &str) -> (Outcome, FakeClock) {
     let clock = FakeClock::new();
-    let out = deliver(cmux, &clock, rules(), SURFACE, text, &options(5, 180));
+    let out = deliver(
+        cmux,
+        &clock,
+        rules(),
+        &HarnessSelector::default(),
+        SURFACE,
+        text,
+        &options(5, 180),
+    );
     (out, clock)
 }
 
@@ -96,9 +105,18 @@ fn an_idle_pane_with_leftover_thinking_scrollback_is_idle() {
 
 #[test]
 fn claude_code_panes_are_recognised() {
-    assert!(claude_code(screen!("claude_idle"), rules()));
-    assert!(claude_code(screen!("claude_busy"), rules()));
-    assert!(!claude_code(screen!("codex_idle"), rules()));
+    assert_eq!(
+        identify(None, None, screen!("claude_idle"), rules()).harness,
+        "claude-code"
+    );
+    assert_eq!(
+        identify(None, None, screen!("claude_busy"), rules()).harness,
+        "claude-code"
+    );
+    assert_eq!(
+        identify(None, None, screen!("codex_idle"), rules()).harness,
+        "codex"
+    );
 }
 
 #[test]
@@ -187,7 +205,15 @@ fn the_dismissible_overlay_gets_one_escape_then_proceeds() {
 fn a_pane_busy_past_the_wait_budget_is_refused_with_polls_and_waited_ms() {
     let cmux = StubCmux::new(&[screen!("codex_busy")]);
     let clock = FakeClock::new();
-    let out = deliver(&cmux, &clock, rules(), SURFACE, "too soon", &options(5, 25));
+    let out = deliver(
+        &cmux,
+        &clock,
+        rules(),
+        &HarnessSelector::default(),
+        SURFACE,
+        "too soon",
+        &options(5, 25),
+    );
     assert_eq!(out.state, DeliveryState::PaneStillThinking);
     assert_eq!((out.submitted, out.exit), (false, 3));
     // 25 s budget at a 5 s poll: initial read + 5 polls.
@@ -211,6 +237,7 @@ fn a_pane_busy_for_two_polls_then_idle_is_delivered() {
         &cmux,
         &clock,
         rules(),
+        &HarnessSelector::default(),
         SURFACE,
         "run the gate on branch feat-x please",
         &options(5, 180),
@@ -221,12 +248,26 @@ fn a_pane_busy_for_two_polls_then_idle_is_delivered() {
 }
 
 #[test]
-fn a_busy_claude_code_pane_is_not_a_refusal_and_is_not_waited_on() {
-    let cmux = StubCmux::new(&[screen!("claude_busy_queued"), screen!("claude_busy_queued")]);
-    let (out, clock) = run(&cmux, "queue this");
-    assert_eq!(out.state, DeliveryState::DeliveredNoAck);
-    assert_eq!(cmux.texts(), vec!["queue this"]);
-    assert!(!clock.sleeps_ms().contains(&5000));
+fn a_busy_claude_code_pane_refuses_after_the_wait_budget() {
+    // Slice 2: only a harness whose rules say it buffers (pi) is typed into mid-turn.
+    // Claude Code queues in the field, but without its own captured evidence it stays on
+    // the refuse default, so a busy pane here keeps slice 1's bounded wait.
+    let cmux = StubCmux::new(&[screen!("claude_busy_queued")]);
+    let clock = FakeClock::new();
+    let out = deliver(
+        &cmux,
+        &clock,
+        rules(),
+        &HarnessSelector::default(),
+        SURFACE,
+        "queue later",
+        &options(5, 20),
+    );
+    assert_eq!(out.state, DeliveryState::PaneStillThinking);
+    assert_eq!((out.submitted, out.exit), (false, 3));
+    assert_eq!(out.polls, 5);
+    assert!(out.waited_ms >= 20_000);
+    assert!(cmux.texts().is_empty());
 }
 
 #[test]

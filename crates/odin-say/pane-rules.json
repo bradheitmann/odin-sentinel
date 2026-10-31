@@ -40,7 +40,29 @@
     "Permission required"
   ],
   "blocked_exclusions": ["bypass permissions"],
-  "claude_code": ["bypass permissions on", "↓ to manage", "accept edits on"],
+  "harness_note": "Per-harness identity and mid-turn policy. Detection markers are literal footer/chrome strings; the first harness (in table order) whose markers appear on the pane tail is the pane's harness. mid_turn controls what a busy pane means: queue = the harness buffers text typed mid-turn and delivers it as a queued steer, so send immediately and require queue_evidence on the read-back; refuse = the harness may not buffer, so keep the bounded wait and refuse if it is still busy. Only pi ships as queue, on captured evidence; every other harness refuses until its own capture proves buffering.",
+  "harnesses": {
+    "pi": {
+      "detect": ["(auto)", "↑"],
+      "mid_turn": "queue",
+      "queue_evidence": ["Steering:", "Option+Up to edit all queued messages"]
+    },
+    "claude-code": {
+      "detect": ["bypass permissions on", "↓ to manage", "accept edits on"],
+      "mid_turn": "refuse",
+      "queue_evidence": []
+    },
+    "codex": {
+      "detect": ["Ask Codex to do anything", "Codex"],
+      "mid_turn": "refuse",
+      "queue_evidence": []
+    },
+    "opencode": {
+      "detect": ["ctrl+p commands"],
+      "mid_turn": "refuse",
+      "queue_evidence": []
+    }
+  },
   "input_bar_note": "Only the LAST prompt-glyph line is the input bar; an earlier line with the same glyph is the harness echo of an already-submitted message.",
   "answered_note": "A response line (starting with a filled bullet) or a fresh empty prompt after the echoed text proves the message went in."
 }

@@ -49,3 +49,22 @@ the exported pane rules.
   to the XDG state directory, the sender role to `EXEC PM`, and every prefix is `ODIN_SAY_*`.
 - **Rules as data**: the busy/blocked vocabulary, spinner glyphs and harness detection moved
   from constants in the source into `pane-rules.json`, embedded at build time.
+
+## Slice 2 additions (mid-turn policy)
+
+The harness table in `pane-rules.json` (identity markers, mid-turn policy and queue-evidence
+markers) is new here; it was not in the slice 1 source.
+
+Two screen fixtures are REAL captures rather than synthesized or exported text:
+
+| Fixture | What it shows |
+| --- | --- |
+| `tests/fixtures/screens/pi_busy.txt` | a live Pi pane mid-turn: spinner status line `⠴ Working`, footer `↑165k ↓143k … (auto)` and the model line |
+| `tests/fixtures/screens/pi_busy_steer_queued.txt` | the same pane after a steer was typed mid-turn: `Steering: …` with `↳ Option+Up to edit all queued messages` |
+
+Captured 2026-10-31 from a live Pi pane and supplied by the project manager for this slice.
+The only redactions are placeholders: the working directory shown in the footer was replaced
+with `/workspace/repo`, and no user, host or team name is retained. The queue-evidence markers
+in the rules table (`Steering:`, `Option+Up to edit all queued messages`) are read from what
+that second capture actually displays; they were not guessed. The provisional stand-ins used
+while the captures were being obtained (`*_PROVISIONAL.txt`) are not committed.

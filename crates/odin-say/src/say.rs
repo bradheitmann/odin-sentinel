@@ -12,7 +12,8 @@
 
 use crate::clock::Clock;
 use crate::cmux::Cmux;
-use crate::rules::PaneRules;
+use crate::identity::{identify, HarnessIdentity, HarnessSelector};
+use crate::rules::{MidTurn, PaneRules};
 use serde::Serialize;
 use std::time::Duration;
 
@@ -23,6 +24,8 @@ pub const EXIT_STILL_THINKING: i32 = 3;
 pub const EXIT_STALE_STUCK: i32 = 4;
 pub const EXIT_SEND_FAILED: i32 = 5;
 pub const EXIT_STUCK_AFTER_ENTERS: i32 = 6;
+/// A queue-harness send whose read-back never showed the text in the queue region.
+pub const EXIT_QUEUE_UNPROVEN: i32 = 7;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -81,6 +84,10 @@ pub struct Outcome {
     pub polls: u32,
     /// Milliseconds spent waiting for a busy pane to become idle.
     pub waited_ms: u64,
+    /// The send went into a queue harness mid-turn and the read-back showed it queued.
+    pub queued: bool,
+    /// The harness identity the mid-turn policy was selected from.
+    pub harness: HarnessIdentity,
 }
 
 /// Wait policy for a busy pane: re-read every `poll`, giving up after `wait`.
@@ -170,8 +177,18 @@ pub fn blocked(screen: &str, rules: &PaneRules) -> bool {
 }
 
 /// Harnesses that accept input while working (it is queued, not refused).
-pub fn claude_code(screen: &str, rules: &PaneRules) -> bool {
-    rules.claude_code.iter().any(|p| screen.contains(p))
+///
+/// The read-back proves the queueing only when the sent text (its flattened head) and a
+/// harness queue-evidence marker are both present on the pane.
+pub fn shows_queued(screen: &str, flat: &str, rules: &PaneRules, harness: &str) -> bool {
+    let head: String = flat.chars().take(40).collect();
+    if head.trim().is_empty() || !screen.contains(head.as_str()) {
+        return false;
+    }
+    rules
+        .queue_evidence_for(harness)
+        .iter()
+        .any(|marker| screen.contains(marker.as_str()))
 }
 
 /// Only the LAST prompt-glyph line is the input bar; earlier ones are the harness echo of
@@ -287,6 +304,8 @@ fn refuse(
         exit,
         polls,
         waited_ms,
+        queued: false,
+        harness: HarnessIdentity::unknown(),
     }
 }
 
@@ -298,14 +317,35 @@ fn delivered(state: DeliveryState, note: &'static str, polls: u32, waited_ms: u6
         exit: EXIT_DELIVERED,
         polls,
         waited_ms,
+        queued: false,
+        harness: HarnessIdentity::unknown(),
     }
 }
 
-/// Deliver `text` to the pane. `surface` is the full locator (`surface:<id>`).
+/// Delivered into a queue harness mid-turn: submitted, still processing, and the read-back
+/// showed the text in the harness's queue/steer region.
+fn queued(note: &'static str, polls: u32) -> Outcome {
+    Outcome {
+        state: DeliveryState::PaneStillThinking,
+        submitted: true,
+        note,
+        exit: EXIT_DELIVERED,
+        polls,
+        waited_ms: 0,
+        queued: true,
+        harness: HarnessIdentity::unknown(),
+    }
+}
+
+/// Deliver `text` to the pane. `surface` is the full locator (`surface:<id>`). `identity`
+/// selects the mid-turn policy: a queue harness is typed into while busy and must show the
+/// text in its queue region on the read-back; every other harness waits (slice 1) and then
+/// refuses.
 pub fn deliver(
     cmux: &dyn Cmux,
     clock: &dyn Clock,
     rules: &PaneRules,
+    selector: &HarnessSelector,
     surface: &str,
     text: &str,
     opts: &DeliveryOptions,
@@ -320,120 +360,168 @@ pub fn deliver(
     // Time spent waiting for a busy pane to become idle (verification sleeps excluded).
     let mut waited_ms: u64 = 0;
     let mut screen = tail14(&cmux.read_screen(surface));
+    // Identity is resolved against the pane itself when no flag or environment says.
+    let identity = identify(
+        selector.flag.as_deref(),
+        selector.env.as_deref(),
+        &screen,
+        rules,
+    );
 
-    if blocked(&screen, rules) {
-        if screen.contains(rules.dismissible_overlay.as_str()) {
-            // The overlay is dismissible: Escape, wait, re-read, proceed.
-            cmux.send_key(surface, "Escape");
-            clock.sleep(Duration::from_secs(1));
-            screen = tail14(&cmux.read_screen(surface));
-            polls += 1;
-        } else {
-            return refuse(
-                DeliveryState::PaneBlockedOnPermission,
-                false,
-                "pre-send",
-                EXIT_BLOCKED,
-                polls,
-                waited_ms,
-            );
-        }
-    }
-
-    if busy(&screen, rules) && !claude_code(&screen, rules) {
-        // Bounded wait: poll until the pane is idle or the wall-clock budget is spent.
-        loop {
-            let waited = clock.elapsed_ms() - started;
-            if waited >= budget_ms {
-                break;
-            }
-            let step = poll_ms.min(budget_ms - waited);
-            clock.sleep(Duration::from_millis(step));
-            waited_ms += step;
-            screen = tail14(&cmux.read_screen(surface));
-            polls += 1;
-            if !busy(&screen, rules) {
-                break;
+    let outcome = (|| {
+        if blocked(&screen, rules) {
+            if screen.contains(rules.dismissible_overlay.as_str()) {
+                // The overlay is dismissible: Escape, wait, re-read, proceed.
+                cmux.send_key(surface, "Escape");
+                clock.sleep(Duration::from_secs(1));
+                screen = tail14(&cmux.read_screen(surface));
+                polls += 1;
+            } else {
+                return refuse(
+                    DeliveryState::PaneBlockedOnPermission,
+                    false,
+                    "pre-send",
+                    EXIT_BLOCKED,
+                    polls,
+                    waited_ms,
+                );
             }
         }
+
         if busy(&screen, rules) {
-            return refuse(
-                DeliveryState::PaneStillThinking,
-                false,
-                "pre-send",
-                EXIT_STILL_THINKING,
-                polls,
-                waited_ms,
-            );
+            match rules.mid_turn_for(&identity.harness) {
+                MidTurn::Queue => {
+                    // Pi accepts text mid-turn and delivers it as a queued steer: send now,
+                    // exactly one Enter, and require queue evidence on the read-back.
+                    if !cmux.send_text(surface, &flat) {
+                        return refuse(
+                            DeliveryState::InputBarOnly,
+                            false,
+                            "send-failed",
+                            EXIT_SEND_FAILED,
+                            polls,
+                            waited_ms,
+                        );
+                    }
+                    clock.sleep(Duration::from_millis(1500));
+                    cmux.send_key(surface, "Enter");
+                    clock.sleep(Duration::from_secs(3));
+                    let read_back = tail14(&cmux.read_screen(surface));
+                    if shows_queued(&read_back, &flat, rules, &identity.harness) {
+                        return queued("queued", polls);
+                    }
+                    // No second Enter: an unproven queue send is not a delivery.
+                    return refuse(
+                        DeliveryState::InputBarOnly,
+                        true,
+                        "queue-not-proven",
+                        EXIT_QUEUE_UNPROVEN,
+                        polls,
+                        waited_ms,
+                    );
+                }
+                MidTurn::Refuse => {
+                    // Bounded wait: poll until the pane is idle or the wall-clock budget is spent.
+                    loop {
+                        let waited = clock.elapsed_ms() - started;
+                        if waited >= budget_ms {
+                            break;
+                        }
+                        let step = poll_ms.min(budget_ms - waited);
+                        clock.sleep(Duration::from_millis(step));
+                        waited_ms += step;
+                        screen = tail14(&cmux.read_screen(surface));
+                        polls += 1;
+                        if !busy(&screen, rules) {
+                            break;
+                        }
+                    }
+                    if busy(&screen, rules) {
+                        return refuse(
+                            DeliveryState::PaneStillThinking,
+                            false,
+                            "pre-send",
+                            EXIT_STILL_THINKING,
+                            polls,
+                            waited_ms,
+                        );
+                    }
+                }
+            }
         }
-    }
 
-    if stale_input(&screen) {
-        cmux.send_key(surface, "Enter");
-        clock.sleep(Duration::from_secs(3));
-        screen = tail14(&cmux.read_screen(surface));
         if stale_input(&screen) {
+            cmux.send_key(surface, "Enter");
+            clock.sleep(Duration::from_secs(3));
+            screen = tail14(&cmux.read_screen(surface));
+            if stale_input(&screen) {
+                return refuse(
+                    DeliveryState::InputBarOnly,
+                    false,
+                    "stale-text-stuck",
+                    EXIT_STALE_STUCK,
+                    polls,
+                    waited_ms,
+                );
+            }
+        }
+
+        if !cmux.send_text(surface, &flat) {
             return refuse(
                 DeliveryState::InputBarOnly,
                 false,
-                "stale-text-stuck",
-                EXIT_STALE_STUCK,
+                "send-failed",
+                EXIT_SEND_FAILED,
                 polls,
                 waited_ms,
             );
         }
-    }
-
-    if !cmux.send_text(surface, &flat) {
-        return refuse(
-            DeliveryState::InputBarOnly,
-            false,
-            "send-failed",
-            EXIT_SEND_FAILED,
-            polls,
-            waited_ms,
-        );
-    }
-    clock.sleep(Duration::from_millis(1500));
-    cmux.send_key(surface, "Enter");
-    clock.sleep(Duration::from_secs(3));
-    screen = tail14(&cmux.read_screen(surface));
-
-    let head: String = flat.chars().take(40).collect();
-    let in_bar = |screen: &str| input_bar(screen).is_some_and(|b| b.contains(head.as_str()));
-    if in_bar(&screen) {
-        // single_enter_verify: re-Enter ONCE.
+        clock.sleep(Duration::from_millis(1500));
         cmux.send_key(surface, "Enter");
         clock.sleep(Duration::from_secs(3));
         screen = tail14(&cmux.read_screen(surface));
-        if in_bar(&screen) && !answered(&screen, &head) {
-            return refuse(
-                DeliveryState::InputBarOnly,
-                true,
-                "after-2-enters",
-                EXIT_STUCK_AFTER_ENTERS,
+
+        let head: String = flat.chars().take(40).collect();
+        let in_bar = |screen: &str| input_bar(screen).is_some_and(|b| b.contains(head.as_str()));
+        if in_bar(&screen) {
+            // single_enter_verify: re-Enter ONCE.
+            cmux.send_key(surface, "Enter");
+            clock.sleep(Duration::from_secs(3));
+            screen = tail14(&cmux.read_screen(surface));
+            if in_bar(&screen) && !answered(&screen, &head) {
+                return refuse(
+                    DeliveryState::InputBarOnly,
+                    true,
+                    "after-2-enters",
+                    EXIT_STUCK_AFTER_ENTERS,
+                    polls,
+                    waited_ms,
+                );
+            }
+        }
+
+        if busy(&screen, rules) || screen.contains("queued messages") {
+            delivered(
+                DeliveryState::DeliveredNoAck,
+                "processing",
                 polls,
                 waited_ms,
-            );
+            )
+        } else if screen.contains(head.as_str()) {
+            delivered(DeliveryState::DeliveredAcked, "echoed", polls, waited_ms)
+        } else {
+            delivered(
+                DeliveryState::DeliveredNoAck,
+                "prompt-clear",
+                polls,
+                waited_ms,
+            )
         }
-    }
+    })();
 
-    if busy(&screen, rules) || screen.contains("queued messages") {
-        delivered(
-            DeliveryState::DeliveredNoAck,
-            "processing",
-            polls,
-            waited_ms,
-        )
-    } else if screen.contains(head.as_str()) {
-        delivered(DeliveryState::DeliveredAcked, "echoed", polls, waited_ms)
-    } else {
-        delivered(
-            DeliveryState::DeliveredNoAck,
-            "prompt-clear",
-            polls,
-            waited_ms,
-        )
+    Outcome {
+        harness: identity,
+        ..outcome
     }
 }
 

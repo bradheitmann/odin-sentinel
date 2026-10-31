@@ -108,6 +108,9 @@ fn say_delivers_through_the_pane_binary_and_writes_a_proof_record() {
     assert_eq!(proof[0]["target_surface_locator"], "surface:7");
     assert_eq!(proof[0]["observed_processing_state"], "DELIVERED_ACKED");
     assert_eq!(proof[0]["submitted"], true);
+    assert_eq!(proof[0]["harness"], "codex");
+    assert_eq!(proof[0]["harness_source"], "detected");
+    assert_eq!(proof[0]["queued"], false);
     assert_eq!(proof[0]["verification_method"], "read_screen");
     assert_eq!(proof[0]["sender_role"], "EXEC PM");
     assert!(proof[0]["timestamp"]
@@ -137,6 +140,8 @@ fn say_refuses_a_blocked_pane_with_a_non_zero_exit_and_sends_nothing() {
         proof[0]["observed_processing_state"],
         "PANE_BLOCKED_ON_PERMISSION"
     );
+    assert_eq!(proof[0]["harness"], "unknown");
+    assert_eq!(proof[0]["harness_source"], "unknown");
 }
 
 #[test]
