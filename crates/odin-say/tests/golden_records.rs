@@ -46,6 +46,25 @@ fn deliver_against(screens: &[&str], text: &str, options: &DeliveryOptions) -> O
     )
 }
 
+/// Same flow, but the pane refuses the send (`send` / `send-key` fail): exits 5.
+fn deliver_with_failing_pane(screens: &[&str], text: &str, options: &DeliveryOptions) -> Outcome {
+    let cmux = StubCmux::new(screens).failing();
+    let clock = FakeClock::new();
+    deliver(
+        &cmux,
+        &clock,
+        PaneRules::embedded(),
+        &HarnessSelector::default(),
+        SURFACE,
+        text,
+        options,
+    )
+}
+
+fn bar_with(text: &str) -> String {
+    format!("› {text}\n")
+}
+
 fn line(outcome: &Outcome) -> String {
     let entry = ProofEntry::for_outcome("say", SURFACE, outcome, SENDER_ROLE, NOW.to_string());
     serde_json::to_string(&entry).expect("record serializes")
@@ -91,6 +110,34 @@ fn golden_corpus() -> String {
             "PM-ODIN steer (capture test): no action needed; continue your current task.",
             &options(5, 180),
         )),
+        // 7. Exit 4: stale text in the input bar would not submit; nothing was sent.
+        line(&deliver_against(
+            &[screen!("codex_stale_input")],
+            "never sent",
+            &options(5, 180),
+        )),
+        // 8. Exit 5, plain path: the pane refused the send itself.
+        line(&deliver_with_failing_pane(
+            &[screen!("codex_idle")],
+            "x",
+            &options(5, 180),
+        )),
+        // 9. Exit 5, queue path: a busy pi pane refused the mid-turn send.
+        line(&deliver_with_failing_pane(
+            &[screen!("pi_busy")],
+            "PM-ODIN steer (capture test): no action needed; continue your current task.",
+            &options(5, 180),
+        )),
+        // 10. Exit 6: the message stayed in the bar after the one allowed re-Enter.
+        {
+            let stuck = bar_with("please run the gate");
+            let screens = [screen!("codex_idle"), stuck.as_str(), stuck.as_str()];
+            line(&deliver_against(
+                &screens,
+                "please run the gate",
+                &options(5, 180),
+            ))
+        },
     ];
     let mut text = records.join("\n");
     text.push('\n');
@@ -132,7 +179,11 @@ fn every_golden_record_parses_back_with_its_outcome_shape() {
         .lines()
         .map(|line| serde_json::from_str(line).expect("golden line is a proof record"))
         .collect();
-    assert_eq!(records.len(), 6, "one record per sender outcome");
+    assert_eq!(
+        records.len(),
+        10,
+        "one record per recordable sender outcome"
+    );
 
     let shapes: Vec<(&str, &str, bool, bool)> = records
         .iter()
@@ -153,6 +204,10 @@ fn every_golden_record_parses_back_with_its_outcome_shape() {
             ("delivery", "PANE_STILL_THINKING", true, true),
             ("send_refusal", "PANE_STILL_THINKING", false, false),
             ("send_refusal", "PANE_BLOCKED_ON_PERMISSION", false, false),
+            ("delivery", "INPUT_BAR_ONLY", true, false),
+            ("send_refusal", "INPUT_BAR_ONLY", false, false),
+            ("send_refusal", "INPUT_BAR_ONLY", false, false),
+            ("send_refusal", "INPUT_BAR_ONLY", false, false),
             ("delivery", "INPUT_BAR_ONLY", true, false),
         ]
     );
