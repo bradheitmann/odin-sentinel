@@ -1,0 +1,7 @@
+{
+  "base_commit": "3298f44e95bef2bfc6e69fe9bd33ccb65d28c415",
+  "brief_sha256": null,
+  "done_sha256": "478e7041f5bd2f66547b41dca00d94891984816ad80f56eefdefb76444e32626",
+  "schema_version": "charter.dispatch/1",
+  "slice": "say-validator-roundtrip"
+}
