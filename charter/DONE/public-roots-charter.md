@@ -7,12 +7,15 @@ Proofs (each: name, what it guarantees, reopen step, fail-without mutant):
 1. charter-audited: `pnpm run audit:public` checks the charter/ files (the "N files checked" count rises by the number of charter/ files) and passes.
    - Reopen: from a clean clone of the frozen tip, `pnpm run audit:public`; compare the file count with bdc6aab's 81.
    - Fail-without mutant: append a macOS home path line to charter/STATE.md; the audit must fail naming charter/STATE.md. Restore.
+   - reopened: OD-QA-public-roots-charter-caee0fb c0fad2c67c840324a583f5ac3b1fbd2c09ec31581d4b1e5eecd344924e5c3206
 2. roots-test: tests/audit/public-surface-roots.test.ts proves charter/ is in the audited set and that a planted home path under charter/ is reported.
    - Reopen: `pnpm vitest run tests/audit/public-surface-roots.test.ts`.
    - Fail-without mutant: remove "charter/" from PUBLIC_ROOTS; the test must go red.
+   - reopened: OD-QA-public-roots-charter-caee0fb c0fad2c67c840324a583f5ac3b1fbd2c09ec31581d4b1e5eecd344924e5c3206
 3. no-regression: `pnpm run typecheck`, `pnpm vitest run tests/audit --testTimeout=30000`, `charter/slice-zero.sh` and `charter check` all green.
    - Reopen: the same commands from a clean clone.
    - Fail-without mutant: n/a (aggregate; proofs 1 and 2 carry the mutants).
+   - reopened: OD-QA-public-roots-charter-caee0fb c0fad2c67c840324a583f5ac3b1fbd2c09ec31581d4b1e5eecd344924e5c3206
 Gates (exact commands):
 - pnpm run audit:public
 - pnpm run typecheck
