@@ -74,7 +74,7 @@ impl PaneState {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Outcome {
     pub state: DeliveryState,
     pub submitted: bool,
@@ -359,9 +359,10 @@ pub fn deliver(
         .unwrap_or(u64::MAX)
         .max(1);
     let budget_ms = u64::try_from(opts.wait.as_millis()).unwrap_or(u64::MAX);
-    let started = clock.elapsed_ms();
     let mut polls: u32 = 1;
-    // Time spent waiting for a busy pane to become idle (verification sleeps excluded).
+    // Wall-clock time from the first busy observation to the send or refusal decision,
+    // measured on the monotonic clock so screen-read time counts too (not just sleeps).
+    let mut first_busy_at: Option<u64> = None;
     let mut waited_ms: u64 = 0;
     let mut screen = tail14(&cmux.read_screen(surface));
     // Identity is resolved against the pane itself when no flag or environment says.
@@ -393,10 +394,12 @@ pub fn deliver(
         }
 
         if busy(&screen, rules) {
+            first_busy_at = Some(clock.elapsed_ms());
             match rules.mid_turn_for(&identity.harness) {
                 MidTurn::Queue => {
                     // Pi accepts text mid-turn and delivers it as a queued steer: send now,
                     // exactly one Enter, and require queue evidence on the read-back.
+                    waited_ms = clock.elapsed_ms() - first_busy_at.unwrap_or(0);
                     if !cmux.send_text(surface, &flat) {
                         return refuse(
                             DeliveryState::InputBarOnly,
@@ -427,19 +430,20 @@ pub fn deliver(
                 MidTurn::Refuse => {
                     // Bounded wait: poll until the pane is idle or the wall-clock budget is spent.
                     loop {
-                        let waited = clock.elapsed_ms() - started;
+                        let busy_at = first_busy_at.unwrap_or(0);
+                        let waited = clock.elapsed_ms() - busy_at;
                         if waited >= budget_ms {
                             break;
                         }
                         let step = poll_ms.min(budget_ms - waited);
                         clock.sleep(Duration::from_millis(step));
-                        waited_ms += step;
                         screen = tail14(&cmux.read_screen(surface));
                         polls += 1;
                         if !busy(&screen, rules) {
                             break;
                         }
                     }
+                    waited_ms = clock.elapsed_ms() - first_busy_at.unwrap_or(0);
                     if busy(&screen, rules) {
                         return refuse(
                             DeliveryState::PaneStillThinking,

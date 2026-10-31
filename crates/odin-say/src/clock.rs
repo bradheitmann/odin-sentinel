@@ -68,6 +68,14 @@ impl FakeClock {
     pub fn sleeps_ms(&self) -> Vec<u64> {
         self.sleeps_ms.borrow().clone()
     }
+
+    /// Time passes without a sleep (a pane read, for example): advance the clock but do not
+    /// record a sleep. Lets a test model read cost distinctly from poll sleeps.
+    pub fn advance(&self, duration: Duration) {
+        let ms = u64::try_from(duration.as_millis()).unwrap_or(u64::MAX);
+        self.elapsed_ms
+            .set(self.elapsed_ms.get().saturating_add(ms));
+    }
 }
 
 impl Clock for FakeClock {
