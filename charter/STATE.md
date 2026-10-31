@@ -1,5 +1,5 @@
-# State — odin-sentinel — 2026-10-31T09:00Z, written by PM-ODIN (Claude Opus 5.5)
-HEAD: main c6bb48f (odin-say slice 3 landed, PR #15) + this landing (chore/public-roots-crates, carrying its own STATE rewrite).
+# State — odin-sentinel — 2026-10-31T08:35Z, written by PM-ODIN (Claude Opus 5.5)
+HEAD: main a8b0b2b (public-roots-crates landed, PR #16) + this landing (feat/say-validator-roundtrip; the acceptance and this STATE rewrite are one commit). Charter tool pin: b842747.
 Proven (with the proof names):
 - slice-zero ACCEPTED (DONE pin b087121d). QA: OD/QA, Pi, openrouter/xiaomi/mimo-v2.6-flash, high (author Claude Opus 5.5). Markdown receipt sha256 09bf1d87352c61bdcaebe7d0c5015a5a8235faecbc52cd56b0811b0fd11f5134; validated JSON receipt (reveng.qa-receipt/1) sha256 f883af011ca4dc11905f971d072bcd6a3c305c6d4ace0c06916ce8be53a0b001; accepted with `charter gate slice-zero --accept --receipt` at DONE pin 486916b1, frozen 8533d25 (manifest 2c216de2).
   - slice-zero-live (G1): `charter/slice-zero.sh` prints `delivered_valid=true refused_valid=false` and `slice-zero: GREEN`; mutant prints `refused_valid=true` and exits 1. Reopened by QA in a fresh clone.
@@ -19,6 +19,7 @@ Proven (with the proof names):
 - ci-action-pins post-acceptance addition: its guard test caught the slice-1 CI job's movable `dtolnay/rust-toolchain@1.88.0` ref on main; pinned to a full sha by PM ruling and verified by QA (delta 93c1865) before PR #13 merged.
 - odin-say slice 3 ACCEPTED (DONE pin f2614794): proof integrity. The sender proves the proof log writable before touching any pane and exits 8 (PROOF_LOG_UNWRITABLE) without sending if it is not; a record lost after a send exits 9 (PROOF_RECORD_LOST) and prints the record on stderr, never exit 0; each record is one write; waited_ms is monotonic wall time. Closes slice 1's QA findings F1 (medium), F2 (low), F3 (info), confirmed by the QA seat that raised them. QA PASS on e0c32b9. Markdown receipt sha256 70971841c9f7d966a5eb87a4a6104c132828e1360e8a41233d3593b77f9250c5; validated JSON receipt sha256 7de43566af0c7dcdbd1e23e77353b6d4ce8016470f85f8dedd5bd0bef521f05b; frozen d44faca (manifest bcde3486).
 - public-roots-crates ACCEPTED (DONE pin 8fdf7a72), closing standard gap CS-2 part 1: crates/ is inside the public-surface audit (35 more files checked); two tilde home paths and two Linux home-path test strings in crates/odin-say were reworded (test inputs only, no behaviour change; QA ruled the test-data edit within intent and proved it necessary). QA PASS on 08f1973. Markdown receipt sha256 510be747318e3a3c0147f5a9e3dc7463fb33f724f2274ec97fa3dfbbd006404a; validated JSON receipt sha256 767cde68ea7b6b4cde68da1b6b9a5a38f5d660d037330c33041863a75223f551; frozen 7fc8a5a (manifest fa467ce9).
+- say-validator-roundtrip ACCEPTED (DONE pin 478e7041, unchanged: the first landing on `charter reopen`, evidence in charter/.freeze/reopen/): the Rust sender and ODIN's TypeScript validator agree. A golden corpus produced by the real sender flow covers all 10 recordable outcomes (exits 1, 8, 9 write no record by design); every record gets the expected verdict from validateCmuxDeliveryProof and through the MCP tool; every record maps totally onto PlanGraph delivery facts under the vocabulary owner's ruling (TRANSPORT_ACK needs evidence the input was taken in, so every INPUT_BAR_ONLY record maps to no fact). QA FAIL on 16750df (that row, plus corpus gaps), repair 1 of 1, QA PASS on a4837a3 with zero defects. QA reports sha256 (pass) 5205ec4104c1cb2d043e02358448a8ba63befcca4acf59ab0ee28d3c275ff5c1; validated JSON receipt sha256 ce8baa1238ee51e9454d99a0655cddbae38b8c78fb7f34bdda3cfb18afac8677; frozen a4837a3 (charter.freeze/2 manifest d700205f).
 Reopen markers: every accepted DONE list carries `reopened:` markers added by the Charter-sanctioned interim route (markers, re-pin, clean-clone freeze, QA re-issued JSON receipt, `gate --accept --receipt`). Receipts are kept with the team receipts outside this public repository because they cite local paths; their hashes are recorded here.
 Not proven / known gaps:
 - INTENT.md awaits owner ratification; GUARANTEES rows are `proposed`.
@@ -37,7 +38,7 @@ Common engineering standard v0.2 (linked from AGENTS.md): gaps recorded as oblig
 - charter check --strict refuses DONE/_template.md at the earlier pin (upstream defect).
 Exact last-green command(s):
 - charter/slice-zero.sh
-- charter check (charter 6f14c0a)
+- charter check (charter b842747)
 - pnpm run audit:deps
 - pnpm run audit:public
 - pnpm run typecheck
