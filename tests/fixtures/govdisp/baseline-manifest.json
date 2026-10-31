@@ -214,8 +214,8 @@
     },
     {
       "path": "src/protocol/event-registry/compact.ts",
-      "bytes": 18357,
-      "sha256": "a492a971a0409012ab6d9a3ab3f3ffaa16ca168eec843b056e84c298d8658631"
+      "bytes": 17749,
+      "sha256": "fc328460f66b070e1e6fd725a17f8f45c9345b7e222cdfbeb899d0f6aeaaae23"
     },
     {
       "path": "src/protocol/event-registry/diagnostic.ts",
@@ -229,8 +229,8 @@
     },
     {
       "path": "src/protocol/event-registry/storage.ts",
-      "bytes": 18725,
-      "sha256": "797264c99de697cf55708ec84c9930083b44c97c1731455d74e135b989838c78"
+      "bytes": 22080,
+      "sha256": "a7832acd4866a8cd90ef1adf06a89eace83a782bda78d6c20d83f15f9c52fe1b"
     },
     {
       "path": "src/protocol/event-registry/types.ts",

@@ -41,6 +41,7 @@ import {
   type TerminalEvent
 } from "./types.js";
 import {
+  acquireRegistryLock,
   isSafeRegistryScope,
   LOCAL_REGISTRY_BASE,
   REGISTRY_EVENTS_FILENAME,
@@ -74,8 +75,6 @@ export const REGISTRY_COMPACT_TMP_FILENAME = "events.compact.tmp";
 export const COMPACTION_EXCLUDED_CLASSES: ReadonlySet<string> = new Set(["TERMINAL"]);
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const DEFAULT_MAX_LOCK_ATTEMPTS = 50;
-const DEFAULT_LOCK_RETRY_MS = 10;
 
 /** A deterministic, replay-verifiable compaction report (also the CLI's stdout JSON). */
 export interface RegistryCompactionReport {
@@ -111,10 +110,12 @@ export interface CompactRegistryEventsOptions {
   ttlDaysByClass?: Partial<Record<GovdispEventClass, number>>;
   /** Report what WOULD compact; writes nothing (no lock, no temp, no rename). */
   dryRun?: boolean;
-  /** Lock acquisition attempts before a named lock_unavailable rejection. */
+  /** Lock acquisition attempts before a named lock_unavailable rejection (fixed-attempt mode). */
   maxLockAttempts?: number;
-  /** Backoff between lock attempts, milliseconds. */
+  /** Backoff between lock attempts, milliseconds (fixed-attempt mode). */
   lockRetryMs?: number;
+  /** Wall-clock lock budget for the default backoff mode; ignored when maxLockAttempts/lockRetryMs are given. */
+  lockBudgetMs?: number;
   fsExists?: typeof existsSync;
   fsRead?: typeof readFileSync;
   fsWrite?: typeof writeFileSync;
@@ -131,21 +132,6 @@ export function hashRegistryEventLine(line: string): string {
 
 function storeRejection(field: string, code: string, detail: string): EventRejection {
   return { field, event_class: "<store>", code, detail };
-}
-
-/** Same synchronous backoff the append path uses (Atomics.wait; main-thread safe in Node). */
-function sleepSync(ms: number): void {
-  if (ms <= 0) return;
-  const signal = new Int32Array(new SharedArrayBuffer(4));
-  Atomics.wait(signal, 0, 0, ms);
-}
-
-function isEexists(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    (error as NodeJS.ErrnoException).code === "EEXIST"
-  );
 }
 
 function splitLogLines(text: string): string[] {
@@ -410,27 +396,14 @@ export function compactRegistryEvents(
   // append can be lost between the read and the atomic rename.
   fsMkdir(dir, { recursive: true });
   const lockDir = join(dir, REGISTRY_LOCK_DIRNAME);
-  const maxAttempts = Math.max(1, options.maxLockAttempts ?? DEFAULT_MAX_LOCK_ATTEMPTS);
-  const retryMs = Math.max(0, options.lockRetryMs ?? DEFAULT_LOCK_RETRY_MS);
-
-  let locked = false;
-  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    try {
-      fsMkdir(lockDir);
-      locked = true;
-      break;
-    } catch (error) {
-      if (!isEexists(error)) throw error;
-      sleepSync(retryMs);
-    }
-  }
+  const { locked, attempts, elapsedMs } = acquireRegistryLock(lockDir, fsMkdir, options);
   if (!locked) {
     return {
       ok: false,
       rejections: [storeRejection(
         REGISTRY_LOCK_DIRNAME,
         "lock_unavailable",
-        `registry lock ${lockDir} held by another writer after ${maxAttempts} attempt(s); compaction fails closed instead of risking a lost append`
+        `registry lock ${lockDir} held by another writer after ${attempts} attempt(s) over ${elapsedMs} ms; compaction fails closed instead of risking a lost append`
       )]
     };
   }
