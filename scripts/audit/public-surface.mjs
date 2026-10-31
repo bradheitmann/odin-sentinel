@@ -15,6 +15,7 @@ const PUBLIC_ROOTS = [
   "templates/",
   "plugins/",
   "charter/",
+  "crates/",
   "scripts/audit/"
 ];
 

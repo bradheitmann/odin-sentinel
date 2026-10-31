@@ -85,3 +85,62 @@ describe("charter/ is public audit surface", () => {
     expect(checked).toBeGreaterThanOrEqual(81 + charterFiles().length);
   });
 });
+
+// SLICE public-roots-crates (standard gap CS-2 part 1). The Rust crate is
+// committed to this public repository, so it is public surface like docs/,
+// protocol/ and charter/. Same shape as the charter/ slice: prove inclusion and
+// the named findings; no exemption for the crate.
+
+function cratesFiles(): string[] {
+  return walk(join(repoRoot, "crates"))
+    .map((abs) => abs.slice(repoRoot.length).replace(/^\/+/, ""))
+    .sort();
+}
+
+describe("crates/ is public audit surface", () => {
+  it("treats every crates/ file as an audited file", () => {
+    const files = cratesFiles();
+    expect(files.length).toBeGreaterThan(0);
+    expect(files).toContain("crates/odin-say/README.md");
+    expect(files).toContain("crates/odin-say/Cargo.toml");
+    expect(files).toContain("crates/odin-say/src/config.rs");
+    for (const file of files) {
+      expect(isPublicAuditFile(file), file).toBe(true);
+    }
+  });
+
+  it("reports a planted home path under crates/ as a named finding", () => {
+    const planted = join("/", "Users", "somebuilder", "checkout", "log.jsonl");
+    const findings = auditPublicSurface({
+      "crates/odin-say/PLANTED.md": `Built from ${planted} before publishing.`
+    });
+    expect(findings).toEqual(["crates/odin-say/PLANTED.md: macOS home path"]);
+  });
+
+  it("reports a tilde home path under crates/ as a named finding", () => {
+    const findings = auditPublicSurface({
+      "crates/odin-say/src/planted.rs": "//! fallback: `~/state/odin/proof.jsonl`"
+    });
+    expect(findings).toEqual(["crates/odin-say/src/planted.rs: tilde home path"]);
+  });
+
+  it("finds nothing in the real crates/ files", () => {
+    for (const file of cratesFiles()) {
+      const text = readFileSync(join(repoRoot, file), "utf8");
+      expect(auditPublicSurface({ [file]: text }), file).toEqual([]);
+    }
+  });
+
+  it("the real gate reports a count that includes the crates/ files", () => {
+    const output = execFileSync(process.execPath, ["scripts/audit/public-surface.mjs"], {
+      cwd: repoRoot,
+      encoding: "utf8"
+    });
+    const match = /Public surface audit PASS: (\d+) files checked/.exec(output);
+    expect(match, output).not.toBeNull();
+    const checked = Number(match?.[1] ?? "0");
+    // The base checked 125 files without crates/; crates/ adds one file per
+    // committed (or untracked) file, so the count can only grow past that.
+    expect(checked).toBeGreaterThanOrEqual(125 + cratesFiles().length);
+  });
+});
