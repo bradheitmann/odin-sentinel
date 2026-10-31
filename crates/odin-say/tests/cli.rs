@@ -184,3 +184,56 @@ fn status_prints_the_typed_pane_state_and_sends_nothing() {
     assert_eq!(text(&out).0.trim(), "status: 7 blocked");
     assert!(rig.calls().iter().all(|c| c[0] == "read-screen"));
 }
+
+#[test]
+fn an_unwritable_proof_path_sends_nothing_and_exits_eight() {
+    let rig = Rig::new(&["codex_idle", "codex_acked_after_send"]);
+    // The proof path's parent is a regular file, so the log can never be opened.
+    let blocker = rig.dir.path().join("blocking-file");
+    std::fs::write(&blocker, "not a directory").expect("blocker");
+    let proof = blocker.join("proof.jsonl");
+    let out = rig
+        .command()
+        .env("ODIN_SAY_PROOF", &proof)
+        .args(["say", "7", "hello"])
+        .output()
+        .expect("run");
+    let (_stdout, stderr) = text(&out);
+    assert_eq!(out.status.code(), Some(8), "{stderr}");
+    assert!(stderr.contains("PROOF_LOG_UNWRITABLE"), "{stderr}");
+    assert!(
+        stderr.contains(&proof.to_string_lossy().to_string()),
+        "{stderr}"
+    );
+    // No record, no send: the fake pane was never asked to read or write.
+    assert!(!rig.dir.path().join("log").exists());
+}
+
+#[test]
+fn a_lost_record_exits_nine_and_prints_the_record_json() {
+    let rig = Rig::new(&["codex_idle", "codex_acked_after_send"]);
+    let out = rig
+        .command()
+        .env("FAKE_CMUX_LOCK_PROOF", rig.proof())
+        .args(["say", "7", "run the gate"])
+        .output()
+        .expect("run");
+    let (stdout, stderr) = text(&out);
+    // The send happened, but its record could not be written: never exit 0.
+    assert_eq!(out.status.code(), Some(9), "{stderr}");
+    assert!(stderr.contains("PROOF_RECORD_LOST"), "{stderr}");
+    let record_line = stderr
+        .lines()
+        .find(|line| line.starts_with("{\"record_kind\""))
+        .unwrap_or_else(|| panic!("record JSON missing from stderr: {stderr}"));
+    let record: serde_json::Value = serde_json::from_str(record_line).expect("record JSON parses");
+    assert_eq!(record["record_kind"], "delivery");
+    assert_eq!(record["observed_processing_state"], "DELIVERED_ACKED");
+    assert_eq!(record["submitted"], true);
+    assert!(stdout.contains("DELIVERED_ACKED"), "{stdout}");
+    assert_eq!(
+        std::fs::read_to_string(rig.proof()).unwrap_or_default(),
+        "",
+        "the locked log holds no record"
+    );
+}

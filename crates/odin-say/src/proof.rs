@@ -15,6 +15,16 @@ pub const RECORD_KIND_DELIVERY: &str = "delivery";
 /// The record is a pre-send refusal; nothing was submitted.
 pub const RECORD_KIND_SEND_REFUSAL: &str = "send_refusal";
 
+/// Exit code: the proof log could not be proven writable, so nothing was sent.
+pub const EXIT_PROOF_LOG_UNWRITABLE: i32 = 8;
+/// Exit code: the send happened but its record could not be written.
+pub const EXIT_PROOF_RECORD_LOST: i32 = 9;
+
+/// The typed reason printed with [`EXIT_PROOF_LOG_UNWRITABLE`].
+pub const PROOF_LOG_UNWRITABLE: &str = "PROOF_LOG_UNWRITABLE";
+/// The typed reason printed with [`EXIT_PROOF_RECORD_LOST`].
+pub const PROOF_RECORD_LOST: &str = "PROOF_RECORD_LOST";
+
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ProofEntry {
     pub record_kind: String,
@@ -71,7 +81,26 @@ impl ProofEntry {
     }
 }
 
-/// Append one record, creating the log's directory on first write.
+/// Prove the proof log writable BEFORE any pane is read or typed into: create the parent
+/// directories and open the log for append (nothing is written). A sender that cannot record
+/// an attempt must not make the attempt, because a delivery with no record is
+/// indistinguishable from a recorded delivery.
+pub fn preflight(path: &Path) -> std::io::Result<()> {
+    if let Some(parent) = path.parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent)?;
+        }
+    }
+    std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .map(|_file| ())
+}
+
+/// Append one record, creating the log's directory on first write. The JSON and its trailing
+/// newline are serialized into ONE buffer and written with a single `write_all` on an O_APPEND
+/// handle, so concurrent senders sharing a log cannot interleave a line.
 pub fn append(path: &Path, entry: &ProofEntry) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
@@ -82,8 +111,9 @@ pub fn append(path: &Path, entry: &ProofEntry) -> std::io::Result<()> {
         .create(true)
         .append(true)
         .open(path)?;
-    let line = serde_json::to_string(entry).unwrap_or_default();
-    writeln!(file, "{line}")
+    let mut buffer = serde_json::to_vec(entry)?;
+    buffer.push(b'\n');
+    file.write_all(&buffer)
 }
 
 #[cfg(test)]

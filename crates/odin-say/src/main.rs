@@ -75,7 +75,15 @@ fn rules_for(path: &Option<PathBuf>) -> Result<PaneRules> {
     }
 }
 
-fn log_proof(subcommand: &str, surface: &str, outcome: &Outcome, config: &Config) {
+/// Write the record for one outcome. A failed write is loud and non-zero: the send already
+/// happened, so the record JSON is printed on stderr and the process exits with
+/// PROOF_RECORD_LOST rather than reporting a delivery nobody recorded.
+fn record_outcome(
+    subcommand: &str,
+    surface: &str,
+    outcome: &Outcome,
+    config: &Config,
+) -> Result<()> {
     let entry = ProofEntry::for_outcome(
         subcommand,
         surface,
@@ -85,10 +93,14 @@ fn log_proof(subcommand: &str, surface: &str, outcome: &Outcome, config: &Config
     );
     if let Err(e) = proof::append(&config.proof_path, &entry) {
         eprintln!(
-            "odin-say: proof log not written ({}): {e}",
+            "odin-say: {}: {}: {e}",
+            proof::PROOF_RECORD_LOST,
             config.proof_path.display()
         );
+        eprintln!("{}", serde_json::to_string(&entry).unwrap_or_default());
+        anyhow::bail!("{e}");
     }
+    Ok(())
 }
 
 fn run() -> Result<i32> {
@@ -123,6 +135,15 @@ fn run() -> Result<i32> {
                 flag: config.harness_flag.clone(),
                 env: config.harness_env.clone(),
             };
+            // No record, no send: prove the proof log writable before the pane is touched.
+            if let Err(e) = proof::preflight(&config.proof_path) {
+                eprintln!(
+                    "odin-say: {}: {}: {e}",
+                    proof::PROOF_LOG_UNWRITABLE,
+                    config.proof_path.display()
+                );
+                return Ok(proof::EXIT_PROOF_LOG_UNWRITABLE);
+            }
             let outcome = say::deliver(
                 &cmux,
                 &RealClock::from_env(),
@@ -132,12 +153,15 @@ fn run() -> Result<i32> {
                 &text.join(" "),
                 &options,
             );
-            log_proof("say", &surface, &outcome, &config);
             println!(
                 "say: {surface} {} ({})",
                 outcome.state.as_str(),
                 outcome.note
             );
+            // A record that cannot be written after the send is never exit 0.
+            if record_outcome("say", &surface, &outcome, &config).is_err() {
+                return Ok(proof::EXIT_PROOF_RECORD_LOST);
+            }
             Ok(outcome.exit)
         }
         Command::Status {
