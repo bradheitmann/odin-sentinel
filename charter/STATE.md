@@ -1,5 +1,5 @@
-# State — odin-sentinel — 2026-10-31T06:00Z, written by PM-ODIN (Claude Opus 5.5)
-HEAD: main 4814075 (PRs #6, #8, #9, #10 merged); this update on branch docs/state-refresh-1.
+# State — odin-sentinel — 2026-10-31T06:20Z, written by PM-ODIN (Claude Opus 5.5)
+HEAD: main bc92cbc + this landing (chore/public-roots-charter, which also carries this STATE rewrite so main never lags an acceptance).
 Proven (with the proof names):
 - slice-zero ACCEPTED (DONE pin b087121d). QA: OD/QA, Pi, openrouter/xiaomi/mimo-v2.6-flash, high (author Claude Opus 5.5). Markdown receipt sha256 09bf1d87352c61bdcaebe7d0c5015a5a8235faecbc52cd56b0811b0fd11f5134; validated JSON receipt (reveng.qa-receipt/1) sha256 f883af011ca4dc11905f971d072bcd6a3c305c6d4ace0c06916ce8be53a0b001; accepted with `charter gate slice-zero --accept --receipt` at DONE pin 486916b1, frozen 8533d25 (manifest 2c216de2).
   - slice-zero-live (G1): `charter/slice-zero.sh` prints `delivered_valid=true refused_valid=false` and `slice-zero: GREEN`; mutant prints `refused_valid=true` and exits 1. Reopened by QA in a fresh clone.
@@ -12,11 +12,11 @@ Proven (with the proof names):
   - QA traced the stdio runtime: it never loads express or body-parser.
 - delivery-verdicts ACCEPTED (DONE pin 9fae6131), landed on main 27d9193 (PR #9). QA FAIL on b005650 (F1 high: an invalid registry result reported `delivered`), repair 1 of 1, QA PASS on b6d435e (32-case sweep, 5 mutants red). Markdown receipt sha256 91723abb9e93599c455192169da475a38169f8800b1f6ca9e1faa2a782d9bb6f; validated JSON receipt sha256 2851ec179226b75eed32f45ad7fe1b8fb097c3be625494a4bbdc513354f91e6e; frozen f3cb5ba (manifest 48e335b1).
 - registry-lock-budget ACCEPTED (DONE pin ebb4a9fd), landed on main 4814075 (PR #10). Contention test 20/20; the old default fails within 20 runs. QA PASS on 1d2b721. Markdown receipt sha256 b50e560f668cefd1acf696fc485e79d84acc2a05e72404d14e214481373254d1; validated JSON receipt sha256 c225c4de4e822a1257e6dd1a077932d49f816b461237467095cbd81af799382f; frozen b66af6d (manifest 2dff64f0).
+- public-roots-charter ACCEPTED (DONE pin 3a83d803). charter/ is now inside the public-surface audit (99 files checked: 81 + 18 charter files); planted home path and dropped root both go red. QA PASS on caee0fb. Markdown receipt sha256 c0fad2c67c840324a583f5ac3b1fbd2c09ec31581d4b1e5eecd344924e5c3206; validated JSON receipt sha256 2117577fcd7820ec8b417f941ee05d8c921274104ae203a5e95a17602918ebb2; frozen 00202bc (manifest 4c5d635a).
 Reopen markers: every accepted DONE list carries `reopened:` markers added by the Charter-sanctioned interim route (markers, re-pin, clean-clone freeze, QA re-issued JSON receipt, `gate --accept --receipt`). Receipts are kept with the team receipts outside this public repository because they cite local paths; their hashes are recorded here.
 Not proven / known gaps:
 - INTENT.md awaits owner ratification; GUARANTEES rows are `proposed`.
-- public-roots-charter: QA PASS on caee0fb; markers and freeze at 00202bc; awaiting QA's receipt update, then accept and land.
-- odin-say slice 1 (Rust sender sidecar): DEV done 27d065d, draft PR #7, in QA.
+- odin-say slice 1 (Rust sender sidecar): QA PASS on 27d065d; markers and freeze at d3eb624; awaiting QA receipt update, then accept and land (PR #7). QA findings go to slice 3 (odin-say-proof-integrity): F1 medium, an unwritable proof log still lets the send complete with exit 0; F2 low, a record and its newline are two writes; F3 info, waited_ms excludes screen-read time. odin-say is not shipped or used by any seat before slice 3 lands.
 - odin-say slice 2 (per-harness mid-turn policy; Pi queues steers, other harnesses refuse until a capture proves buffering): DEV done 1851746, queued for QA after slice 1.
 - ci-action-pins (CS-4): DEV done ab28b7d, queued for QA.
 - fix/sync-mcp-pins: merges clean onto 0.8.0 (merged candidate 8ad4898), never QA'd; queued.

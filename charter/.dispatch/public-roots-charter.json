@@ -1,0 +1,9 @@
+{
+  "accepted_unix_ms": 1793425390,
+  "base_commit": "caee0fb0953af1176037e3de96346b7b1a389680",
+  "brief_sha256": null,
+  "done_sha256": "3a83d803a53687cbc056ff79646b1acba5b230ac47802c1499c2bfffb0f30fd6",
+  "schema_version": "charter.dispatch/1",
+  "slice": "public-roots-charter",
+  "state": "accepted"
+}
