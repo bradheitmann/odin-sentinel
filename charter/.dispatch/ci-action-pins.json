@@ -1,7 +1,7 @@
 {
-  "base_commit": "9519af6f375f87590da55d03091744c5dad7ce9f",
+  "base_commit": "ab28b7dd9b53123d3136ececfcc4b31bf8519ac8",
   "brief_sha256": null,
-  "done_sha256": "840152cef8bda988a1930a52de8f1d059d4f9b1a4cc13578b60c3c61f11bd4e1",
+  "done_sha256": "ce62fdc416638ea96bb599d9f207879e87ac6e78d9a01ad186a7ecc3f50ba106",
   "schema_version": "charter.dispatch/1",
   "slice": "ci-action-pins"
 }

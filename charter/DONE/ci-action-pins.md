@@ -7,12 +7,15 @@ Proofs (each: name, what it guarantees, reopen step, fail-without mutant):
 1. all-pinned: every `uses:` in .github/workflows/*.yml is pinned to a 40-hex commit sha, and release.yml uses the same shas as ci.yml for the same actions.
    - Reopen: `grep -n 'uses:' .github/workflows/*.yml` from a clean clone of the frozen tip; every line carries a 40-hex sha.
    - Fail-without mutant: change one release.yml step back to `@v6`; the test must go red naming the file and line.
+   - reopened: OD-QA-ci-action-pins-ab28b7d 9d88935195c86cc88b0252ff74f748f3f8f4fd1f18bf9274ffa3b58ad3de19ba
 2. guard-test: tests/audit/actions-pinned.test.ts passes on the tip and names the offending file and line when a tag or branch ref is planted.
    - Reopen: `pnpm vitest run tests/audit/actions-pinned.test.ts`.
    - Fail-without mutant: make the test accept any `@` ref; the planted-ref case must go red.
+   - reopened: OD-QA-ci-action-pins-ab28b7d 9d88935195c86cc88b0252ff74f748f3f8f4fd1f18bf9274ffa3b58ad3de19ba
 3. no-regression: `pnpm run typecheck`, `pnpm vitest run tests/audit --testTimeout=30000`, `pnpm run audit:public`, `charter check` green; CI validate and telemetry-validate pass on the PR.
    - Reopen: the same commands; `gh pr checks` on the PR.
    - Fail-without mutant: n/a (aggregate).
+   - reopened: OD-QA-ci-action-pins-ab28b7d 9d88935195c86cc88b0252ff74f748f3f8f4fd1f18bf9274ffa3b58ad3de19ba
 Gates (exact commands):
 - pnpm run typecheck
 - pnpm vitest run tests/audit --testTimeout=30000
