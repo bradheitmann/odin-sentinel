@@ -865,7 +865,7 @@ export function createServer(options: CreateServerOptions = {}): McpServer {
       {
         title: "Validate CMUX Delivery Proof",
         description:
-          "Check a CMUX delivery proof. A dispatch is delivered only when submitted=true with verified processing on the target surface; unsubmitted sends and INPUT_BAR_ONLY text fail. Required fields: target_surface_locator, submitted, verification_method, observed_processing_state, timestamp, sender_role.",
+          "Check a CMUX delivery proof. A dispatch is delivered only when submitted=true with verified processing on the target surface; unsubmitted sends and INPUT_BAR_ONLY text fail. Required fields: target_surface_locator, submitted, verification_method, observed_processing_state, timestamp, sender_role. Optional record_kind: absent or \"delivery\" keeps the post-send verdict; \"send_refusal\" marks a typed pre-send refusal (submitted=false, state PANE_STILL_THINKING, PANE_BLOCKED_ON_PERMISSION or INPUT_BAR_ONLY) that is valid as a record but never as a delivery. Every result carries an additive delivery field: delivered, delivered_no_ack, not_delivered, or not_proven.",
         inputSchema: cmuxDeliveryProofInputShape
       },
       (input) => jsonText(validateCmuxDeliveryProof(input.proof))

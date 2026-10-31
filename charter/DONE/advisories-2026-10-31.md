@@ -7,15 +7,19 @@ Proofs (each: name, what it guarantees, reopen step, fail-without mutant):
 1. advisories-cleared: `pnpm run audit:deps` passes with 0 unaccepted advisories at or above high, and the installed tree resolves zod >= 4.6.6 and body-parser >= 2.4.0 (`pnpm why zod`, `pnpm why body-parser`).
    - Reopen: from a clean clone of the frozen tip, `pnpm install --frozen-lockfile && pnpm run audit:deps && pnpm why zod && pnpm why body-parser`.
    - Fail-without mutant: remove the body-parser override and reinstall; audit:deps must fail naming GHSA-27r3-jxmh-p828.
+   - reopened: OD-QA-advisories-bdc6aab ddf0398089dbad1c068c8c797b5d9c99dde22c571bdd797462d833fe1888e6e6
 2. no-behaviour-change: the MCP server still works end to end with the new zod: `charter/slice-zero.sh` green with `delivered_valid=true refused_valid=false`; `pnpm run typecheck` clean; `pnpm vitest run tests/mcp tests/protocol --testTimeout=30000` green except the known intermittent tests/protocol/event-registry-contention.test.ts (O3), which is rerun alone up to 3 times.
    - Reopen: the same commands from a clean clone of the frozen tip.
    - Fail-without mutant: n/a for the aggregate gate; slice-zero's own mutant still applies.
+   - reopened: OD-QA-advisories-bdc6aab ddf0398089dbad1c068c8c797b5d9c99dde22c571bdd797462d833fe1888e6e6
 3. exception-record-valid: the new record names advisory, owner, expires (within the 90-day horizon) and rationale, and its pin matches the overrides block; tests/audit/dependency-audit.test.ts passes.
    - Reopen: `pnpm vitest run tests/audit/dependency-audit.test.ts` from a clean clone.
    - Fail-without mutant: change the record's pin range to ^2.3.0; audit:deps must fail on pin drift.
+   - reopened: OD-QA-advisories-bdc6aab ddf0398089dbad1c068c8c797b5d9c99dde22c571bdd797462d833fe1888e6e6
 4. ci-green: the GitHub Actions `validate` job passes on the frozen tip.
    - Reopen: `gh pr checks` on the PR carrying the tip.
    - Fail-without mutant: covered by proof 1 (the same audit runs in CI).
+   - reopened: OD-QA-advisories-bdc6aab ddf0398089dbad1c068c8c797b5d9c99dde22c571bdd797462d833fe1888e6e6
 Gates (exact commands):
 - pnpm install --frozen-lockfile
 - pnpm run audit:deps
