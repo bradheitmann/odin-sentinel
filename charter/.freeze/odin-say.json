@@ -30,7 +30,7 @@
     },
     {
       "path": "AGENTS.md",
-      "sha256": "c1b37e838b00875ff24b1471eaa4ee7ca16853b02f898bc850d22a9b6788b822"
+      "sha256": "52cd8c9c0347055605af2dcf2f8a35d4c477355ea5f6a61d083f09cc494e8d14"
     },
     {
       "path": "CLAUDE.md",
@@ -46,27 +46,51 @@
     },
     {
       "path": "charter/.dispatch/advisories-2026-10-31.json",
-      "sha256": "b32f46d31f30d0ba51b095320d3638422492998bf60b5e42e558b8a1916abc3c"
+      "sha256": "f6df00be88594dd3b216988765aec2d25cb5f2cfe8ce039ce314ef38a41abbc5"
     },
     {
       "path": "charter/.dispatch/advisories-2026-10-31.sha256",
-      "sha256": "24fce40669b1ee8c26fffa0dc18d372d256ca7620491a9c6b9d7687a463a0947"
+      "sha256": "3b3674c1e7a822c033814cd14c0fa5530ce6326606c0761baffd325066a809a9"
+    },
+    {
+      "path": "charter/.dispatch/delivery-verdicts.json",
+      "sha256": "5f66054b956c9e2136cde42288b7eb1e65202bbc1ff734caf52d8286b25de46b"
+    },
+    {
+      "path": "charter/.dispatch/delivery-verdicts.sha256",
+      "sha256": "dc8d8181975d803b4f21b8284613f8742bcadcf5563c3f977c0d7b219df1952a"
     },
     {
       "path": "charter/.dispatch/odin-say.json",
-      "sha256": "0d3b371076b6ec2c438783698efb872b314044209e7ba980ad477875ab6b6385"
+      "sha256": "485761c43fbfb59f9d94c7f2684bcda1fd2ee87f4d42fa1a43789d5a46456af6"
     },
     {
       "path": "charter/.dispatch/odin-say.sha256",
-      "sha256": "3fefc9dd0c912fa619b632dcd08bb5fcbc8941b1fb86f14f5eb5c1aae9d71578"
+      "sha256": "949da58fc7057d11a774e979b5261603a2c26e3a0816c2aab7b0147be8463486"
+    },
+    {
+      "path": "charter/.dispatch/public-roots-charter.json",
+      "sha256": "d812944d07d08ac3b9d1901d2d1216579b32a0560aaf6d65b08bd797aec3f7b1"
+    },
+    {
+      "path": "charter/.dispatch/public-roots-charter.sha256",
+      "sha256": "7d57a2c96f5ec471480166fb3720174b47ed8ba4e1ee50b356ed28408f67ad96"
+    },
+    {
+      "path": "charter/.dispatch/registry-lock-budget.json",
+      "sha256": "db6575926b6be5ab481e88db2581d451404a76ce12e2aae87a32278a9bfa0db0"
+    },
+    {
+      "path": "charter/.dispatch/registry-lock-budget.sha256",
+      "sha256": "5ac5f3dfa0e6195fa253ad2d0a2df192a4ffcc5f26d6412b199e43325127f5a7"
     },
     {
       "path": "charter/.dispatch/slice-zero.json",
-      "sha256": "0b9e698bdc7aabce67581034b4da76adbbf57a037fed0dbe5e9c738bea36e633"
+      "sha256": "504960ed9aacb5ab6604e7009d0d2149858bbd8ba2f1665f4b045040b2d5b1a0"
     },
     {
       "path": "charter/.dispatch/slice-zero.sha256",
-      "sha256": "c584838ca3bcaa8d7af5ff83c1210090abe72d47106d15efe5e1f864c3b47848"
+      "sha256": "8823bbfe57bc737160aa9e3ce6b5ca1dad536136a747c496164c6d65b85e800e"
     },
     {
       "path": "charter/DONE/_template.md",
@@ -74,15 +98,27 @@
     },
     {
       "path": "charter/DONE/advisories-2026-10-31.md",
-      "sha256": "9b9a95840d714f40042cd1160f2a0dc8afed355b692e33206908db5d11788d1a"
+      "sha256": "3bd34d317a0876e42ba08d1413be2fa4a9d030021ac7d860fa3ab025427f8b67"
+    },
+    {
+      "path": "charter/DONE/delivery-verdicts.md",
+      "sha256": "9fae6131b3bfb45faed8feeb81e7c81808007136c44c6d04658fff80e323bf64"
     },
     {
       "path": "charter/DONE/odin-say.md",
-      "sha256": "ebdad2f9e84b9dd9a5a44788e14f827400e82ca56469d70818702ecd16a818fa"
+      "sha256": "fed42423882022bc1df018a7c34ea35d843e80b3861e6a84b66209a7b8b8ac26"
+    },
+    {
+      "path": "charter/DONE/public-roots-charter.md",
+      "sha256": "3a83d803a53687cbc056ff79646b1acba5b230ac47802c1499c2bfffb0f30fd6"
+    },
+    {
+      "path": "charter/DONE/registry-lock-budget.md",
+      "sha256": "ebb4a9fd0e791be33fd65cff6e05bffe2c07a97c66121f3a6406409f114844fb"
     },
     {
       "path": "charter/DONE/slice-zero.md",
-      "sha256": "b087121d80f98538706573509179ea6e0aaeb6a3563834f8760139a995caa1f2"
+      "sha256": "486916b15dd4942a843be968e87cb54494bd8d6a08c07c86dacb60e32bc3c6e4"
     },
     {
       "path": "charter/GUARANTEES.yaml",
@@ -102,7 +138,7 @@
     },
     {
       "path": "charter/STATE.md",
-      "sha256": "f4873f4626956b01f9b156cbd13581e4676faf1bca605d11e9279217c6bedc3c"
+      "sha256": "c64fc28006d6781f8fae2cec93b95f2899a723417b436a5240df97d2794f2f5b"
     },
     {
       "path": "charter/STOP-RULES.md",
@@ -354,7 +390,7 @@
     },
     {
       "path": "protocol/SCP.md",
-      "sha256": "039dda42f65234b0fab8812c9c175025ec232d16e23f0e70eebcf6dcafbef041"
+      "sha256": "c1e15673b5d975a30f8a71d505f99f796854e1fac8602954f53ceb80c1a551ae"
     },
     {
       "path": "protocol/bootstrap-skill.md",
@@ -530,7 +566,7 @@
     },
     {
       "path": "scripts/audit/public-surface.mjs",
-      "sha256": "da26af28d0b115e96ffa2a620c97c0918e9e455968479c33fa8867853ad911bd"
+      "sha256": "05e265c8a7d6ca799416cd596c1014b75cb6f60fa8c57fd2330b6ca077735481"
     },
     {
       "path": "scripts/audit/verify-pack.mjs",
@@ -602,7 +638,7 @@
     },
     {
       "path": "src/mcp/server.ts",
-      "sha256": "5321b6f0da5c799f46bc92105dd02d6be98818154e386c4a396605d2cccc6636"
+      "sha256": "14506c99bcdebe82c3e59dc8f88c40dad98c8eddd2f49f23b1503f29c6f34d36"
     },
     {
       "path": "src/odin-watch/backends/cmux.ts",
@@ -638,7 +674,7 @@
     },
     {
       "path": "src/protocol/event-registry/compact.ts",
-      "sha256": "a492a971a0409012ab6d9a3ab3f3ffaa16ca168eec843b056e84c298d8658631"
+      "sha256": "fc328460f66b070e1e6fd725a17f8f45c9345b7e222cdfbeb899d0f6aeaaae23"
     },
     {
       "path": "src/protocol/event-registry/diagnostic.ts",
@@ -650,7 +686,7 @@
     },
     {
       "path": "src/protocol/event-registry/storage.ts",
-      "sha256": "797264c99de697cf55708ec84c9930083b44c97c1731455d74e135b989838c78"
+      "sha256": "a7832acd4866a8cd90ef1adf06a89eace83a782bda78d6c20d83f15f9c52fe1b"
     },
     {
       "path": "src/protocol/event-registry/types.ts",
@@ -678,7 +714,7 @@
     },
     {
       "path": "src/protocol/service.ts",
-      "sha256": "8ed01c1b374cab8cb58f612ffbbb6afce765cbac4d16204eba07e351251d172a"
+      "sha256": "c740e5d0d6d8a7901c7a71bbf3a493c674cca539aba12e5cb27abc07a6caf12c"
     },
     {
       "path": "src/protocol/surface-layout.ts",
@@ -781,8 +817,16 @@
       "sha256": "7ff48cdaf0eed89a546cb1c02b954e13788ee20008c37254ff305c4dab794c3c"
     },
     {
+      "path": "tests/audit/public-surface-roots.test.ts",
+      "sha256": "8b4d259de32246b54c671dd974d682ca04e9b06c4c9358ed8d05a1425d2d3a9b"
+    },
+    {
       "path": "tests/audit/verify-pack-version-surface.test.ts",
       "sha256": "b58c49908271283736b91a86e9c4c84ac04154cf519fdd5f6ec93c1596493250"
+    },
+    {
+      "path": "tests/fixtures/delivery-verdicts/reveng-ops.jsonl",
+      "sha256": "c6f722078b722937d3114123e79ee74fe625f35380dda8b8ce0d5e5dcba96db8"
     },
     {
       "path": "tests/fixtures/govdisp/README.md",
@@ -790,7 +834,7 @@
     },
     {
       "path": "tests/fixtures/govdisp/baseline-manifest.json",
-      "sha256": "d57571b141b8b32dc1f9426095e2c5a0a2d1550926ab821772d78b3fd9652392"
+      "sha256": "ae0e69a157813e57fe47666cdd0fbcaa213f100d9f4511029967958da044b0bf"
     },
     {
       "path": "tests/fixtures/govdisp/gdr-case-snapshot.json",
@@ -847,6 +891,10 @@
     {
       "path": "tests/protocol/ax-reporting.test.ts",
       "sha256": "9dfae02a73900b1f27f3bca3a502a9bc5c48ec702ccf2099dba280258723e077"
+    },
+    {
+      "path": "tests/protocol/delivery-verdicts.test.ts",
+      "sha256": "f98e12917e996e938615e552314cddb3a8ef70418733a51b91061faa04e9c6a1"
     },
     {
       "path": "tests/protocol/doctrine-amendments.test.ts",
@@ -961,6 +1009,10 @@
       "sha256": "31c263b1fe5b93e5da6b7bfa6a4f4c36dd602a90a9b92ee46a0bea959e6df532"
     },
     {
+      "path": "tests/protocol/registry-lock-budget.test.ts",
+      "sha256": "1410efd29761b23c1fdd30b5762383d46d133ef4267dc9442f0a55464aefe308"
+    },
+    {
       "path": "tests/protocol/release-sync.test.ts",
       "sha256": "52a6f1627ea667e855755345f483d916dd1e9915d5216979edda95d2cd42b86e"
     },
@@ -1021,8 +1073,8 @@
       "sha256": "26b24c7e3d88d613d1ea93521ee4463659eff57934e9ec208a36730ec3d45862"
     }
   ],
-  "head": "d3eb62413b4fb5b7d935f79843a75e0ee297736a",
-  "manifest_sha256": "9fbb566e036891f6f208efeeddf0e0b85f843e424285873db024cd13e954fa80",
+  "head": "4ead1e4e77dedb36eb0b12da65cc566b3a97310f",
+  "manifest_sha256": "fb10d7542e1d3ef6358f3991a4457a5bf041810bb9d79d59fe9bad5ff3913cbf",
   "schema_version": "charter.freeze/1",
   "slice": "odin-say"
 }
