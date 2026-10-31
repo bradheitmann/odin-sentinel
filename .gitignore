@@ -55,3 +55,6 @@ ODIN-ARCHITECTURE-MAP.html
 
 # Re-entry briefings and their kit: contributor artifacts, never published surface
 docs/briefings/
+
+# Rust build output for the odin-say crate (CI and local builds)
+crates/odin-say/target/

@@ -1,0 +1,2 @@
+session list
+  enter insert · esc close
