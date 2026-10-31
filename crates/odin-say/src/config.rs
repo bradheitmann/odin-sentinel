@@ -1,7 +1,7 @@
 //! Configuration resolution: flag, then environment, then a cloud-friendly default.
 //!
 //! The proof log defaults to `$XDG_STATE_HOME/odin/delivery-proof.jsonl`, falling back to
-//! `~/.local/state/odin/delivery-proof.jsonl`. No home path, machine name or team directory
+//! `$HOME/.local/state/odin/delivery-proof.jsonl`. No home path, machine name or team directory
 //! is baked into the code; the environment supplies them. Resolution takes the environment
 //! as a lookup function so tests exercise precedence without touching the process
 //! environment.
@@ -141,7 +141,7 @@ mod tests {
     fn the_cloud_default_uses_xdg_state_home() {
         let env = env_of(&[
             ("XDG_STATE_HOME", "/var/lib/state"),
-            ("HOME", "/home/someone"),
+            ("HOME", "/var/local/cloud-user"),
         ]);
         let config = Config::resolve(&ConfigFlags::default(), &env);
         assert_eq!(
@@ -157,11 +157,11 @@ mod tests {
 
     #[test]
     fn the_local_state_fallback_is_used_without_xdg() {
-        let env = env_of(&[("HOME", "/home/someone")]);
+        let env = env_of(&[("HOME", "/var/local/cloud-user")]);
         let config = Config::resolve(&ConfigFlags::default(), &env);
         assert_eq!(
             config.proof_path,
-            PathBuf::from("/home/someone/.local/state/odin/delivery-proof.jsonl")
+            PathBuf::from("/var/local/cloud-user/.local/state/odin/delivery-proof.jsonl")
         );
     }
 
