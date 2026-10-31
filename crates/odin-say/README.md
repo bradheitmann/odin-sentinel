@@ -78,8 +78,17 @@ or `unknown`).
 | 5 | the send itself failed (`INPUT_BAR_ONLY`) |
 | 6 | the message stayed in the input bar after two Enters (`INPUT_BAR_ONLY`) |
 | 7 | a queue-harness send whose read-back never showed the text queued (`INPUT_BAR_ONLY`) |
+| 8 | the proof log could not be proven writable (`PROOF_LOG_UNWRITABLE`) — nothing was read or sent |
+| 9 | the send happened but its record could not be written (`PROOF_RECORD_LOST`) — record JSON on stderr |
 
 A non-zero exit means NOT delivered.
+
+**No record, no send.** Before the pane is read or typed into, the proof log path is
+resolved and proven writable (parent directories created, opened for append, nothing
+written). If that fails the run stops with exit 8 and sends nothing: a delivery with no
+record must not look like a recorded delivery. If the record write fails AFTER the send, the
+run exits 9 and prints the full record JSON on stderr so the evidence survives; a send whose
+record was not written is never exit 0.
 
 ## Proof records
 
@@ -89,12 +98,17 @@ One JSON object per attempt, append-only:
 {"record_kind":"delivery","timestamp":"2026-10-31T00:00:00Z","subcommand":"say","target_surface_locator":"surface:7","submitted":true,"verification_method":"read_screen","observed_processing_state":"DELIVERED_ACKED","sender_role":"EXEC PM","note":"echoed","polls":1,"waited_ms":0}
 ```
 
+Records are written as one buffered `write_all` of the JSON line plus its newline on an
+O_APPEND handle, so concurrent senders sharing one log cannot interleave a line.
+
 `record_kind` is `delivery` when text was submitted (whatever the verification said) and
 `send_refusal` for a pre-send refusal, so a refusal can never be read as a delivery. Every
 record also carries the six CMUX delivery-proof fields (`target_surface_locator`, `submitted`,
 `verification_method`, `observed_processing_state`, `timestamp`, `sender_role`), the outcome
 `note`, the wait evidence (`polls`, `waited_ms`), the harness identity (`harness`,
-`harness_source`) and `queued` (true only for a proven mid-turn queue send).
+`harness_source`) and `queued` (true only for a proven mid-turn queue send). `waited_ms` is
+monotonic WALL time from the first busy observation to the send or refusal decision, so
+screen-read time counts and not only the poll sleeps.
 
 ## Configuration
 

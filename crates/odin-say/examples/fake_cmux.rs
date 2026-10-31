@@ -33,6 +33,19 @@ fn main() {
             print!("{text}");
         }
         Some("send") | Some("send-key") => {
+            // Test hook: make the proof log unwritable AFTER its preflight succeeded, so the
+            // post-send record write fails. Stands in for a revoked permission or a full disk.
+            if let Ok(path) = std::env::var("FAKE_CMUX_LOCK_PROOF") {
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o444));
+                }
+                #[cfg(not(unix))]
+                {
+                    let _ = path;
+                }
+            }
             if std::env::var("FAKE_CMUX_FAIL_SEND").is_ok_and(|v| v == "1") {
                 std::process::exit(1);
             }

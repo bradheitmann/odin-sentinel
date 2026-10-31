@@ -5,9 +5,12 @@
 //! `ODIN_SAY_CMUX` overrides the binary path (default `cmux` on `PATH`). Time is not part of
 //! this trait: waits go through [`crate::clock::Clock`].
 
+use crate::clock::FakeClock;
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::process::{Command, Stdio};
+use std::rc::Rc;
+use std::time::Duration;
 
 pub trait Cmux {
     /// Raw pane text for `surface:<id>` (empty on failure).
@@ -77,6 +80,8 @@ pub struct StubCmux {
     last: RefCell<String>,
     pub ok: bool,
     pub calls: RefCell<Vec<Call>>,
+    /// When set, every read advances this fake clock: a read that takes time.
+    read_cost: Option<(Rc<FakeClock>, Duration)>,
 }
 
 impl StubCmux {
@@ -86,7 +91,16 @@ impl StubCmux {
             last: RefCell::new(String::new()),
             ok: true,
             calls: RefCell::new(Vec::new()),
+            read_cost: None,
         }
+    }
+
+    /// Model a pane read that takes wall time: each `read_screen` advances `clock` by
+    /// `cost` without recording a sleep. Used to prove the wait budget measures wall time,
+    /// not sleep time.
+    pub fn with_read_cost(mut self, clock: Rc<FakeClock>, cost: Duration) -> Self {
+        self.read_cost = Some((clock, cost));
+        self
     }
 
     pub fn failing(mut self) -> Self {
@@ -128,6 +142,9 @@ impl Cmux for StubCmux {
             .push(Call::ReadScreen(surface.into()));
         if let Some(next) = self.screens.borrow_mut().pop_front() {
             *self.last.borrow_mut() = next;
+        }
+        if let Some((clock, cost)) = &self.read_cost {
+            clock.advance(*cost);
         }
         self.last.borrow().clone()
     }
