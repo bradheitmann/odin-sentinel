@@ -1,0 +1,7 @@
+{
+  "base_commit": "1725cab0f18f9881d471bac4d42a9f5f19cd3fc0",
+  "brief_sha256": null,
+  "done_sha256": "cccd6c0586b658df98aabea34b6271759bab90841141e5edc7a5ef0b42495f6a",
+  "schema_version": "charter.dispatch/1",
+  "slice": "registry-lock-budget"
+}
