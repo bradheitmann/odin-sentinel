@@ -1,7 +1,9 @@
 {
+  "accepted_unix_ms": 1793427793,
   "base_commit": "ab28b7dd9b53123d3136ececfcc4b31bf8519ac8",
   "brief_sha256": null,
   "done_sha256": "ce62fdc416638ea96bb599d9f207879e87ac6e78d9a01ad186a7ecc3f50ba106",
   "schema_version": "charter.dispatch/1",
-  "slice": "ci-action-pins"
+  "slice": "ci-action-pins",
+  "state": "accepted"
 }
