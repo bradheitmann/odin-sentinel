@@ -21,12 +21,16 @@
  * Contention strategy (single-writer mutual exclusion): writers serialize on
  * an mkdir-based lock directory (<scope>/events.lock/). mkdir is atomic on
  * POSIX and NTFS, so exactly one writer holds the lock at a time, including
- * across processes. Contenders retry with a short backoff up to
- * maxLockAttempts, then fail closed with a named lock_unavailable rejection
- * (never a silent drop, never a lock steal). The single-line O_APPEND write
- * is defense in depth beneath the lock. A process that dies mid-append can
- * leave a stale lock directory; that is an operator-visible halt condition,
- * not an auto-recovery path — remove the stale lock deliberately.
+ * across processes. Contenders wait under a WALL-CLOCK budget with capped
+ * exponential backoff and jitter (start 5 ms, double to a 200 ms cap, default
+ * budget 10 000 ms), then fail closed with a named lock_unavailable rejection
+ * naming the attempts made and the elapsed milliseconds (never a silent drop,
+ * never a lock steal). A fixed attempt count is still available: callers that
+ * pass maxLockAttempts and/or lockRetryMs get exactly that legacy fixed
+ * interval and attempt count. The single-line O_APPEND write is defense in
+ * depth beneath the lock. A process that dies mid-append can leave a stale
+ * lock directory; that is an operator-visible halt condition, not an
+ * auto-recovery path — remove the stale lock deliberately.
  */
 import { appendFileSync, existsSync, mkdirSync, readFileSync, rmdirSync } from "node:fs";
 import { join } from "node:path";
@@ -105,10 +109,16 @@ export interface RegistryEventQuery {
 }
 
 export interface RegistryLockOptions {
-  /** Lock acquisition attempts before a named lock_unavailable rejection. */
+  /** Lock acquisition attempts before a named lock_unavailable rejection (fixed-attempt mode). */
   maxLockAttempts?: number;
-  /** Backoff between lock attempts, milliseconds. */
+  /** Backoff between lock attempts, milliseconds (fixed-attempt mode). */
   lockRetryMs?: number;
+  /**
+   * Wall-clock lock budget in milliseconds for the default backoff mode.
+   * Ignored when maxLockAttempts or lockRetryMs is given, because those
+   * options pin the legacy fixed attempt count and interval.
+   */
+  lockBudgetMs?: number;
 }
 
 /**
@@ -122,6 +132,11 @@ export interface RegistryAppendOptions extends RegistryLockOptions {
 
 const DEFAULT_MAX_LOCK_ATTEMPTS = 50;
 const DEFAULT_LOCK_RETRY_MS = 10;
+/** Default wall-clock budget for the backoff mode (owner rule: controls stay, generous defaults). */
+export const DEFAULT_LOCK_BUDGET_MS = 10_000;
+/** Backoff starts here and doubles per failed attempt, capped at DEFAULT_LOCK_BACKOFF_MAX_MS. */
+const DEFAULT_LOCK_BACKOFF_INITIAL_MS = 5;
+const DEFAULT_LOCK_BACKOFF_MAX_MS = 200;
 
 const GOVDISP_EVENT_CLASS_SET = new Set<string>(GOVDISP_EVENT_CLASSES);
 const GOVDISP_EVENT_TYPE_SET = new Set<string>([
@@ -240,6 +255,78 @@ function isEexists(error: unknown): boolean {
 }
 
 /**
+ * Acquire the mkdir lock. Two modes, both fail-closed:
+ *
+ * - Fixed-attempt mode (maxLockAttempts and/or lockRetryMs given): exactly the
+ *   legacy behaviour — maxLockAttempts mkdir attempts at a fixed lockRetryMs
+ *   interval. This keeps every caller that pins its own numbers unchanged.
+ * - Default backoff mode: mkdir attempts under a wall-clock budget with capped
+ *   exponential backoff (5 ms doubling to a 200 ms cap) and jitter, so a
+ *   legitimate writer outlasting a busy peer waits instead of starving. The
+ *   budget defaults to DEFAULT_LOCK_BUDGET_MS and is overridable per call.
+ *
+ * Returns the attempts made and the elapsed milliseconds so the caller's named
+ * rejection can state the real cost, and never reports locked:true without the
+ * directory actually created. Unexpected fs errors (not EEXIST) propagate.
+ */
+export interface RegistryLockAcquisition {
+  locked: boolean;
+  attempts: number;
+  elapsedMs: number;
+}
+
+export function acquireRegistryLock(
+  lockDir: string,
+  fsMkdir: typeof mkdirSync,
+  options: RegistryLockOptions = {}
+): RegistryLockAcquisition {
+  const startedAt = Date.now();
+  let attempts = 0;
+  const fixedAttempts = options.maxLockAttempts !== undefined && options.maxLockAttempts !== null;
+  const fixedRetry = options.lockRetryMs !== undefined && options.lockRetryMs !== null;
+
+  if (fixedAttempts || fixedRetry) {
+    const maxAttempts = Math.max(1, options.maxLockAttempts ?? DEFAULT_MAX_LOCK_ATTEMPTS);
+    const retryMs = Math.max(0, options.lockRetryMs ?? DEFAULT_LOCK_RETRY_MS);
+    let locked = false;
+    while (attempts < maxAttempts) {
+      attempts += 1;
+      try {
+        fsMkdir(lockDir);
+        locked = true;
+        break;
+      } catch (error) {
+        if (!isEexists(error)) throw error;
+        if (attempts < maxAttempts) sleepSync(retryMs);
+      }
+    }
+    return { locked, attempts, elapsedMs: Date.now() - startedAt };
+  }
+
+  const budgetMs = Math.max(0, options.lockBudgetMs ?? DEFAULT_LOCK_BUDGET_MS);
+  let delayMs = DEFAULT_LOCK_BACKOFF_INITIAL_MS;
+  let locked = false;
+  for (;;) {
+    attempts += 1;
+    try {
+      fsMkdir(lockDir);
+      locked = true;
+      break;
+    } catch (error) {
+      if (!isEexists(error)) throw error;
+    }
+    const elapsed = Date.now() - startedAt;
+    if (elapsed >= budgetMs) break;
+    // Jitter down from the current delay (never up past the cap) and clamp to
+    // the remaining budget so the wall-clock promise holds.
+    const jittered = Math.round(delayMs * (0.5 + Math.random() * 0.5));
+    sleepSync(Math.max(0, Math.min(jittered, budgetMs - elapsed)));
+    delayMs = Math.min(DEFAULT_LOCK_BACKOFF_MAX_MS, delayMs * 2);
+  }
+  return { locked, attempts, elapsedMs: Date.now() - startedAt };
+}
+
+/**
  * Append one event to the registry log for the given scope.
  *
  * Choke point (must pass before ANY mkdir/append):
@@ -295,22 +382,10 @@ export function appendRegistryEvent(
   const dir = join(base, scope);
   const path = join(dir, REGISTRY_EVENTS_FILENAME);
   const lockDir = join(dir, REGISTRY_LOCK_DIRNAME);
-  const maxAttempts = Math.max(1, options.maxLockAttempts ?? DEFAULT_MAX_LOCK_ATTEMPTS);
-  const retryMs = Math.max(0, options.lockRetryMs ?? DEFAULT_LOCK_RETRY_MS);
 
   fsMkdir(dir, { recursive: true });
 
-  let locked = false;
-  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    try {
-      fsMkdir(lockDir);
-      locked = true;
-      break;
-    } catch (error) {
-      if (!isEexists(error)) throw error;
-      sleepSync(retryMs);
-    }
-  }
+  const { locked, attempts, elapsedMs } = acquireRegistryLock(lockDir, fsMkdir, options);
   if (!locked) {
     return {
       ok: false,
@@ -318,7 +393,7 @@ export function appendRegistryEvent(
         field: REGISTRY_LOCK_DIRNAME,
         event_class: validation.event.event_class,
         code: "lock_unavailable",
-        detail: `registry lock ${lockDir} held by another writer after ${maxAttempts} attempt(s); failing closed instead of risking interleaved corruption`
+        detail: `registry lock ${lockDir} held by another writer after ${attempts} attempt(s) over ${elapsedMs} ms; failing closed instead of risking interleaved corruption`
       }]
     };
   }

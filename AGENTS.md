@@ -57,6 +57,14 @@ ODIN uses a simple PM/DEV/QA pattern for visible multi-agent work.
 - Do not ask the operator to paste secrets. Ask whether each harness is already
   provisioned through an account, environment, secret manager, or local config.
 
+## Engineering Standard
+
+This repository adopts the common engineering standard v0.2
+(https://github.com/bradheitmann/mister-clean/blob/5d99196/COMMON-STANDARD.md).
+Where the standard and `charter/` disagree, the charter governs until the owner
+records a decision. Open gaps against the standard are listed as obligations in
+`charter/STATE.md`, which is this repository's single current-state surface.
+
 ## Completion Report
 
 Every agent handoff should include:

@@ -1,8 +1,8 @@
 {
-  "accepted_unix_ms": 1793418368,
-  "base_commit": "26cb06410958c7e80b0de80e674413dc7b503c2f",
+  "accepted_unix_ms": 1793420904,
+  "base_commit": "b03f635ec64285360b02a3ffe9a8450edb0bd619",
   "brief_sha256": null,
-  "done_sha256": "b087121d80f98538706573509179ea6e0aaeb6a3563834f8760139a995caa1f2",
+  "done_sha256": "486916b15dd4942a843be968e87cb54494bd8d6a08c07c86dacb60e32bc3c6e4",
   "schema_version": "charter.dispatch/1",
   "slice": "slice-zero",
   "state": "accepted"
