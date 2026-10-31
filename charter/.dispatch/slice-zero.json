@@ -1,7 +1,9 @@
 {
+  "accepted_unix_ms": 1793420904,
   "base_commit": "b03f635ec64285360b02a3ffe9a8450edb0bd619",
   "brief_sha256": null,
   "done_sha256": "486916b15dd4942a843be968e87cb54494bd8d6a08c07c86dacb60e32bc3c6e4",
   "schema_version": "charter.dispatch/1",
-  "slice": "slice-zero"
+  "slice": "slice-zero",
+  "state": "accepted"
 }

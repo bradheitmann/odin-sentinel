@@ -1,16 +1,16 @@
 # State — odin-sentinel — 2026-10-31T05:00Z, written by PM-ODIN (Claude Opus 5.5)
 HEAD: bdc6aab + this acceptance record, branch fix/advisories-2026-10-31 (PR #6; carries the charter adoption of PR #5). main = 599b905 (release 0.8.0) until PR #6 merges.
 Proven (with the proof names):
-- slice-zero ACCEPTED (DONE pin b087121d). QA: OD/QA, Pi, openrouter/xiaomi/mimo-v2.6-flash, high (author Claude Opus 5.5). Receipt sha256 09bf1d87352c61bdcaebe7d0c5015a5a8235faecbc52cd56b0811b0fd11f5134.
+- slice-zero ACCEPTED (DONE pin b087121d). QA: OD/QA, Pi, openrouter/xiaomi/mimo-v2.6-flash, high (author Claude Opus 5.5). Markdown receipt sha256 09bf1d87352c61bdcaebe7d0c5015a5a8235faecbc52cd56b0811b0fd11f5134; validated JSON receipt (reveng.qa-receipt/1) sha256 f883af011ca4dc11905f971d072bcd6a3c305c6d4ace0c06916ce8be53a0b001; accepted with `charter gate slice-zero --accept --receipt` at DONE pin 486916b1, frozen 8533d25 (manifest 2c216de2).
   - slice-zero-live (G1): `charter/slice-zero.sh` prints `delivered_valid=true refused_valid=false` and `slice-zero: GREEN`; mutant prints `refused_valid=true` and exits 1. Reopened by QA in a fresh clone.
   - contract-green: `charter check` prints `charter: ok`; blank-INTENT mutant refused. Reopened by QA.
   - public-surface-clean (G3): `pnpm run audit:public` PASS; home-path mutant fails. Reopened by QA.
-- advisories-2026-10-31 ACCEPTED (DONE pin 9b9a9584). QA: same seat, different family from the author (Claude Opus 5.5). Receipt sha256 ddf0398089dbad1c068c8c797b5d9c99dde22c571bdd797462d833fe1888e6e6.
+- advisories-2026-10-31 ACCEPTED (DONE pin 9b9a9584). QA: same seat, different family from the author (Claude Opus 5.5). Markdown receipt sha256 ddf0398089dbad1c068c8c797b5d9c99dde22c571bdd797462d833fe1888e6e6; validated JSON receipt sha256 0d81a4499eca8c3efd4e3b98cb2e47f0a037078afe85828ddec1b9fe93775512; accepted with `--receipt` at DONE pin 3bd34d31, frozen 8533d25.
   - advisories-cleared: `pnpm run audit:deps` PASS, 0 unaccepted at or above high; zod 4.6.7, body-parser 2.4.0. Mutant (base dependency files) fails naming GHSA-mrhx-c7xc-m3w5 and GHSA-27r3-jxmh-p828. Reopened by QA.
   - exception-record-valid: pin-drift mutant (^2.3.0) refused. Reopened by QA.
   - ci-green: PR #6 validate and telemetry-validate pass on bdc6aab.
   - QA traced the stdio runtime: it never loads express or body-parser.
-Reopen markers: dispatch-pinned DONE lists cannot take `reopened:` lines (known Charter design gap); the reopen record is the "Reopened" lines above plus the receipt hashes.
+Reopen markers: added to both DONE lists by the Charter-sanctioned interim route (markers, re-pin, clean-clone freeze, QA re-issued JSON receipts). Receipts are kept with the team receipts outside this public repository because they cite local paths; their hashes are recorded here.
 Not proven / known gaps:
 - INTENT.md awaits owner ratification; GUARANTEES rows are `proposed`.
 - delivery-verdicts: QA FAIL on b005650 (F1), repaired at b6d435e (repair 1 of 1), awaiting QA re-verify; a second FAIL goes to the owner (S5).
