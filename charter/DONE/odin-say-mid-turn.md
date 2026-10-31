@@ -11,18 +11,23 @@ Proofs (each: name, what it guarantees, reopen step, fail-without mutant):
 1. pi-queues-mid-turn: with the stub cmux, a busy Pi pane (real capture fixture) receives the send immediately (polls = 1, waited_ms = 0), the read-back fixture shows the text in Pi's queue region, and the record is delivery / submitted true / PANE_STILL_THINKING / queued true / harness pi.
    - Reopen: `cd crates/odin-say && cargo test --locked` from a clean clone of the frozen tip.
    - Fail-without mutant: set pi's mid_turn to "refuse" in pane-rules.json; the test must go red.
+   - reopened: OD-QA-odin-say-mid-turn-1851746 27d7d1e69523e170849c0febab8779f6a176643edcf690cb1f0b0203ea808cf8
 2. unknown-and-unverified-refuse: busy panes for claude-code, codex, opencode and an unknown footer keep slice 1's bounded wait and refuse with send_refusal after the budget; none is ever typed into while busy.
    - Reopen: same cargo test.
    - Fail-without mutant: make the default policy "queue"; the test must go red.
+   - reopened: OD-QA-odin-say-mid-turn-1851746 27d7d1e69523e170849c0febab8779f6a176643edcf690cb1f0b0203ea808cf8
 3. queued-without-evidence-is-not-delivered: a Pi read-back that does not show the text queued records INPUT_BAR_ONLY, submitted true, exits non-zero, and sends exactly one Enter.
    - Reopen: same cargo test.
    - Fail-without mutant: treat any read-back after a queue send as delivered; the test must go red.
+   - reopened: OD-QA-odin-say-mid-turn-1851746 27d7d1e69523e170849c0febab8779f6a176643edcf690cb1f0b0203ea808cf8
 4. identity-recorded: harness from flag beats env beats detection; `harness_source` is written on every record; blocked panes refuse at once for every harness.
    - Reopen: same cargo test.
    - Fail-without mutant: ignore --harness; the identity test must go red.
+   - reopened: OD-QA-odin-say-mid-turn-1851746 27d7d1e69523e170849c0febab8779f6a176643edcf690cb1f0b0203ea808cf8
 5. evidence-is-real: crates/odin-say/tests/fixtures/screens/pi_busy_steer_queued.txt and pi_busy.txt are real screen captures (provenance noted in PROVENANCE.md with date and source, private paths and names replaced by placeholders), not synthesized; slice 1's 12 fixtures still classify unchanged; CI job green; the public-path grep from slice 1 stays clean.
    - Reopen: read PROVENANCE.md; `cargo test --locked`; `gh pr checks` on the PR.
    - Fail-without mutant: n/a for provenance (a QA read); slice 1 fixture regression is covered by its own tests.
+   - reopened: OD-QA-odin-say-mid-turn-1851746 27d7d1e69523e170849c0febab8779f6a176643edcf690cb1f0b0203ea808cf8
 Gates (exact commands):
 - cd crates/odin-say && cargo +1.88.0 fmt --check && cargo +1.88.0 clippy --locked --all-targets -- -D warnings && cargo +1.88.0 test --locked   (own CARGO_TARGET_DIR outside the repo, under nice)
 - pnpm run audit:public
