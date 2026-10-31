@@ -103,7 +103,7 @@ team directory is baked into the crate.
 
 | Setting | Flag | Environment | Default |
 | --- | --- | --- | --- |
-| proof log | `--proof` | `ODIN_SAY_PROOF` | `$XDG_STATE_HOME/odin/delivery-proof.jsonl`, else `~/.local/state/odin/delivery-proof.jsonl` |
+| proof log | `--proof` | `ODIN_SAY_PROOF` | `$XDG_STATE_HOME/odin/delivery-proof.jsonl`, else `$HOME/.local/state/odin/delivery-proof.jsonl` |
 | sender role | `--sender-role` | `ODIN_SAY_SENDER_ROLE` | `EXEC PM` |
 | pane rules | `--pane-rules` | `ODIN_SAY_PANE_RULES` | embedded `pane-rules.json` |
 | harness identity | `--harness` | `ODIN_SAY_HARNESS` | detected from the pane footer, else `unknown` |
