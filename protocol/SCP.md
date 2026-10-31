@@ -182,7 +182,11 @@ submitted and the target is still processing, while on a send_refusal it means t
 was busy and nothing was sent. Every result therefore gains an additive `delivery` field —
 `delivered` for an acknowledged delivery, `delivered_no_ack` for a submitted record with no
 acknowledgement yet, `not_delivered` for a valid send_refusal, and `not_proven` for an
-invalid record, a dry-run plan check, or an unknown kind.
+invalid record, a dry-run plan check, or an unknown kind. `delivery` follows the FINAL
+verdict: an invalid overall result is always `not_proven`, even when a registry authority
+reference is the reason it is invalid, and a resolved registry reference can make a record
+valid but never attests a delivery the prose did not attest. `non_delivery_reason` appears
+only on a valid send_refusal; an invalid refusal carries no such attribute.
 
 Per-harness message format. Submit semantics are NOT uniform across harnesses, and Enter
 alone does not make a delivery safe. Each harness declares a `submit_profile`:

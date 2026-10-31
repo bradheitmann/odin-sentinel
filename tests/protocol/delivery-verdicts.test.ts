@@ -1,10 +1,17 @@
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import { createServer } from "../../src/mcp/server.js";
+import { appendRegistryEvent, queryRegistryEvents } from "../../src/protocol/event-registry/index.js";
 import { validateCmuxDeliveryProof } from "../../src/protocol/index.js";
+import {
+  GOVDISP_REGISTRY_AUTHORITY_FLAG_ENV_VAR,
+  type GovdispRegistryStoreLike
+} from "../../src/protocol/governance.js";
 import { CMUX_DELIVERY_VERDICTS } from "../../src/protocol/service.js";
 
 // SLICE delivery-verdicts. Field origin 2026-10-31: a real sender log held
@@ -159,6 +166,8 @@ describe("a send_refusal cannot claim a delivery", () => {
     expect(result.invalid).toContain("submitted");
     expect(result.warnings.join("\n")).toContain("SEND_REFUSAL_CANNOT_CLAIM_DELIVERY");
     expect(result.delivery).toBe("not_proven");
+    // QA F2: a failed refusal is not a validated attribute carrier.
+    expect(result.non_delivery_reason).toBeUndefined();
   });
 
   it("rejects a DELIVERED_ACKED state on a refusal record, by name", () => {
@@ -236,6 +245,96 @@ describe("the delivery field is additive and total", () => {
   });
 });
 
+describe("registry authority x delivery: the FINAL verdict decides", () => {
+  // QA F1/F3 (repair 1): `delivery` is derived from the overall result AFTER
+  // registry adjudication. An invalid result never claims a delivery, and a
+  // registry reference can make a record valid but never attests a delivery
+  // the prose did not attest.
+  const base = mkdtempSync(join(tmpdir(), "odin-delivery-verdicts-registry-"));
+  const store: GovdispRegistryStoreLike = { appendRegistryEvent, queryRegistryEvents };
+  const registryOn = { [GOVDISP_REGISTRY_AUTHORITY_FLAG_ENV_VAR]: "1" };
+  const seeded = appendRegistryEvent(
+    "ops",
+    {
+      schema_version: "govdisp.event.v1",
+      event_id: "evt-delivery-authority-1",
+      ts: "2026-10-31T00:00:00Z",
+      stable_objective_id: "obj-delivery-verdicts",
+      event_class: "TERMINAL" as const,
+      event_type: "TERMINAL_COMPLETED" as const,
+      content_hashes: [{ path: "receipts/delivery.json", sha256: "a".repeat(64) }]
+    },
+    base
+  );
+  afterAll(() => {
+    rmSync(base, { recursive: true, force: true });
+  });
+
+  function authority(proof: Record<string, unknown>, eventId: string): Record<string, unknown> {
+    return { ...proof, registry_authority: { scope: "ops", event_id: eventId } };
+  }
+
+  it("seeded the registry authority event (precondition)", () => {
+    expect(seeded.ok).toBe(true);
+  });
+
+  it("F1: an unresolved registry reference is invalid AND delivery not_proven, never delivered", () => {
+    expect(FIELD_SAMPLES[0].observed_processing_state).toBe("DELIVERED_ACKED");
+    const result = validateCmuxDeliveryProof(authority({ ...FIELD_SAMPLES[0] }, "evt-delivery-missing"), {
+      store,
+      base,
+      env: registryOn
+    });
+    expect(result.valid).toBe(false);
+    expect(result.invalid).toContain("registry_authority");
+    expect(result.delivery).toBe("not_proven");
+    expect(result.warnings.join("\n")).toContain("registry_authority_unresolved");
+  });
+
+  it("F3: a resolved registry reference over prose-invalid is valid with delivery not_proven", () => {
+    const result = validateCmuxDeliveryProof(authority({ ...FIELD_SAMPLES[4] }, "evt-delivery-authority-1"), {
+      store,
+      base,
+      env: registryOn
+    });
+    expect(FIELD_SAMPLES[4].submitted).toBe(false);
+    expect(result.valid).toBe(true);
+    expect(result.authority).toBe("registry");
+    expect(result.delivery).toBe("not_proven");
+    expect(result.non_delivery_reason).toBeUndefined();
+  });
+
+  it("a resolved registry reference over DELIVERED_ACKED keeps delivery delivered", () => {
+    const result = validateCmuxDeliveryProof(authority({ ...FIELD_SAMPLES[0] }, "evt-delivery-authority-1"), {
+      store,
+      base,
+      env: registryOn
+    });
+    expect(result.valid).toBe(true);
+    expect(result.delivery).toBe("delivered");
+  });
+
+  it("a resolved registry reference over a valid send_refusal keeps delivery not_delivered", () => {
+    const refusal = authority(asSendRefusal(FIELD_SAMPLES[5]), "evt-delivery-authority-1");
+    const result = validateCmuxDeliveryProof(refusal, { store, base, env: registryOn });
+    expect(result.valid).toBe(true);
+    expect(result.delivery).toBe("not_delivered");
+    expect(result.non_delivery_reason).toBe("INPUT_BAR_ONLY");
+  });
+
+  it("F2: an invalid send_refusal carries no non_delivery_reason", () => {
+    const submittedTrue = validateCmuxDeliveryProof(asSendRefusal(FIELD_SAMPLES[4], { submitted: true }));
+    expect(submittedTrue.valid).toBe(false);
+    expect(submittedTrue.non_delivery_reason).toBeUndefined();
+
+    const { submitted: _dropped, ...withoutSubmitted } = FIELD_SAMPLES[4];
+    const missingSubmitted = validateCmuxDeliveryProof({ ...withoutSubmitted, record_kind: "send_refusal" });
+    expect(missingSubmitted.valid).toBe(false);
+    expect(missingSubmitted.missing).toContain("submitted");
+    expect(missingSubmitted.non_delivery_reason).toBeUndefined();
+  });
+});
+
 describe("delivery survives the MCP boundary", () => {
   async function connectClient() {
     const server = createServer();
@@ -282,6 +381,22 @@ describe("delivery survives the MCP boundary", () => {
       );
       expect(invalid.valid).toBe(false);
       expect(invalid.delivery).toBe("not_proven");
+
+      // QA F1 through the real MCP boundary: a default-configuration registry
+      // reference that does not resolve must not carry a delivery claim.
+      const unresolvedRegistry = parseTextResult(
+        await client.callTool({
+          name: "odin.validate_cmux_delivery_proof",
+          arguments: {
+            proof: {
+              ...FIELD_SAMPLES[0],
+              registry_authority: { scope: "ops", event_id: "evt-delivery-missing" }
+            }
+          }
+        })
+      );
+      expect(unresolvedRegistry.valid).toBe(false);
+      expect(unresolvedRegistry.delivery).toBe("not_proven");
     } finally {
       await client.close();
       await server.close();

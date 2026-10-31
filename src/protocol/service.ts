@@ -1041,8 +1041,10 @@ function validateCmuxSendRefusalProse(proof: Record<string, unknown>): CmuxDeliv
   }
 
   const result = buildValidationResult(missing, invalid, warnings);
+  // non_delivery_reason annotates a VALIDATED refusal only: on an invalid
+  // refusal it would read as a validated attribute of a record that failed.
   const reason =
-    state !== undefined && (CMUX_SEND_REFUSAL_STATES as readonly string[]).includes(state)
+    result.valid && state !== undefined && (CMUX_SEND_REFUSAL_STATES as readonly string[]).includes(state)
       ? { non_delivery_reason: state }
       : {};
   return { ...result, delivery: result.valid ? "not_delivered" : "not_proven", ...reason };
@@ -1077,17 +1079,25 @@ export function validateCmuxDeliveryProof(
   proof: Record<string, unknown>,
   options: RegistryAuthorityOptions = {}
 ): CmuxDeliveryValidationResult {
-  // The `delivery` verdict describes the proof record itself, so it is derived
-  // from the prose record even when a registry reference is the single
-  // authority for validity (GD-FP-013): registry authority never invents an
-  // acknowledgement the record does not carry.
+  // The `delivery` verdict is derived from the FINAL overall result, after
+  // registry adjudication: an invalid result never claims a delivery, and a
+  // registry reference can make a record valid but never attests a delivery
+  // the prose did not attest (GD-FP-013). So:
+  //   overall invalid (any reason, incl. an unresolved registry reference)
+  //     -> not_proven, always.
+  //   overall valid -> the prose verdict (delivered / delivered_no_ack /
+  //     not_delivered), and not_proven when the prose itself proved nothing
+  //     (registry-resolved over prose-invalid, or a dry-run plan check).
   const prose = validateCmuxDeliveryProofProse(proof);
   const adjudicated = adjudicateRegistryAuthority("cmux_delivery_proof", proof, options);
   const base = adjudicated !== null ? adjudicated : withProseTransportAdvisory(prose, options);
+  const delivery = base.valid ? prose.delivery : "not_proven";
   return {
     ...base,
-    delivery: prose.delivery,
-    ...(prose.non_delivery_reason !== undefined ? { non_delivery_reason: prose.non_delivery_reason } : {})
+    delivery,
+    ...(base.valid && delivery === "not_delivered" && prose.non_delivery_reason !== undefined
+      ? { non_delivery_reason: prose.non_delivery_reason }
+      : {})
   };
 }
 

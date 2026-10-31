@@ -174,8 +174,8 @@
     },
     {
       "path": "protocol/SCP.md",
-      "bytes": 39288,
-      "sha256": "b59235c99203192a176188374e88d125f3eb4f9d430e15f3cd4a0270aaa08b55"
+      "bytes": 39665,
+      "sha256": "c1e15673b5d975a30f8a71d505f99f796854e1fac8602954f53ceb80c1a551ae"
     },
     {
       "path": "protocol/skill-references/boot-receipt-examples.md",
@@ -264,8 +264,8 @@
     },
     {
       "path": "src/protocol/service.ts",
-      "bytes": 196319,
-      "sha256": "c17fcb3a0bee0f893ac1eb63d012a47467259bb1b8629e4d4f6fd34abd2f9217"
+      "bytes": 196925,
+      "sha256": "c740e5d0d6d8a7901c7a71bbf3a493c674cca539aba12e5cb27abc07a6caf12c"
     },
     {
       "path": "src/protocol/surface-layout.ts",
