@@ -861,6 +861,44 @@ export const CMUX_DELIVERY_STATES = [
   "PANE_STILL_THINKING"
 ] as const;
 
+/**
+ * SLICE delivery-verdicts: the additive delivery verdict every CMUX delivery
+ * proof result carries. The legacy `valid` verdict is unchanged; `delivery`
+ * names what the record itself attests:
+ *   delivered       — submitted with an observed acknowledgement (DELIVERED_ACKED)
+ *   delivered_no_ack — submitted and observed processing, but no acknowledgement yet
+ *   not_delivered   — a typed pre-send refusal (record_kind "send_refusal")
+ *   not_proven      — the record does not establish delivery (invalid, dry-run, unknown kind)
+ */
+export const CMUX_DELIVERY_VERDICTS = [
+  "delivered",
+  "delivered_no_ack",
+  "not_delivered",
+  "not_proven"
+] as const;
+
+export type CmuxDeliveryVerdict = (typeof CMUX_DELIVERY_VERDICTS)[number];
+
+export type CmuxDeliveryValidationResult = RegistryModeValidationResult & {
+  delivery: CmuxDeliveryVerdict;
+  non_delivery_reason?: string;
+};
+
+type CmuxDeliveryProseResult = ValidationResult & {
+  delivery: CmuxDeliveryVerdict;
+  non_delivery_reason?: string;
+};
+
+/** Optional proof kinds: absent or "delivery" is a post-send record; "send_refusal" is a typed pre-send non-delivery record. */
+const CMUX_RECORD_KINDS = ["delivery", "send_refusal"] as const;
+
+/** States a send_refusal may legitimately carry — the pane could not take the message. */
+const CMUX_SEND_REFUSAL_STATES = [
+  "PANE_STILL_THINKING",
+  "PANE_BLOCKED_ON_PERMISSION",
+  "INPUT_BAR_ONLY"
+] as const;
+
 const CMUX_DELIVERY_PROOF_FIELDS = [
   "target_surface_locator",
   "submitted",
@@ -878,8 +916,19 @@ const ACTIVATION_GATE_ROLE_WORK = ["implementation", "QA acceptance", "ACTIVE_WA
  * Validate a CMUX delivery proof. CMUX dispatch is not delivered until the sender submits
  * with Enter and verifies processing on the target surface; text left in an input bar is
  * INPUT_BAR_ONLY, not delivery. A submitted=false proof or an INPUT_BAR_ONLY state fails.
+ * record_kind "send_refusal" selects the typed pre-send refusal branch instead, and every
+ * result carries the additive `delivery` verdict.
  */
-function validateCmuxDeliveryProofProse(proof: Record<string, unknown>): ValidationResult {
+function validateCmuxDeliveryProofProse(proof: Record<string, unknown>): CmuxDeliveryProseResult {
+  const rawRecordKind = proof.record_kind;
+  const recordKindKnown =
+    rawRecordKind === undefined ||
+    rawRecordKind === null ||
+    (typeof rawRecordKind === "string" && (CMUX_RECORD_KINDS as readonly string[]).includes(rawRecordKind));
+  if (rawRecordKind === "send_refusal") {
+    return validateCmuxSendRefusalProse(proof);
+  }
+
   const dryRun = proof.dry_run === true;
   // A pre-dispatch dry-run validates the PLAN (payload/format compatibility)
   // before anything is sent, so submission/processing fields are not yet due.
@@ -941,7 +990,76 @@ function validateCmuxDeliveryProofProse(proof: Record<string, unknown>): Validat
     warnings.push("Delivered; target is still processing. Revisit to confirm completion.");
   }
 
-  return buildValidationResult(missing, invalid, warnings);
+  if (!recordKindKnown) {
+    invalid.push("record_kind");
+    warnings.push(
+      `record_kind must be one of: ${CMUX_RECORD_KINDS.join(", ")} (omit it, or use "delivery", for a post-send delivery record; "send_refusal" for a typed pre-send refusal)`
+    );
+  }
+
+  const result = buildValidationResult(missing, invalid, warnings);
+  return { ...result, delivery: deliveryVerdictFor(result, proof) };
+}
+
+/**
+ * A typed pre-send refusal: the sender tried, the pane refused, nothing was
+ * delivered. It validates as a RECORD (valid=true) but never as a delivery, so
+ * the verdict is `not_delivered` and the observed state travels as
+ * `non_delivery_reason`. A refusal that claims submission or a DELIVERED_*
+ * state is rejected by name — a refusal record cannot attest a delivery.
+ */
+function validateCmuxSendRefusalProse(proof: Record<string, unknown>): CmuxDeliveryProseResult {
+  const missing = validateRequiredFields(proof, CMUX_DELIVERY_PROOF_FIELDS);
+  const invalid = validateFieldTypes(proof, {
+    target_surface_locator: "string",
+    verification_method: "string",
+    observed_processing_state: "string",
+    timestamp: "string",
+    sender_role: "string"
+  });
+  const warnings: string[] = [];
+
+  const state = typeof proof.observed_processing_state === "string" ? proof.observed_processing_state : undefined;
+  if (state !== undefined && !(CMUX_DELIVERY_STATES as readonly string[]).includes(state)) {
+    invalid.push("observed_processing_state");
+    warnings.push(`observed_processing_state must be one of: ${CMUX_DELIVERY_STATES.join(", ")}`);
+  } else if (state !== undefined && !(CMUX_SEND_REFUSAL_STATES as readonly string[]).includes(state)) {
+    invalid.push("observed_processing_state");
+    warnings.push(
+      `SEND_REFUSAL_CANNOT_CLAIM_DELIVERY: record_kind "send_refusal" records a pre-send refusal (${CMUX_SEND_REFUSAL_STATES.join(", ")}); ${state} attests a delivery and must be logged without record_kind, or with record_kind "delivery".`
+    );
+  }
+
+  if (proof.submitted !== undefined && typeof proof.submitted !== "boolean") {
+    invalid.push("submitted");
+  }
+  if (proof.submitted === true) {
+    invalid.push("submitted");
+    warnings.push(
+      "SEND_REFUSAL_CANNOT_CLAIM_DELIVERY: record_kind \"send_refusal\" is a pre-send record; submitted=true attests a delivery and must be logged as a delivery record."
+    );
+  }
+
+  const result = buildValidationResult(missing, invalid, warnings);
+  const reason =
+    state !== undefined && (CMUX_SEND_REFUSAL_STATES as readonly string[]).includes(state)
+      ? { non_delivery_reason: state }
+      : {};
+  return { ...result, delivery: result.valid ? "not_delivered" : "not_proven", ...reason };
+}
+
+/**
+ * The additive delivery verdict for a non-refusal record: only a valid record
+ * proves anything, a dry-run proves nothing, and a submitted record with an
+ * observed state but no acknowledgement is delivered_no_ack.
+ */
+function deliveryVerdictFor(result: ValidationResult, proof: Record<string, unknown>): CmuxDeliveryVerdict {
+  if (!result.valid) return "not_proven";
+  if (proof.dry_run === true) return "not_proven";
+  const state = typeof proof.observed_processing_state === "string" ? proof.observed_processing_state : undefined;
+  if (state === "DELIVERED_ACKED") return "delivered";
+  if (state !== undefined && (CMUX_DELIVERY_STATES as readonly string[]).includes(state)) return "delivered_no_ack";
+  return "not_proven";
 }
 
 /**
@@ -958,10 +1076,19 @@ function validateCmuxDeliveryProofProse(proof: Record<string, unknown>): Validat
 export function validateCmuxDeliveryProof(
   proof: Record<string, unknown>,
   options: RegistryAuthorityOptions = {}
-): RegistryModeValidationResult {
+): CmuxDeliveryValidationResult {
+  // The `delivery` verdict describes the proof record itself, so it is derived
+  // from the prose record even when a registry reference is the single
+  // authority for validity (GD-FP-013): registry authority never invents an
+  // acknowledgement the record does not carry.
+  const prose = validateCmuxDeliveryProofProse(proof);
   const adjudicated = adjudicateRegistryAuthority("cmux_delivery_proof", proof, options);
-  if (adjudicated !== null) return adjudicated;
-  return withProseTransportAdvisory(validateCmuxDeliveryProofProse(proof), options);
+  const base = adjudicated !== null ? adjudicated : withProseTransportAdvisory(prose, options);
+  return {
+    ...base,
+    delivery: prose.delivery,
+    ...(prose.non_delivery_reason !== undefined ? { non_delivery_reason: prose.non_delivery_reason } : {})
+  };
 }
 
 /**

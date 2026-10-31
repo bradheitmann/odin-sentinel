@@ -167,6 +167,23 @@ with Enter and verifies processing on the target surface. Text sitting in an inp
 `submitted`, `verification_method`, `observed_processing_state`, `timestamp`, and
 `sender_role`. Validate it with `odin.validate_cmux_delivery_proof`.
 
+Send refusals are records, not deliveries. A sender that tried to dispatch and could not —
+the pane was busy, blocked on a permission prompt, or the text was stranded in the input
+bar — logs the attempt with `record_kind: "send_refusal"` instead of pretending it was a
+delivery. A refusal is valid only with `submitted: false` and an `observed_processing_state`
+of `PANE_STILL_THINKING`, `PANE_BLOCKED_ON_PERMISSION` or `INPUT_BAR_ONLY`; it validates as
+a record and is reported as `delivery: "not_delivered"`, carrying the observed state in
+`non_delivery_reason`. A refusal record that claims `submitted: true` or a `DELIVERED_*`
+state is rejected by name (`SEND_REFUSAL_CANNOT_CLAIM_DELIVERY`), and an unknown
+`record_kind` value is invalid. Omitting `record_kind`, or setting it to `"delivery"`,
+keeps the original post-send verdict byte-for-byte. The same state name carries opposite
+meanings by kind: on a delivery record `PANE_STILL_THINKING` means the message was
+submitted and the target is still processing, while on a send_refusal it means the pane
+was busy and nothing was sent. Every result therefore gains an additive `delivery` field —
+`delivered` for an acknowledged delivery, `delivered_no_ack` for a submitted record with no
+acknowledgement yet, `not_delivered` for a valid send_refusal, and `not_proven` for an
+invalid record, a dry-run plan check, or an unknown kind.
+
 Per-harness message format. Submit semantics are NOT uniform across harnesses, and Enter
 alone does not make a delivery safe. Each harness declares a `submit_profile`:
 `single_line_flatten` (submits on EVERY embedded newline — compose the message as ONE
