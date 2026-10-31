@@ -1,0 +1,7 @@
+{
+  "base_commit": "f82fce68c0e2aeff993b858909f404a42d9d8ff9",
+  "brief_sha256": null,
+  "done_sha256": "447a00316425555e43f7c64b22adb2bac357c9f1870713e1de66e1ef55377531",
+  "schema_version": "charter.dispatch/1",
+  "slice": "odin-say-mid-turn"
+}
