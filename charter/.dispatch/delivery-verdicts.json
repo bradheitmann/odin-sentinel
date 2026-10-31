@@ -1,0 +1,7 @@
+{
+  "base_commit": "602f1e3e3f112f273549ad6cc3e702a31f7993a1",
+  "brief_sha256": null,
+  "done_sha256": "00fd474d4fdeedd891d0f4340d58eb59328c5944459c2fd37b1f3d785d8e5d68",
+  "schema_version": "charter.dispatch/1",
+  "slice": "delivery-verdicts"
+}
