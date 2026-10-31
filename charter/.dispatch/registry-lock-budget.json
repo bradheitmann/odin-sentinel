@@ -1,7 +1,9 @@
 {
+  "accepted_unix_ms": 1793424297,
   "base_commit": "1d2b7214c9d127582ad9c7862a7a3a744b075f59",
   "brief_sha256": null,
   "done_sha256": "ebb4a9fd0e791be33fd65cff6e05bffe2c07a97c66121f3a6406409f114844fb",
   "schema_version": "charter.dispatch/1",
-  "slice": "registry-lock-budget"
+  "slice": "registry-lock-budget",
+  "state": "accepted"
 }
