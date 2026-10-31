@@ -1,7 +1,7 @@
 {
-  "base_commit": "de39c77c8281dfd0905b5a93cc200ab95d400363",
+  "base_commit": "27d065d3a23326869c7003c42595fa2648b8349d",
   "brief_sha256": null,
-  "done_sha256": "0c08ef20f0eba34c78fd1b3eff4ad2aa8280556d95749166ee280deb48d78ea5",
+  "done_sha256": "ebdad2f9e84b9dd9a5a44788e14f827400e82ca56469d70818702ecd16a818fa",
   "schema_version": "charter.dispatch/1",
   "slice": "odin-say"
 }

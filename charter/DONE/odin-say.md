@@ -14,18 +14,23 @@ Proofs (each: name, what it guarantees, reopen step, fail-without mutant):
 1. screens-classify: every one of the export's 11 screen fixtures classifies exactly as in the export's say_screens tests (ported), and a new synthesized fixture crates/odin-say/tests/fixtures/screens/opencode_thinking_scrollback.txt (an idle OpenCode pane whose scrollback contains a "Thinking:" line above an idle prompt) classifies idle.
    - Reopen: `cd crates/odin-say && cargo test --locked` from a clean clone of the frozen tip.
    - Fail-without mutant: restore "match busy patterns anywhere in the last 14 lines"; the new fixture test must go red.
+   - reopened: OD-QA-odin-say-27d065d 9ab29f69883bc78368301f1b9e4e2c749dc6fedcc1f14ab368f94d2b30af243e
 2. bounded-wait: with the stub cmux, a pane busy for 2 polls then idle is delivered (DELIVERED_*, record_kind delivery, polls=3); a pane busy past --wait-secs is refused as PANE_STILL_THINKING with record_kind send_refusal, submitted=false, waited_ms >= the budget; a blocked pane refuses at once (polls=1).
    - Reopen: same cargo test command.
    - Fail-without mutant: set the wait budget to 0 internally; the busy-then-idle test must go red.
+   - reopened: OD-QA-odin-say-27d065d 9ab29f69883bc78368301f1b9e4e2c749dc6fedcc1f14ab368f94d2b30af243e
 3. proof-records: each written JSONL record parses, carries record_kind and the six legacy fields with the right types, and the log path / sender role / cmux binary come from flag, then env, then the cloud-friendly default (tested with temp dirs and env overrides; no home path baked in).
    - Reopen: same cargo test command.
    - Fail-without mutant: drop record_kind from refusal records; the proof-record test must go red.
+   - reopened: OD-QA-odin-say-27d065d 9ab29f69883bc78368301f1b9e4e2c749dc6fedcc1f14ab368f94d2b30af243e
 4. end-to-end-fake: the real `odin-say` binary against the fake cmux executable (examples/fake_cmux.rs ported) delivers to an idle pane (exit 0) and refuses a blocked pane (non-zero exit), writing one proof record each.
    - Reopen: same cargo test command (tests/cli.rs).
    - Fail-without mutant: make the binary exit 0 on refusal; the CLI test must go red.
+   - reopened: OD-QA-odin-say-27d065d 9ab29f69883bc78368301f1b9e4e2c749dc6fedcc1f14ab368f94d2b30af243e
 5. public-clean-and-ci: `grep -rniE '/User[s]/|bradheitman[n]|superpower[s]|open_protoco[l]s|reveng' crates/odin-say` finds nothing except the PROVENANCE.md source name line; `pnpm run audit:public` PASS; the new CI job passes on the PR.
    - Reopen: run the grep and `gh pr checks` on the PR carrying the tip.
    - Fail-without mutant: plant a home path in crates/odin-say/README.md; the grep must catch it.
+   - reopened: OD-QA-odin-say-27d065d 9ab29f69883bc78368301f1b9e4e2c749dc6fedcc1f14ab368f94d2b30af243e
 Gates (exact commands):
 - cd crates/odin-say && cargo +<pinned> fmt --check && cargo +<pinned> clippy --locked --all-targets -- -D warnings && cargo +<pinned> test --locked   (use a CARGO_TARGET_DIR outside the repo; run under nice)
 - pnpm run audit:public
