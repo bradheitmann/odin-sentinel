@@ -1,5 +1,5 @@
-# State — odin-sentinel — 2026-10-31T05:15Z, written by PM-ODIN (Claude Opus 5.5)
-HEAD: main 2f7ca70 (PR #6 merged: charter adoption + advisory fix); this update on branch docs/common-standard-adoption.
+# State — odin-sentinel — 2026-10-31T06:00Z, written by PM-ODIN (Claude Opus 5.5)
+HEAD: main 4814075 (PRs #6, #8, #9, #10 merged); this update on branch docs/state-refresh-1.
 Proven (with the proof names):
 - slice-zero ACCEPTED (DONE pin b087121d). QA: OD/QA, Pi, openrouter/xiaomi/mimo-v2.6-flash, high (author Claude Opus 5.5). Markdown receipt sha256 09bf1d87352c61bdcaebe7d0c5015a5a8235faecbc52cd56b0811b0fd11f5134; validated JSON receipt (reveng.qa-receipt/1) sha256 f883af011ca4dc11905f971d072bcd6a3c305c6d4ace0c06916ce8be53a0b001; accepted with `charter gate slice-zero --accept --receipt` at DONE pin 486916b1, frozen 8533d25 (manifest 2c216de2).
   - slice-zero-live (G1): `charter/slice-zero.sh` prints `delivered_valid=true refused_valid=false` and `slice-zero: GREEN`; mutant prints `refused_valid=true` and exits 1. Reopened by QA in a fresh clone.
@@ -10,41 +10,46 @@ Proven (with the proof names):
   - exception-record-valid: pin-drift mutant (^2.3.0) refused. Reopened by QA.
   - ci-green: PR #6 validate and telemetry-validate pass on bdc6aab.
   - QA traced the stdio runtime: it never loads express or body-parser.
-Reopen markers: added to both DONE lists by the Charter-sanctioned interim route (markers, re-pin, clean-clone freeze, QA re-issued JSON receipts). Receipts are kept with the team receipts outside this public repository because they cite local paths; their hashes are recorded here.
+- delivery-verdicts ACCEPTED (DONE pin 9fae6131), landed on main 27d9193 (PR #9). QA FAIL on b005650 (F1 high: an invalid registry result reported `delivered`), repair 1 of 1, QA PASS on b6d435e (32-case sweep, 5 mutants red). Markdown receipt sha256 91723abb9e93599c455192169da475a38169f8800b1f6ca9e1faa2a782d9bb6f; validated JSON receipt sha256 2851ec179226b75eed32f45ad7fe1b8fb097c3be625494a4bbdc513354f91e6e; frozen f3cb5ba (manifest 48e335b1).
+- registry-lock-budget ACCEPTED (DONE pin ebb4a9fd), landed on main 4814075 (PR #10). Contention test 20/20; the old default fails within 20 runs. QA PASS on 1d2b721. Markdown receipt sha256 b50e560f668cefd1acf696fc485e79d84acc2a05e72404d14e214481373254d1; validated JSON receipt sha256 c225c4de4e822a1257e6dd1a077932d49f816b461237467095cbd81af799382f; frozen b66af6d (manifest 2dff64f0).
+Reopen markers: every accepted DONE list carries `reopened:` markers added by the Charter-sanctioned interim route (markers, re-pin, clean-clone freeze, QA re-issued JSON receipt, `gate --accept --receipt`). Receipts are kept with the team receipts outside this public repository because they cite local paths; their hashes are recorded here.
 Not proven / known gaps:
 - INTENT.md awaits owner ratification; GUARANTEES rows are `proposed`.
-- delivery-verdicts: QA FAIL on b005650 (F1), repaired at b6d435e (repair 1 of 1), awaiting QA re-verify; a second FAIL goes to the owner (S5).
-- registry-lock-budget: DEV done 1d2b721 (contention test 20/20), awaiting QA.
-- public-roots-charter: DEV done caee0fb (charter/ in the public audit), awaiting QA.
-- odin-say (Rust sender sidecar slice 1): DEV done 27d065d, draft PR #7, awaiting QA.
+- public-roots-charter: QA PASS on caee0fb; markers and freeze at 00202bc; awaiting QA's receipt update, then accept and land.
+- odin-say slice 1 (Rust sender sidecar): DEV done 27d065d, draft PR #7, in QA.
+- odin-say slice 2 (per-harness mid-turn policy; Pi queues steers, other harnesses refuse until a capture proves buffering): DEV done 1851746, queued for QA after slice 1.
+- ci-action-pins (CS-4): DEV done ab28b7d, queued for QA.
+- fix/sync-mcp-pins: merges clean onto 0.8.0 (merged candidate 8ad4898), never QA'd; queued.
+- Registry lock follow-up (QA F2, low): the lock wait is synchronous, so a program that injects ODIN's registry store into the MCP server can block its event loop for up to the 10 s budget. The default MCP binary injects no store (its append tool fails closed), so this affects embedders only; an asynchronous backoff or a shorter interactive budget is a later slice.
 Common engineering standard v0.2 (linked from AGENTS.md): gaps recorded as obligations, each a future bounded slice:
 - CS-1 (§1) Private paths: research notes, receipts and briefs live under a team directory, not `AGENT_PRIVATE_ROOT/<repo>/{evidence,handoffs,...}`; odin-say defaults its proof log to the XDG state directory. Move to the standard root with an override.
-- CS-2 (§1) Public-safety check covers listed roots only (crates/, tests/ and the packaged file list are not scanned as one set) and there is no secret scan of the diff before push.
+- CS-2 (§1) Public-safety check covers listed roots only (crates/ and tests/ are not scanned) and there is no secret scan of the diff before push.
 - CS-3 (§3) Existing JavaScript: 9 tracked .mjs/.js files (audit and protocol scripts) and inline `node -e` in the `clean` and `build` package scripts. Not expanded; porting to strict TypeScript is an obligation.
-- CS-4 (§5) GitHub Actions: some steps pin `actions/checkout` and `actions/setup-node` to a commit sha, others only to the `@v6` tag. Pin all to immutable references.
-- CS-5 (§6) Each verification run needs its own build output directory; QA and DEV briefs do not yet require one (cargo target dirs in particular).
-- CS-6 (§6) No repository-wide lease for heavy suites; contention shows up as timeouts (see also the swarm study's process-custody finding).
-- CS-7 (§7) CI does not run `charter check`; the charter binary is built locally from source at 4e9017c. Add a CI step at the same pin (strict once charter adopt-1 lands).
-- CS-8 (§7) Plans and work contracts: the local planning corpus uses its own slice format, not the shared v5 work-contract schema; record the schema pin (payload root + validator release) and list validation as open until a packaged validator release exists.
+- CS-4 (§5) GitHub Actions pinned to immutable references: lane ci-action-pins in QA.
+- CS-5 (§6) Each verification run uses its own build output directory: now required in every QA and DEV brief; not yet enforced by a check.
+- CS-6 (§6) No repository-wide lease for heavy suites; contention shows up as timeouts.
+- CS-7 (§7) `charter check` in CI: BLOCKED, typed reason "charter tool is private; owner decision pending" (a public repository's CI cannot fetch the pinned tool without a credential, and release assets inherit the private visibility). Local `charter check` runs at the current pin.
+- CS-8 (§7) Plans and work contracts: the local planning corpus uses its own slice format, not the shared v5 work-contract schema; record the schema pin and list validation as open until a packaged validator release exists.
 - CS-9 (§4) Two state surfaces exist: charter/STATE.md (designated here) and a hook-generated local planning status file; the latter must point to STATE.md rather than compete.
-- tests/protocol/event-registry-contention.test.ts stays intermittent on branches without registry-lock-budget.
-- charter check --strict refuses DONE/_template.md (upstream defect, charter adopt-1).
+- charter check --strict refuses DONE/_template.md at the earlier pin (upstream defect).
 Exact last-green command(s):
 - charter/slice-zero.sh
-- charter check
+- charter check (charter 6f14c0a)
 - pnpm run audit:deps
 - pnpm run audit:public
 - pnpm run typecheck
-- charter gate advisories-2026-10-31 --accept
+- charter gate registry-lock-budget --accept --receipt
 Exact last-red command(s) and why:
-- pnpm vitest run tests/protocol/event-registry-contention.test.ts: intermittent lock_unavailable (fix on fix/registry-lock-budget, not yet landed).
+- charter check on this checkout before this rewrite: "STATE.md was not rewritten after slice delivery-verdicts / registry-lock-budget was recorded accepted" (STATE lagged two landings).
 Next three bounded items (in order):
-1. QA re-verify delivery-verdicts b6d435e, then registry-lock-budget 1d2b721, public-roots-charter caee0fb and odin-say 27d065d; land each on a validated JSON receipt. Then QA of fix/sync-mcp-pins.
-2. Multi-repo swarm study (owner directive 2026-10-31): joint note v1 delivered with PM-PLANGRAPH; next the queued-delivery board trial (E3) and a re-measure at +24 h.
-3. Common-standard gaps CS-4 (action pins) and CS-7 (charter check in CI) as the first two small slices.
+1. QA: public-roots-charter receipt update, then odin-say slice 1, odin-say slice 2, ci-action-pins, fix/sync-mcp-pins; land each on a validated JSON receipt and rewrite this file after each landing.
+2. Multi-repo swarm study (owner directive 2026-10-31): queued-delivery board trial (E3) once odin-say lands; re-measure at +24 h.
+3. Common-standard gap CS-2 (crates/ and tests/ into the public-safety scan) once public-roots-charter lands.
 Open owner decisions:
 - Ratify charter/INTENT.md.
-- Owner batch via EXEC-PM: delete merged origin branches feat/capability-seams-20261019 and fix/security-review-20261019 (archive tags pushed); decide the separate Codex worktree on fix/registry-cli-store-20261020.
+- How a public repository obtains the charter tool for CI (CS-7): make the charter repository public, host binaries elsewhere, or a per-repository read token (with EXEC-PM).
+- The separate Codex worktree on fix/registry-cli-store-20261020.
 Where everything is (branches, lanes, receipts):
-- Lanes: feat/delivery-verdicts, fix/registry-lock-budget, chore/public-roots-charter, feat/odin-say, fix/sync-mcp-pins (+ integrate/sync-mcp-pins), each in its own worktree outside this checkout.
+- Lanes, each in its own worktree outside this checkout: chore/public-roots-charter, feat/odin-say, feat/odin-say-mid-turn, chore/ci-action-pins, fix/sync-mcp-pins (+ integrate/sync-mcp-pins).
+- Landed and archived (tag `archive/<branch>`): chore/charter-adoption, fix/advisories-2026-10-31, docs/common-standard-adoption, feat/delivery-verdicts, fix/registry-lock-budget, feat/capability-seams-20261019, fix/security-review-20261019.
 - PM ruling: the govdisp baseline manifest re-pin is in scope for lanes that change protocol/ or src/protocol/ (generator only, own rows only).
