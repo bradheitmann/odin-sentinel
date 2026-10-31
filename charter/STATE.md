@@ -1,5 +1,5 @@
-# State — odin-sentinel — 2026-10-31T05:00Z, written by PM-ODIN (Claude Opus 5.5)
-HEAD: bdc6aab + this acceptance record, branch fix/advisories-2026-10-31 (PR #6; carries the charter adoption of PR #5). main = 599b905 (release 0.8.0) until PR #6 merges.
+# State — odin-sentinel — 2026-10-31T05:15Z, written by PM-ODIN (Claude Opus 5.5)
+HEAD: main 2f7ca70 (PR #6 merged: charter adoption + advisory fix); this update on branch docs/common-standard-adoption.
 Proven (with the proof names):
 - slice-zero ACCEPTED (DONE pin b087121d). QA: OD/QA, Pi, openrouter/xiaomi/mimo-v2.6-flash, high (author Claude Opus 5.5). Markdown receipt sha256 09bf1d87352c61bdcaebe7d0c5015a5a8235faecbc52cd56b0811b0fd11f5134; validated JSON receipt (reveng.qa-receipt/1) sha256 f883af011ca4dc11905f971d072bcd6a3c305c6d4ace0c06916ce8be53a0b001; accepted with `charter gate slice-zero --accept --receipt` at DONE pin 486916b1, frozen 8533d25 (manifest 2c216de2).
   - slice-zero-live (G1): `charter/slice-zero.sh` prints `delivered_valid=true refused_valid=false` and `slice-zero: GREEN`; mutant prints `refused_valid=true` and exits 1. Reopened by QA in a fresh clone.
@@ -16,7 +16,17 @@ Not proven / known gaps:
 - delivery-verdicts: QA FAIL on b005650 (F1), repaired at b6d435e (repair 1 of 1), awaiting QA re-verify; a second FAIL goes to the owner (S5).
 - registry-lock-budget: DEV done 1d2b721 (contention test 20/20), awaiting QA.
 - public-roots-charter: DEV done caee0fb (charter/ in the public audit), awaiting QA.
-- odin-say (Rust sender sidecar slice 1): dispatched at 85f97b9, DEV in progress.
+- odin-say (Rust sender sidecar slice 1): DEV done 27d065d, draft PR #7, awaiting QA.
+Common engineering standard v0.2 (linked from AGENTS.md): gaps recorded as obligations, each a future bounded slice:
+- CS-1 (§1) Private paths: research notes, receipts and briefs live under a team directory, not `AGENT_PRIVATE_ROOT/<repo>/{evidence,handoffs,...}`; odin-say defaults its proof log to the XDG state directory. Move to the standard root with an override.
+- CS-2 (§1) Public-safety check covers listed roots only (crates/, tests/ and the packaged file list are not scanned as one set) and there is no secret scan of the diff before push.
+- CS-3 (§3) Existing JavaScript: 9 tracked .mjs/.js files (audit and protocol scripts) and inline `node -e` in the `clean` and `build` package scripts. Not expanded; porting to strict TypeScript is an obligation.
+- CS-4 (§5) GitHub Actions: some steps pin `actions/checkout` and `actions/setup-node` to a commit sha, others only to the `@v6` tag. Pin all to immutable references.
+- CS-5 (§6) Each verification run needs its own build output directory; QA and DEV briefs do not yet require one (cargo target dirs in particular).
+- CS-6 (§6) No repository-wide lease for heavy suites; contention shows up as timeouts (see also the swarm study's process-custody finding).
+- CS-7 (§7) CI does not run `charter check`; the charter binary is built locally from source at 4e9017c. Add a CI step at the same pin (strict once charter adopt-1 lands).
+- CS-8 (§7) Plans and work contracts: the local planning corpus uses its own slice format, not the shared v5 work-contract schema; record the schema pin (payload root + validator release) and list validation as open until a packaged validator release exists.
+- CS-9 (§4) Two state surfaces exist: charter/STATE.md (designated here) and a hook-generated local planning status file; the latter must point to STATE.md rather than compete.
 - tests/protocol/event-registry-contention.test.ts stays intermittent on branches without registry-lock-budget.
 - charter check --strict refuses DONE/_template.md (upstream defect, charter adopt-1).
 Exact last-green command(s):
@@ -29,9 +39,9 @@ Exact last-green command(s):
 Exact last-red command(s) and why:
 - pnpm vitest run tests/protocol/event-registry-contention.test.ts: intermittent lock_unavailable (fix on fix/registry-lock-budget, not yet landed).
 Next three bounded items (in order):
-1. Merge PR #6 (charter + advisories) to main; close PR #5 as superseded.
-2. QA re-verify delivery-verdicts b6d435e, then registry-lock-budget 1d2b721, then public-roots-charter caee0fb; land each on PASS. Then QA of fix/sync-mcp-pins.
-3. Multi-repo swarm study (owner directive 2026-10-31): measure, document with PM-PLANGRAPH, then a DONE list for what ODIN builds.
+1. QA re-verify delivery-verdicts b6d435e, then registry-lock-budget 1d2b721, public-roots-charter caee0fb and odin-say 27d065d; land each on a validated JSON receipt. Then QA of fix/sync-mcp-pins.
+2. Multi-repo swarm study (owner directive 2026-10-31): joint note v1 delivered with PM-PLANGRAPH; next the queued-delivery board trial (E3) and a re-measure at +24 h.
+3. Common-standard gaps CS-4 (action pins) and CS-7 (charter check in CI) as the first two small slices.
 Open owner decisions:
 - Ratify charter/INTENT.md.
 - Owner batch via EXEC-PM: delete merged origin branches feat/capability-seams-20261019 and fix/security-review-20261019 (archive tags pushed); decide the separate Codex worktree on fix/registry-cli-store-20261020.
