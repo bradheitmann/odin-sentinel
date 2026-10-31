@@ -1,7 +1,9 @@
 {
+  "accepted_unix_ms": 1793420290,
   "base_commit": "d164a903a613e4f4b221357fe82d7efcae5e9dfb",
   "brief_sha256": null,
   "done_sha256": "9b9a95840d714f40042cd1160f2a0dc8afed355b692e33206908db5d11788d1a",
   "schema_version": "charter.dispatch/1",
-  "slice": "advisories-2026-10-31"
+  "slice": "advisories-2026-10-31",
+  "state": "accepted"
 }

@@ -1,37 +1,40 @@
-# State — odin-sentinel — 2026-10-31T03:46Z, written by PM-ODIN (Claude Opus 5.5)
-HEAD: fe4938a + this acceptance record, branch chore/charter-adoption (main = origin/main 599b905, release 0.8.0)
+# State — odin-sentinel — 2026-10-31T05:00Z, written by PM-ODIN (Claude Opus 5.5)
+HEAD: bdc6aab + this acceptance record, branch fix/advisories-2026-10-31 (PR #6; carries the charter adoption of PR #5). main = 599b905 (release 0.8.0) until PR #6 merges.
 Proven (with the proof names):
-- slice-zero ACCEPTED (charter gate --accept, DONE pin b087121d). Independent QA: OD/QA, Pi, openrouter/xiaomi/mimo-v2.6-flash, reasoning high (author Claude Opus 5.5: different family). QA PASS on frozen tip fe4938a, receipt sha256 09bf1d87352c61bdcaebe7d0c5015a5a8235faecbc52cd56b0811b0fd11f5134 (kept with the team's receipts, outside this repo).
-- slice-zero-live (G1): `charter/slice-zero.sh` prints `delivered_valid=true refused_valid=false` and `slice-zero: GREEN`; mutant (refusal relabelled as delivered) prints `delivered_valid=true refused_valid=true` and exits 1. Reopened: QA reran it in a fresh clone of fe4938a and got the same values line.
-- contract-green: `charter check` prints `charter: ok`; mutant (blank INTENT bullet) refused. Reopened by QA in the fresh clone.
-- public-surface-clean (G3): `pnpm run audit:public` PASS, 81 files; charter/ private-path grep empty; mutant (home path in README.md) fails the audit. Reopened by QA in the fresh clone.
-Reopen markers: the DONE list is dispatch-pinned and cannot take `reopened:` lines without changing its hash (known Charter design gap); the reopen record for slice-zero is the three "Reopened" lines above plus the receipt hash.
+- slice-zero ACCEPTED (DONE pin b087121d). QA: OD/QA, Pi, openrouter/xiaomi/mimo-v2.6-flash, high (author Claude Opus 5.5). Receipt sha256 09bf1d87352c61bdcaebe7d0c5015a5a8235faecbc52cd56b0811b0fd11f5134.
+  - slice-zero-live (G1): `charter/slice-zero.sh` prints `delivered_valid=true refused_valid=false` and `slice-zero: GREEN`; mutant prints `refused_valid=true` and exits 1. Reopened by QA in a fresh clone.
+  - contract-green: `charter check` prints `charter: ok`; blank-INTENT mutant refused. Reopened by QA.
+  - public-surface-clean (G3): `pnpm run audit:public` PASS; home-path mutant fails. Reopened by QA.
+- advisories-2026-10-31 ACCEPTED (DONE pin 9b9a9584). QA: same seat, different family from the author (Claude Opus 5.5). Receipt sha256 ddf0398089dbad1c068c8c797b5d9c99dde22c571bdd797462d833fe1888e6e6.
+  - advisories-cleared: `pnpm run audit:deps` PASS, 0 unaccepted at or above high; zod 4.6.7, body-parser 2.4.0. Mutant (base dependency files) fails naming GHSA-mrhx-c7xc-m3w5 and GHSA-27r3-jxmh-p828. Reopened by QA.
+  - exception-record-valid: pin-drift mutant (^2.3.0) refused. Reopened by QA.
+  - ci-green: PR #6 validate and telemetry-validate pass on bdc6aab.
+  - QA traced the stdio runtime: it never loads express or body-parser.
+Reopen markers: dispatch-pinned DONE lists cannot take `reopened:` lines (known Charter design gap); the reopen record is the "Reopened" lines above plus the receipt hashes.
 Not proven / known gaps:
-- INTENT.md awaits owner ratification; all GUARANTEES rows are `proposed`.
-- charter/ is not inside the public-surface audit roots; its G3 leg is a manual grep (O1, confirmed by QA as F3).
-- The charter binary is built from source; `charter --version` prints only 0.1.0, so its source revision (4e9017c) is recorded here, not embedded (QA F2).
-- odin.validate_cmux_delivery_proof labels send refusals "invalid" (O2): lane delivery-verdicts in progress.
-- Event-registry lock gives a contending writer only ~0.5 s (50 x 10 ms) before rejecting; tests/protocol/event-registry-contention.test.ts fails about 1 run in 4 even alone (O3, root-caused): lane registry-lock-budget dispatched.
-- charter check --strict refuses DONE/_template.md (known upstream defect, fixed by charter adopt-1) (O4).
-- The full vitest suite hits the 5 s default timeout under disk load (also seen in tests/scripts/sync-installations.test.ts).
+- INTENT.md awaits owner ratification; GUARANTEES rows are `proposed`.
+- delivery-verdicts: QA FAIL on b005650 (F1), repaired at b6d435e (repair 1 of 1), awaiting QA re-verify; a second FAIL goes to the owner (S5).
+- registry-lock-budget: DEV done 1d2b721 (contention test 20/20), awaiting QA.
+- public-roots-charter: DEV done caee0fb (charter/ in the public audit), awaiting QA.
+- odin-say (Rust sender sidecar slice 1): dispatched at 85f97b9, DEV in progress.
+- tests/protocol/event-registry-contention.test.ts stays intermittent on branches without registry-lock-budget.
+- charter check --strict refuses DONE/_template.md (upstream defect, charter adopt-1).
 Exact last-green command(s):
 - charter/slice-zero.sh
 - charter check
-- charter gate slice-zero --accept
+- pnpm run audit:deps
 - pnpm run audit:public
 - pnpm run typecheck
+- charter gate advisories-2026-10-31 --accept
 Exact last-red command(s) and why:
-- pnpm vitest run tests/protocol/event-registry-contention.test.ts: intermittent lock_unavailable after 50 attempts (O3; fix in lane registry-lock-budget).
+- pnpm vitest run tests/protocol/event-registry-contention.test.ts: intermittent lock_unavailable (fix on fix/registry-lock-budget, not yet landed).
 Next three bounded items (in order):
-1. Land this charter on main; then QA of fix/sync-mcp-pins (merged candidate 8ad4898) and land it.
-2. delivery-verdicts: DEV report, then independent QA (different family from DeepSeek), accept, land.
-3. registry-lock-budget: DEV, QA, accept, land; then the team-tooling export (Rust sidecar sender, pane rules as data, bounded wait for busy panes, OpenCode leftover "Thinking:" fixture).
+1. Merge PR #6 (charter + advisories) to main; close PR #5 as superseded.
+2. QA re-verify delivery-verdicts b6d435e, then registry-lock-budget 1d2b721, then public-roots-charter caee0fb; land each on PASS. Then QA of fix/sync-mcp-pins.
+3. Multi-repo swarm study (owner directive 2026-10-31): measure, document with PM-PLANGRAPH, then a DONE list for what ODIN builds.
 Open owner decisions:
 - Ratify charter/INTENT.md.
 - Owner batch via EXEC-PM: delete merged origin branches feat/capability-seams-20261019 and fix/security-review-20261019 (archive tags pushed); decide the separate Codex worktree on fix/registry-cli-store-20261020.
 Where everything is (branches, lanes, receipts):
-- chore/charter-adoption: this charter (slice-zero accepted).
-- feat/delivery-verdicts (DONE pin 00fd474d): OD/DEV, Pi, deepseek-flash high, in its own worktree.
-- fix/registry-lock-budget (DONE pin cccd6c05): queued for OD/DEV.
-- fix/sync-mcp-pins (5bee5a0) with merged candidate integrate/sync-mcp-pins (8ad4898): awaiting QA.
+- Lanes: feat/delivery-verdicts, fix/registry-lock-budget, chore/public-roots-charter, feat/odin-say, fix/sync-mcp-pins (+ integrate/sync-mcp-pins), each in its own worktree outside this checkout.
 - PM ruling: the govdisp baseline manifest re-pin is in scope for lanes that change protocol/ or src/protocol/ (generator only, own rows only).
