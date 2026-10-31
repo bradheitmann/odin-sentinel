@@ -7,15 +7,19 @@ Proofs (each: name, what it guarantees, reopen step, fail-without mutant):
 1. crates-audited: `pnpm run audit:public` scans crates/ files (the checked-file count rises by `git ls-files crates | wc -l`) and passes.
    - Reopen: from a clean clone of the frozen tip, `pnpm run audit:public`; compare the count with the base.
    - Fail-without mutant: append a macOS home path line to crates/odin-say/README.md; the audit must fail naming that file. Restore.
+   - reopened: OD-QA-public-roots-crates-08f1973 510be747318e3a3c0147f5a9e3dc7463fb33f724f2274ec97fa3dfbbd006404a
 2. roots-test: the audit test proves crates/ is in the audited set and a planted home path under crates/ is reported.
    - Reopen: `pnpm vitest run tests/audit --testTimeout=30000`.
    - Fail-without mutant: remove "crates/" from PUBLIC_ROOTS; the test must go red.
+   - reopened: OD-QA-public-roots-crates-08f1973 510be747318e3a3c0147f5a9e3dc7463fb33f724f2274ec97fa3dfbbd006404a
 3. no-behaviour-change: `cd crates/odin-say && cargo +1.88.0 test --locked` passes unchanged (own CARGO_TARGET_DIR outside the repo, under nice); the diff under crates/ touches only Markdown and comment lines.
    - Reopen: the cargo test command and `git diff <base> -- crates/` from a clean clone.
    - Fail-without mutant: n/a (comment and doc text only).
+   - reopened: OD-QA-public-roots-crates-08f1973 510be747318e3a3c0147f5a9e3dc7463fb33f724f2274ec97fa3dfbbd006404a
 4. no-regression: `pnpm run typecheck`, `pnpm vitest run tests/audit --testTimeout=30000`, `charter/slice-zero.sh`, `charter check` green; CI green on the PR.
    - Reopen: the same commands; `gh pr checks`.
    - Fail-without mutant: n/a (aggregate).
+   - reopened: OD-QA-public-roots-crates-08f1973 510be747318e3a3c0147f5a9e3dc7463fb33f724f2274ec97fa3dfbbd006404a
 Gates (exact commands):
 - pnpm run audit:public
 - pnpm run typecheck
