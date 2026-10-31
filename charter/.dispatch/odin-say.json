@@ -1,7 +1,9 @@
 {
+  "accepted_unix_ms": 1793425900,
   "base_commit": "27d065d3a23326869c7003c42595fa2648b8349d",
   "brief_sha256": null,
   "done_sha256": "ebdad2f9e84b9dd9a5a44788e14f827400e82ca56469d70818702ecd16a818fa",
   "schema_version": "charter.dispatch/1",
-  "slice": "odin-say"
+  "slice": "odin-say",
+  "state": "accepted"
 }
