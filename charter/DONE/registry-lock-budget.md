@@ -7,15 +7,19 @@ Proofs (each: name, what it guarantees, reopen step, fail-without mutant):
 1. contention-stable: the contention test passes 20 consecutive runs alone (`for i in $(seq 20); do pnpm vitest run tests/protocol/event-registry-contention.test.ts || exit 1; done`), and the log stays intact, complete and line-atomic.
    - Reopen: rerun that loop from a clean checkout of the frozen tip; compare the pass count (20/20).
    - Fail-without mutant: restore the 50 x 10 ms default; the loop must fail within 20 runs (record the failing run number).
+   - reopened: OD-QA-registry-lock-budget-1d2b721 b50e560f668cefd1acf696fc485e79d84acc2a05e72404d14e214481373254d1
 2. still-fails-closed: a writer facing a lock that is never released gets the same lock_unavailable rejection (same code and field) once its budget is spent, and never writes; with lockBudgetMs set small (e.g. 100) the test finishes in under 2 s.
    - Reopen: `pnpm vitest run tests/protocol/registry-lock-budget.test.ts` from a clean checkout.
    - Fail-without mutant: make acquisition proceed after the budget without the lock; the test must go red.
+   - reopened: OD-QA-registry-lock-budget-1d2b721 b50e560f668cefd1acf696fc485e79d84acc2a05e72404d14e214481373254d1
 3. explicit-options-unchanged: callers passing maxLockAttempts and lockRetryMs get exactly that many attempts at that fixed interval (existing tests in tests/protocol/govdisp-compaction.test.ts and the contention file that pass these options are unchanged and green).
    - Reopen: `pnpm vitest run tests/protocol/govdisp-compaction.test.ts tests/protocol/registry-lock-budget.test.ts`.
    - Fail-without mutant: ignore the explicit maxLockAttempts; the explicit-options test must go red.
+   - reopened: OD-QA-registry-lock-budget-1d2b721 b50e560f668cefd1acf696fc485e79d84acc2a05e72404d14e214481373254d1
 4. no-regression: pnpm run typecheck clean; `pnpm vitest run tests/protocol --testTimeout=30000` green; charter/slice-zero.sh green.
    - Reopen: rerun the three commands from a clean checkout.
    - Fail-without mutant: n/a for the aggregate gate (covered by proofs 1 to 3).
+   - reopened: OD-QA-registry-lock-budget-1d2b721 b50e560f668cefd1acf696fc485e79d84acc2a05e72404d14e214481373254d1
 Gates (exact commands):
 - pnpm run typecheck
 - pnpm vitest run tests/protocol --testTimeout=30000
