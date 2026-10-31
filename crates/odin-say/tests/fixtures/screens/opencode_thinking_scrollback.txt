@@ -1,0 +1,9 @@
+Done: the previous lane is green and reported.
+Ready: the next dispatch has not started yet.
+
+  Thinking: the user wants the gate run on branch feat-x
+   … left in scrollback from an earlier turn.
+
+Context: idle, waiting for the next lane.
+  Running nothing.
+  ctrl+p commands

@@ -1,0 +1,7 @@
+
+✻ Cogitating… (12s · esc to interrupt)
+  Press up to edit queued messages
+──────────────────────────────────────────────
+❯ 
+──────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle)
