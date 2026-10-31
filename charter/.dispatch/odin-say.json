@@ -1,9 +1,7 @@
 {
-  "accepted_unix_ms": 1793425900,
-  "base_commit": "27d065d3a23326869c7003c42595fa2648b8349d",
+  "base_commit": "5722c32b1b9332bc6d4f3a3db2a51328201104c1",
   "brief_sha256": null,
-  "done_sha256": "ebdad2f9e84b9dd9a5a44788e14f827400e82ca56469d70818702ecd16a818fa",
+  "done_sha256": "fed42423882022bc1df018a7c34ea35d843e80b3861e6a84b66209a7b8b8ac26",
   "schema_version": "charter.dispatch/1",
-  "slice": "odin-say",
-  "state": "accepted"
+  "slice": "odin-say"
 }
