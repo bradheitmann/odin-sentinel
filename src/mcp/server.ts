@@ -421,12 +421,12 @@ export type CreateServerOptions = {
 // genericizes a malformed payload before the store can reject it by name.
 const appendEventToolInputShape = {
   scope: z.string(),
-  event: z.unknown()
+  event: z.looseObject({})
 } as const;
 
 const queryEventsToolInputShape = {
   scope: z.string(),
-  query: z.unknown().optional()
+  query: z.looseObject({}).optional()
 } as const;
 
 function registryToolResult(result: { ok: boolean }) {
@@ -445,7 +445,7 @@ function registerGovdispRegistrySurface(server: McpServer, options: GovdispRegis
     {
       title: "Append Governance Registry Event (compatibility surface)",
       description:
-        `Append one governance event to the append-only registry log for a scope. Registered by default as of 0.6.0; set ${GOVDISP_REGISTRY_MCP_ENV_VAR} to a non-truthy value to opt out. The staged store is the single validation choke point: valid events are appended (one line-atomic JSONL record); malformed events fail closed and the store's named rejections (field, event_class, code, detail) are propagated verbatim in the tool result — never swallowed or genericized. Append-only: no mutation or deletion surface exists.`,
+        `Append one governance event to the append-only registry log for a scope. Registered by default as of 0.6.0; set ${GOVDISP_REGISTRY_MCP_ENV_VAR} to a non-truthy value to opt out. The staged store is the single validation choke point: valid events are appended (one line-atomic JSONL record); malformed events fail closed and the store's named rejections (field, event_class, code, detail) are propagated verbatim in the tool result — never swallowed or genericized. Append-only: no mutation or deletion surface exists. The default server binds the shipped filesystem store: records land in .odin/registry/<scope>/events.jsonl relative to the server's launch directory; hosting code can point the surface elsewhere by injecting govdispRegistry.base (a server option), and the environment opt-out above hides the surface entirely.`,
       inputSchema: appendEventToolInputShape
     },
     async (input) => registryToolResult(await appendGovdispEventAsync(store, input.scope, input.event, base))
