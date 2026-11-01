@@ -209,8 +209,8 @@
     },
     {
       "path": "src/mcp/server.ts",
-      "bytes": 46129,
-      "sha256": "6fd088fa755186adec798afe2fcbbcde7b27ddcd210284c3a2dc30f8edb4eea0"
+      "bytes": 46451,
+      "sha256": "24a45528310359f8e67ded5d884adfeea30259bda492bd71aed488a63daaa118"
     },
     {
       "path": "src/protocol/event-registry/compact.ts",
