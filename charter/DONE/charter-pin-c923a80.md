@@ -6,7 +6,7 @@ Design (fixed for this slice):
 - Run `charter init --refresh-spec`, which changes charter/SPEC.md only.
 - Set CHARTER_REV in .github/workflows/ci.yml to the new pin; nothing else in that file changes.
 - Rewrite charter/STATE.md: the tool pin, the last-green commands, and the open follow-ups.
-- Do NOT run `hooks install --force` (step 4 of the announcement). The repository has its own pre-commit hook (the edge-agentic shim), and PM-CHARTER's correction (Charter TODO 71) says `--force` would silently disable it. Charter checks stay manual before every commit and merge, as the EXEC-PM rule in STATE already requires.
+- Do NOT run `hooks install --force` (step 4 of the announcement). The repository has its own pre-commit hook (a planning-gate shim), and PM-CHARTER's correction (Charter TODO 71) says `--force` would silently disable it. Charter checks stay manual before every commit and merge, as the EXEC-PM rule in STATE already requires.
 Write scope: charter/SPEC.md (generator only), .github/workflows/ci.yml (the CHARTER_REV line only), charter/STATE.md.
 Proofs (each: name, what it guarantees, reopen step, fail-without mutant):
 1. pinned-binary: the binary prints `charter 0.1.0 (c923a80cca2f74dba701ee073e631cc692b978e7)`, and `charter check --strict` with it passes on the frozen tip.
