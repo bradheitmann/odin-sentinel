@@ -1,0 +1,10 @@
+{
+  "accepted_unix_s": 1793502152,
+  "accepted_utc": "2026-11-01T03:02:32Z",
+  "base_commit": "0923a4b4604fdfa1d1e7402f0a84679669fbe5cf",
+  "brief_sha256": null,
+  "done_sha256": "c3a8c9633cd20245223ea2c45dd73f95f520ceb907ab87e44fd8ae12dae5fc3f",
+  "schema_version": "charter.dispatch/1",
+  "slice": "sync-mcp-pins",
+  "state": "accepted"
+}
