@@ -388,8 +388,8 @@ export function fenceAction(
 ): LeaseResult<FenceVerdict> {
   const current = readLease(dir, slot);
   if (!current.ok) return current;
-  const currentToken = current.record.token;
-  if (token === currentToken) return { ok: true, valid: true, current_token: currentToken, reason: "current" };
-  if (token < currentToken) return { ok: true, valid: false, current_token: currentToken, reason: "superseded" };
-  return { ok: true, valid: false, current_token: currentToken, reason: "unknown_token" };
+  const slotFence = current.record.token;
+  if (token === slotFence) return { ok: true, valid: true, current_token: slotFence, reason: "current" };
+  if (token < slotFence) return { ok: true, valid: false, current_token: slotFence, reason: "superseded" };
+  return { ok: true, valid: false, current_token: slotFence, reason: "unknown_token" };
 }
