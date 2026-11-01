@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -148,5 +148,61 @@ describe("lease CLI contract", () => {
     const source = readFileSync(join(repoRoot, "src", "bin", "index.ts"), "utf8");
     expect(source).toMatch(/await import\(\s*["']\.\.\/protocol\/lease\/index\.js["']\s*\)/);
     expect(source).not.toMatch(/from\s+["'][^"']*protocol\/lease/);
+  });
+});
+
+describe("any-of acquire and the allow-list through the CLI", () => {
+  it("grants the first free slot from --slots and reports which one", async () => {
+    const dir = join(makeTmpDir(), "leases");
+    const granted = await leaseCli(["acquire", "--dir", dir, "--slots", "suite-1,suite-2", "--holder", "runner-a"]);
+    expect(granted.code).toBe(0);
+    expect(granted.json).toMatchObject({ ok: true, slot: "suite-1", acquired: true });
+    const record = granted.json.record as { token: number; holder: string };
+    expect(record.token).toBe(1);
+    expect(record.holder).toBe("runner-a");
+  });
+
+  it("refuses with all_slots_held and lists each holder", async () => {
+    const dir = join(makeTmpDir(), "leases");
+    await leaseCli(["acquire", "--dir", dir, "--slots", "suite-1", "--holder", "runner-a"]);
+    await leaseCli(["acquire", "--dir", dir, "--slots", "suite-2", "--holder", "runner-b"]);
+    const refused = await leaseCli(["acquire", "--dir", dir, "--slots", "suite-1,suite-2", "--holder", "runner-c"]);
+    expect(refused.code).toBe(1);
+    expect(refused.json).toMatchObject({ ok: false, code: "all_slots_held" });
+    expect(String(refused.json.detail)).toContain('suite-1 by "runner-a"');
+    expect(Array.isArray(refused.json.slots)).toBe(true);
+  });
+
+  it("refuses --slot together with --slots, and --slots on another operation", async () => {
+    const dir = join(makeTmpDir(), "leases");
+    const both = await leaseCli([
+      "acquire", "--dir", dir, "--slot", "suite-1", "--slots", "suite-1,suite-2", "--holder", "runner-a"
+    ]);
+    expect(both.code).toBe(1);
+    expect(both.json).toMatchObject({ ok: false, code: "invalid_args" });
+
+    const renew = await leaseCli([
+      "renew", "--dir", dir, "--slots", "suite-1,suite-2", "--holder", "runner-a", "--token", "1"
+    ]);
+    expect(renew.code).toBe(1);
+    expect(renew.json).toMatchObject({ ok: false, code: "invalid_args" });
+  });
+
+  it("refuses a typo slot through the allow-list and creates no file for it", async () => {
+    const parent = makeTmpDir();
+    const dir = join(parent, "leases");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "slots.allow"), "suite-1\nsuite-2\n", "utf8");
+
+    const typo = await leaseCli(["acquire", "--dir", dir, "--slot", "suite-9", "--holder", "runner-a"]);
+    expect(typo.code).toBe(1);
+    expect(typo.json).toMatchObject({ ok: false, code: "slot_not_allowed" });
+
+    const anyOfTypo = await leaseCli(["acquire", "--dir", dir, "--slots", "suite-1,suite-9", "--holder", "runner-a"]);
+    expect(anyOfTypo.code).toBe(1);
+    expect(anyOfTypo.json).toMatchObject({ ok: false, code: "slot_not_allowed" });
+
+    expect(existsSync(join(dir, "suite-9.lease.json"))).toBe(false);
+    expect(readdirSync(dir).sort()).toEqual(["slots.allow"]);
   });
 });

@@ -1,0 +1,10 @@
+{
+  "accepted_unix_s": 1793574599,
+  "accepted_utc": "2026-11-01T23:09:59Z",
+  "base_commit": "a27ffdab6b9be1acd314a1dedea6807500239db3",
+  "brief_sha256": null,
+  "done_sha256": "6b57e2b983348fcf0915ceabdacdb1d72a9d6da1466d1451fdcd4f66a695c6e2",
+  "schema_version": "charter.dispatch/1",
+  "slice": "lease-slots",
+  "state": "accepted"
+}

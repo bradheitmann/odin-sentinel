@@ -1,16 +1,18 @@
 import { execFile } from "node:child_process";
-import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  acquireAnyLease,
   acquireLease,
   checkLease,
   DEFAULT_CLOCK_SKEW_MS,
   fenceAction,
   leaseStatus,
+  readLease,
   releaseLease,
   renewLease,
   type LeaseOptions
@@ -268,5 +270,147 @@ describe("lease storage shape", () => {
     expect(acquireLease(dir, "../escape", "runner-a", 60)).toMatchObject({ ok: false, code: "invalid_slot" });
     expect(acquireLease(dir, "job", "  ", 60)).toMatchObject({ ok: false, code: "invalid_holder" });
     expect(acquireLease(dir, "job", "runner-a", 0)).toMatchObject({ ok: false, code: "invalid_ttl" });
+  });
+});
+
+describe("slot allow-list (slots.allow)", () => {
+  function withAllowList(entries: string[]): string {
+    const dir = makeTmpDir("odin-lease-allow-");
+    writeFileSync(join(dir, "slots.allow"), `${entries.join("\n")}\n`, "utf8");
+    return dir;
+  }
+
+  it("accepts listed slots and refuses every operation on an unlisted slot", () => {
+    const dir = withAllowList(["suite-1", "suite-2"]);
+    const time = clock();
+    const acquired = acquireLease(dir, "suite-1", "runner-a", 60, options(time));
+    expect(acquired.ok).toBe(true);
+    if (!acquired.ok) return;
+
+    expect(acquireLease(dir, "probe", "runner-b", 60, options(time))).toMatchObject({ ok: false, code: "slot_not_allowed" });
+    expect(renewLease(dir, "probe", "runner-b", 1, 60, options(time))).toMatchObject({ ok: false, code: "slot_not_allowed" });
+    expect(releaseLease(dir, "probe", "runner-b", 1, options(time))).toMatchObject({ ok: false, code: "slot_not_allowed" });
+    expect(checkLease(dir, "probe", "runner-b", 1, options(time))).toMatchObject({ ok: false, code: "slot_not_allowed" });
+    expect(leaseStatus(dir, "probe", options(time))).toMatchObject({ ok: false, code: "slot_not_allowed" });
+    expect(fenceAction(dir, "probe", 1)).toMatchObject({ ok: false, code: "slot_not_allowed" });
+    // The exported read primitive is guarded too (QA F2).
+    expect(readLease(dir, "probe")).toMatchObject({ ok: false, code: "slot_not_allowed" });
+    // Nothing was written for the unlisted slot.
+    expect(existsSync(join(dir, "probe.lease.json"))).toBe(false);
+  });
+
+  it("ignores blank lines and comments", () => {
+    const dir = makeTmpDir();
+    writeFileSync(join(dir, "slots.allow"), "\n# host-wide suite slots\nsuite-1\n\n  suite-2  \n# done\n", "utf8");
+    expect(acquireLease(dir, "suite-2", "runner-a", 60).ok).toBe(true);
+    expect(acquireLease(dir, "suite-3", "runner-b", 60)).toMatchObject({ ok: false, code: "slot_not_allowed" });
+  });
+
+  it("leaves behaviour unchanged when the file is absent", () => {
+    const dir = makeTmpDir();
+    expect(acquireLease(dir, "anything-goes", "runner-a", 60).ok).toBe(true);
+  });
+
+  it("fails closed on a malformed allow-list", () => {
+    const dir = makeTmpDir();
+    writeFileSync(join(dir, "slots.allow"), "suite-1\nbad slot\n", "utf8");
+    for (const attempt of [
+      acquireLease(dir, "suite-1", "runner-a", 60),
+      acquireAnyLease(dir, ["suite-1"], "runner-a", 60),
+      leaseStatus(dir, "suite-1"),
+      readLease(dir, "suite-1")
+    ]) {
+      expect(attempt).toMatchObject({ ok: false, code: "slots_allow_invalid" });
+    }
+    expect(readdirSync(dir)).toEqual(["slots.allow"]);
+  });
+});
+
+describe("any-of acquire (--slots)", () => {
+  it("grants the first free slot in the listed order", () => {
+    const dir = makeTmpDir();
+    const time = clock();
+    const granted = acquireAnyLease(dir, ["suite-1", "suite-2"], "runner-a", 60, options(time));
+    expect(granted.ok).toBe(true);
+    if (!granted.ok) return;
+    expect(granted.slot).toBe("suite-1");
+    expect(granted.record.token).toBe(1);
+    expect(granted.acquired).toBe(true);
+  });
+
+  it("falls through to the next slot when the first is held", () => {
+    const dir = makeTmpDir();
+    const time = clock();
+    expect(acquireLease(dir, "suite-1", "runner-a", 60, options(time)).ok).toBe(true);
+    const granted = acquireAnyLease(dir, ["suite-1", "suite-2"], "runner-b", 60, options(time));
+    expect(granted.ok).toBe(true);
+    if (!granted.ok) return;
+    expect(granted.slot).toBe("suite-2");
+    expect(granted.record.token).toBe(1);
+    expect(granted.held).toEqual([{ slot: "suite-1", holder: "runner-a", expires_at: expect.any(String) }]);
+  });
+
+  it("refuses with all_slots_held, naming each holder and expiry, and writes nothing", () => {
+    const dir = makeTmpDir();
+    const time = clock();
+    expect(acquireLease(dir, "suite-1", "runner-a", 60, options(time)).ok).toBe(true);
+    expect(acquireLease(dir, "suite-2", "runner-b", 60, options(time)).ok).toBe(true);
+    const before = readdirSync(dir).sort();
+    const refused = acquireAnyLease(dir, ["suite-1", "suite-2"], "runner-c", 60, options(time));
+    expect(refused.ok).toBe(false);
+    if (refused.ok) return;
+    expect(refused.code).toBe("all_slots_held");
+    expect(refused.detail).toContain('suite-1 by "runner-a"');
+    expect(refused.detail).toContain('suite-2 by "runner-b"');
+    expect(refused.slots?.map((entry) => entry.slot)).toEqual(["suite-1", "suite-2"]);
+    expect(readdirSync(dir).sort()).toEqual(before);
+  });
+
+  it("returns the slot this holder already holds without a second grant", () => {
+    const dir = makeTmpDir();
+    const time = clock();
+    expect(acquireLease(dir, "suite-2", "runner-a", 60, options(time)).ok).toBe(true);
+    const again = acquireAnyLease(dir, ["suite-1", "suite-2"], "runner-a", 60, options(time));
+    expect(again.ok).toBe(true);
+    if (!again.ok) return;
+    expect(again.slot).toBe("suite-2");
+    expect(again.acquired).toBe(false);
+    // suite-1 is still free: nobody else was granted it.
+    expect(leaseStatus(dir, "suite-1", options(time))).toMatchObject({ ok: true, free: true });
+  });
+
+  it("takes over an expired slot with an incremented token", () => {
+    const dir = makeTmpDir();
+    const time = clock();
+    const first = acquireLease(dir, "suite-1", "runner-a", 10, options(time));
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    time.advance(10_000 + DEFAULT_CLOCK_SKEW_MS + 1);
+    const takeover = acquireAnyLease(dir, ["suite-1", "suite-2"], "runner-b", 60, options(time));
+    expect(takeover.ok).toBe(true);
+    if (!takeover.ok) return;
+    expect(takeover.slot).toBe("suite-1");
+    expect(takeover.took_over).toBe(true);
+    expect(takeover.record.token).toBe(first.record.token + 1);
+  });
+
+  it("refuses a request that names an unlisted slot", () => {
+    const dir = makeTmpDir();
+    writeFileSync(join(dir, "slots.allow"), "suite-1\nsuite-2\n", "utf8");
+    expect(acquireAnyLease(dir, ["suite-1", "suite-9"], "runner-a", 60)).toMatchObject({
+      ok: false,
+      code: "slot_not_allowed"
+    });
+    expect(existsSync(join(dir, "suite-9.lease.json"))).toBe(false);
+  });
+
+  it("states the colon rule and the instant form in the invalid_slot detail", () => {
+    const dir = makeTmpDir();
+    const refused = acquireLease(dir, "2026-11-01T10:00:00Z", "runner-a", 60);
+    expect(refused.ok).toBe(false);
+    if (refused.ok) return;
+    expect(refused.code).toBe("invalid_slot");
+    expect(refused.detail).toContain("colon");
+    expect(refused.detail).toContain("YYYY-MM-DDTHHMMZ");
   });
 });

@@ -10,6 +10,8 @@ export {
   LEASE_FILE_SUFFIX,
   LEASE_LOCK_SUFFIX,
   LEASE_SCHEMA_VERSION,
+  SLOTS_ALLOW_FILENAME,
+  acquireAnyLease,
   acquireLease,
   checkLease,
   fenceAction,
@@ -19,6 +21,7 @@ export {
   renewLease
 } from "./store.js";
 export type {
+  AcquireAnyResult,
   AcquireResult,
   CheckResult,
   FenceVerdict,

@@ -249,13 +249,13 @@
     },
     {
       "path": "src/protocol/lease/index.ts",
-      "bytes": 772,
-      "sha256": "1856d07b4ae292a5f275cb9c8b3723821cb4eb627338d93e7f20af0e6d2f58e8"
+      "bytes": 835,
+      "sha256": "4390db4c964deadc3a314d695264b368e268d728f8092357932a0b4a6954f1af"
     },
     {
       "path": "src/protocol/lease/store.ts",
-      "bytes": 14220,
-      "sha256": "6d5c51ff335a1307633dc43aa835d89f604a236b3fa03aa434f249f3b8515715"
+      "bytes": 21815,
+      "sha256": "a232c86cbfa89406efab20cd10f4c2d5890f6be32f7b0e8e30ee62fdf7b11588"
     },
     {
       "path": "src/protocol/repository.ts",

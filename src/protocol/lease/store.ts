@@ -25,6 +25,8 @@ export const DEFAULT_CLOCK_SKEW_MS = 2_000;
 /** One record per slot, next to the lock directory. */
 export const LEASE_FILE_SUFFIX = ".lease.json";
 export const LEASE_LOCK_SUFFIX = ".lease.lock";
+/** Optional allow-list of slot ids in the lease directory (one per line, # comments). */
+export const SLOTS_ALLOW_FILENAME = "slots.allow";
 
 export type LeaseRejectionCode =
   | "invalid_slot"
@@ -37,7 +39,10 @@ export type LeaseRejectionCode =
   | "stale_token"
   | "lease_expired"
   | "lease_missing"
-  | "lease_corrupt";
+  | "lease_corrupt"
+  | "slot_not_allowed"
+  | "slots_allow_invalid"
+  | "all_slots_held";
 
 export interface LeaseRecord {
   schema_version: typeof LEASE_SCHEMA_VERSION;
@@ -50,7 +55,13 @@ export interface LeaseRecord {
   expires_at: string | null;
 }
 
-export type LeaseRefusal = { ok: false; code: LeaseRejectionCode; detail: string };
+export type LeaseRefusal = {
+  ok: false;
+  code: LeaseRejectionCode;
+  detail: string;
+  /** For all_slots_held: who holds each requested slot, and until when. */
+  slots?: Array<{ slot: string; holder: string | null; expires_at: string | null }>;
+};
 export type LeaseResult<T> = ({ ok: true } & T) | LeaseRefusal;
 
 export interface LeaseOptions {
@@ -63,6 +74,10 @@ export interface LeaseOptions {
 }
 
 const SLOT_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+
+/** One message for every invalid slot id, so the colon rule and the instant form are stated. */
+const INVALID_SLOT_DETAIL =
+  "slot must be a single safe path segment: letters, digits, dot, underscore and hyphen ([A-Za-z0-9][A-Za-z0-9._-]*); colons are not allowed — write an ISO instant as YYYY-MM-DDTHHMMZ";
 
 function refusal(code: LeaseRejectionCode, detail: string): LeaseRefusal {
   return { ok: false, code, detail };
@@ -117,8 +132,10 @@ function isRecord(value: unknown, slot: string): value is LeaseRecord {
 /** Read a slot's record. A missing file is a free slot, not an error. */
 export function readLease(dir: string, slot: string): LeaseResult<{ record: LeaseRecord }> {
   if (!SLOT_PATTERN.test(slot)) {
-    return refusal("invalid_slot", "slot must be a single safe path segment ([A-Za-z0-9][A-Za-z0-9._-]*)");
+    return refusal("invalid_slot", INVALID_SLOT_DETAIL);
   }
+  const notAllowed = ensureSlotAllowed(dir, slot);
+  if (notAllowed) return notAllowed;
   const path = leasePath(dir, slot);
   if (!existsSync(path)) {
     return { ok: true, record: emptyRecord(slot) };
@@ -159,6 +176,65 @@ function ensureDir(dir: string): LeaseRefusal | null {
       `lease directory ${dir} cannot be created: ${error instanceof Error ? error.message : String(error)}`
     );
   }
+}
+
+/**
+ * Read the optional allow-list. Absent file -> null (nothing is restricted). A malformed
+ * file (a line that is not a valid slot id) fails closed for every operation.
+ */
+function readAllowedSlots(
+  dir: string
+): LeaseResult<{ allowed: Set<string> | null }> {
+  const path = join(dir, SLOTS_ALLOW_FILENAME);
+  if (!existsSync(path)) return { ok: true, allowed: null };
+  let text: string;
+  try {
+    text = readFileSync(path, "utf8");
+  } catch (error) {
+    return refusal(
+      "slots_allow_invalid",
+      `${SLOTS_ALLOW_FILENAME} cannot be read: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+  const allowed = new Set<string>();
+  const lines = text.split("\n");
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index].trim();
+    if (line === "" || line.startsWith("#")) continue;
+    if (!SLOT_PATTERN.test(line)) {
+      return refusal(
+        "slots_allow_invalid",
+        `${SLOTS_ALLOW_FILENAME} line ${index + 1} is not a valid slot id; ${INVALID_SLOT_DETAIL}`
+      );
+    }
+    allowed.add(line);
+  }
+  return { ok: true, allowed };
+}
+
+/** Refuse any operation on a slot the allow-list does not name. */
+function ensureSlotAllowed(dir: string, slot: string): LeaseRefusal | null {
+  const listed = readAllowedSlots(dir);
+  if (!listed.ok) return listed;
+  if (listed.allowed !== null && !listed.allowed.has(slot)) {
+    return refusal(
+      "slot_not_allowed",
+      `slot "${slot}" is not listed in ${SLOTS_ALLOW_FILENAME}; add it there (one slot id per line) or use a listed slot`
+    );
+  }
+  return null;
+}
+
+/** Every public operation on one slot starts here: allow-list, then the shared lock. */
+function withAllowedSlotLock<T>(
+  dir: string,
+  slot: string,
+  options: LeaseOptions,
+  body: (record: LeaseRecord) => LeaseResult<T>
+): LeaseResult<T> {
+  const notAllowed = ensureSlotAllowed(dir, slot);
+  if (notAllowed) return notAllowed;
+  return withSlotLock(dir, slot, options, body);
 }
 
 /**
@@ -222,7 +298,7 @@ export function acquireLease(
   options: LeaseOptions = {}
 ): LeaseResult<AcquireResult> {
   if (!SLOT_PATTERN.test(slot)) {
-    return refusal("invalid_slot", "slot must be a single safe path segment ([A-Za-z0-9][A-Za-z0-9._-]*)");
+    return refusal("invalid_slot", INVALID_SLOT_DETAIL);
   }
   if (holder.trim() === "") {
     return refusal("invalid_holder", "holder must be a non-empty identifier");
@@ -231,7 +307,7 @@ export function acquireLease(
     return refusal("invalid_ttl", `ttl must be a positive number of seconds; rejected: ${JSON.stringify(ttlSeconds)}`);
   }
 
-  return withSlotLock(dir, slot, options, (record) => {
+  return withAllowedSlotLock(dir, slot, options, (record) => {
     const at = nowMs(options);
     const skew = skewMs(options);
     const expiresAt = iso(at + ttlSeconds * 1000);
@@ -267,6 +343,127 @@ export function acquireLease(
   });
 }
 
+/** What one slot try produced inside its own lock. */
+type SlotTry =
+  | { granted: true; record: LeaseRecord; acquired: boolean; took_over: boolean }
+  | { granted: false; holder: string | null; expires_at: string | null };
+
+export interface AcquireAnyResult {
+  /** The slot this call was granted. */
+  slot: string;
+  record: LeaseRecord;
+  /** True when this call took the slot fresh or took over an expired lease. */
+  acquired: boolean;
+  /** True when an expired lease was taken over (the token was incremented). */
+  took_over: boolean;
+  /** Slots that were held when tried, in the order they were tried. */
+  held: Array<{ slot: string; holder: string | null; expires_at: string | null }>;
+}
+
+/**
+ * Any-of acquire: try the listed slots IN ORDER, one slot lock at a time (never two locks at
+ * once, and no new lock), and grant exactly ONE — the first that is free, already held by this
+ * holder, or expired. Every other slot that is held is reported when nothing can be granted.
+ */
+export function acquireAnyLease(
+  dir: string,
+  slots: string[],
+  holder: string,
+  ttlSeconds: number = DEFAULT_LEASE_TTL_SECONDS,
+  options: LeaseOptions = {}
+): LeaseResult<AcquireAnyResult> {
+  if (slots.length === 0) {
+    return refusal("invalid_slot", "at least one slot id is required");
+  }
+  for (const slot of slots) {
+    if (!SLOT_PATTERN.test(slot)) return refusal("invalid_slot", INVALID_SLOT_DETAIL);
+  }
+  if (holder.trim() === "") {
+    return refusal("invalid_holder", "holder must be a non-empty identifier");
+  }
+  if (!Number.isFinite(ttlSeconds) || ttlSeconds <= 0) {
+    return refusal("invalid_ttl", `ttl must be a positive number of seconds; rejected: ${JSON.stringify(ttlSeconds)}`);
+  }
+  const listed = readAllowedSlots(dir);
+  if (!listed.ok) return listed;
+  if (listed.allowed !== null) {
+    const denied = slots.find((slot) => !listed.allowed?.has(slot));
+    if (denied !== undefined) return refusal(
+      "slot_not_allowed",
+      `slot "${denied}" is not listed in ${SLOTS_ALLOW_FILENAME}; add it there (one slot id per line) or use a listed slot`
+    );
+  }
+
+  const held: Array<{ slot: string; holder: string | null; expires_at: string | null }> = [];
+
+  // Two passes, each slot locked on its own and released before the next:
+  //   1. a slot this holder ALREADY holds (idempotent re-acquire: no second grant);
+  //   2. otherwise the first free or expired slot in the listed order.
+  for (const phase of ["own", "grant"] as const) {
+    for (const slot of slots) {
+      const attempt = withSlotLock(dir, slot, options, (record): LeaseResult<SlotTry> => {
+        const at = nowMs(options);
+        const skew = skewMs(options);
+        const expiresAt = iso(at + ttlSeconds * 1000);
+        const expired = isExpired(record, at, skew);
+        if (phase === "own") {
+          if (record.holder === holder && !expired) {
+            return { ok: true, granted: true, record, acquired: false, took_over: false };
+          }
+          if (record.holder === null || expired) {
+            // Leave it for the grant pass; do not write here.
+            return { ok: true, granted: false, holder: null, expires_at: null };
+          }
+          return { ok: true, granted: false, holder: record.holder, expires_at: record.expires_at };
+        }
+        if (record.holder === null || expired) {
+          const next: LeaseRecord = {
+            ...record,
+            token: record.token + 1,
+            holder,
+            acquired_at: iso(at),
+            expires_at: expiresAt
+          };
+          return persist(dir, next, {
+            granted: true,
+            record: next,
+            acquired: true,
+            took_over: record.holder !== null
+          });
+        }
+        if (record.holder === holder) {
+          // Same holder won the race for this slot: idempotent success, its CURRENT token.
+          return { ok: true, granted: true, record, acquired: false, took_over: false };
+        }
+        return { ok: true, granted: false, holder: record.holder, expires_at: record.expires_at };
+      });
+      if (!attempt.ok) return attempt;
+      if (attempt.granted) {
+        return {
+          ok: true,
+          slot,
+          record: attempt.record,
+          acquired: attempt.acquired,
+          took_over: attempt.took_over,
+          held
+        };
+      }
+      if (attempt.holder !== null && !held.some((entry) => entry.slot === slot)) {
+        held.push({ slot, holder: attempt.holder, expires_at: attempt.expires_at });
+      }
+    }
+  }
+
+  return {
+    ok: false,
+    code: "all_slots_held",
+    detail: `every requested slot is held: ${held
+      .map((entry) => `${entry.slot} by "${entry.holder}" until ${entry.expires_at}`)
+      .join("; ")}`,
+    slots: held
+  };
+}
+
 /** Renew: only the current holder, with the current token, and only while unexpired. */
 export function renewLease(
   dir: string,
@@ -277,12 +474,12 @@ export function renewLease(
   options: LeaseOptions = {}
 ): LeaseResult<{ record: LeaseRecord }> {
   if (!SLOT_PATTERN.test(slot)) {
-    return refusal("invalid_slot", "slot must be a single safe path segment ([A-Za-z0-9][A-Za-z0-9._-]*)");
+    return refusal("invalid_slot", INVALID_SLOT_DETAIL);
   }
   if (!Number.isFinite(ttlSeconds) || ttlSeconds <= 0) {
     return refusal("invalid_ttl", `ttl must be a positive number of seconds; rejected: ${JSON.stringify(ttlSeconds)}`);
   }
-  return withSlotLock(dir, slot, options, (record) => {
+  return withAllowedSlotLock(dir, slot, options, (record) => {
     if (record.holder === null) return refusal("lease_missing", `slot "${slot}" has no holder`);
     if (record.holder !== holder) {
       return refusal("not_holder", `slot "${slot}" is held by "${record.holder}", not "${holder}"`);
@@ -308,9 +505,9 @@ export function releaseLease(
   options: LeaseOptions = {}
 ): LeaseResult<{ record: LeaseRecord }> {
   if (!SLOT_PATTERN.test(slot)) {
-    return refusal("invalid_slot", "slot must be a single safe path segment ([A-Za-z0-9][A-Za-z0-9._-]*)");
+    return refusal("invalid_slot", INVALID_SLOT_DETAIL);
   }
-  return withSlotLock(dir, slot, options, (record) => {
+  return withAllowedSlotLock(dir, slot, options, (record) => {
     if (record.holder === null) return refusal("lease_missing", `slot "${slot}" has no holder`);
     if (record.holder !== holder) {
       return refusal("not_holder", `slot "${slot}" is held by "${record.holder}", not "${holder}"`);
@@ -336,6 +533,8 @@ export function checkLease(
   token: number,
   options: LeaseOptions = {}
 ): LeaseResult<CheckResult> {
+  const notAllowed = ensureSlotAllowed(dir, slot);
+  if (notAllowed) return notAllowed;
   const current = readLease(dir, slot);
   if (!current.ok) return current;
   const record = current.record;
@@ -358,6 +557,8 @@ export function leaseStatus(
   slot: string,
   options: LeaseOptions = {}
 ): LeaseResult<{ record: LeaseRecord; free: boolean; expired: boolean }> {
+  const notAllowed = ensureSlotAllowed(dir, slot);
+  if (notAllowed) return notAllowed;
   const current = readLease(dir, slot);
   if (!current.ok) return current;
   const record = current.record;
@@ -386,6 +587,8 @@ export function fenceAction(
   token: number,
   _options: LeaseOptions = {}
 ): LeaseResult<FenceVerdict> {
+  const notAllowed = ensureSlotAllowed(dir, slot);
+  if (notAllowed) return notAllowed;
   const current = readLease(dir, slot);
   if (!current.ok) return current;
   const slotFence = current.record.token;
