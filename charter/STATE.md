@@ -1,6 +1,7 @@
-# State — odin-sentinel — 2026-11-01T07:20Z, written by PM-ODIN (Claude Opus 5.5)
-HEAD: main 75297d1 (ci-charter-job, PR #25) + this change (feat/slot-lease: lease store, fencing tokens and the `lease` CLI, after repair 1 of 1). Charter tool pin: e27e00a.
-Rule (EXEC-PM, 2026-11-01): run `charter check --strict` locally, at the pin above, before every merge to main, and record its result in the PR. It stays in force while the CI charter job can only print its "not run" line (CS-7).
+# State — odin-sentinel — 2026-11-01T07:45Z, written by PM-ODIN (Claude Opus 5.5)
+HEAD: main f79288c (slot-lease, PR #24) + this change (chore/charter-pin-c923a80: fleet pin upgrade). Charter tool pin: c923a80cca2f74dba701ee073e631cc692b978e7, installed for this repository at `$HOME/.local/share/charter/bin/c923a80cca2f74dba701ee073e631cc692b978e7/bin/charter`; the CI charter job's CHARTER_REV names the identical pin.
+Rule (EXEC-PM, 2026-11-01): run `charter check --strict` locally, at the pin above, before every merge to main, and record its result in the PR. It stays in force while the CI charter job can only print its "not run" line (CS-7), and while charter's git hooks are not installed here (below).
+Charter git hooks: NOT installed, on purpose. The repository already has a pre-commit hook (a planning-gate shim), and `charter hooks install --force` at this pin would move it aside so it never runs again (found by PM-LUMBR, PM-CHARTER correction 2026-11-01, Charter TODO 71). Install the hooks with the pin that carries TODO 71, where the charter hook runs an existing hook first; until then, run `charter check` and `charter check --strict` by hand before every commit and push.
 Proven (with the proof names):
 - slice-zero ACCEPTED (DONE pin b087121d). QA: OD/QA, Pi, openrouter/xiaomi/mimo-v2.6-flash, high (author Claude Opus 5.5). Markdown receipt sha256 09bf1d87352c61bdcaebe7d0c5015a5a8235faecbc52cd56b0811b0fd11f5134; validated JSON receipt (reveng.qa-receipt/1) sha256 f883af011ca4dc11905f971d072bcd6a3c305c6d4ace0c06916ce8be53a0b001; accepted with `charter gate slice-zero --accept --receipt` at DONE pin 486916b1, frozen 8533d25 (manifest 2c216de2).
   - slice-zero-live (G1): `charter/slice-zero.sh` prints `delivered_valid=true refused_valid=false` and `slice-zero: GREEN`; mutant prints `refused_valid=true` and exits 1. Reopened by QA in a fresh clone.
@@ -51,11 +52,11 @@ Common engineering standard v0.2 (linked from AGENTS.md): gaps recorded as oblig
 - charter check --strict refuses DONE/_template.md at the earlier pin (upstream defect).
 Exact last-green command(s):
 - charter/slice-zero.sh
-- charter check (charter e27e00a)
+- charter check --strict (charter c923a80)
 - pnpm run audit:deps
 - pnpm run audit:public
 - pnpm run typecheck
-- charter gate slot-lease --accept --receipt
+- charter gate charter-pin-c923a80 --dispatch
 Exact last-red command(s) and why:
 - none open on main. During this CLOSE: `charter receipt` with charter b842747 refused a receipt written from charter's newer template (schema charter.receipt/1); resolved by moving the tool pin to e27e00a, which reads it (tool and template skew, not a repository defect).
 Next three bounded items (in order):
