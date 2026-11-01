@@ -1,5 +1,5 @@
-# State — odin-sentinel — 2026-10-31T08:35Z, written by PM-ODIN (Claude Opus 5.5)
-HEAD: main a8b0b2b (public-roots-crates landed, PR #16) + this landing (feat/say-validator-roundtrip; the acceptance and this STATE rewrite are one commit). Charter tool pin: b842747.
+# State — odin-sentinel — 2026-11-01T03:00Z, written by PM-ODIN (Claude Opus 5.5) during Mister Clean CLOSE
+HEAD: main e00e425 (say-validator-roundtrip landed, PR #17) + this landing (fix/sync-mcp-pins, PR #2; freeze, reopen evidence, acceptance and this STATE rewrite are one change). Charter tool pin: e27e00a.
 Proven (with the proof names):
 - slice-zero ACCEPTED (DONE pin b087121d). QA: OD/QA, Pi, openrouter/xiaomi/mimo-v2.6-flash, high (author Claude Opus 5.5). Markdown receipt sha256 09bf1d87352c61bdcaebe7d0c5015a5a8235faecbc52cd56b0811b0fd11f5134; validated JSON receipt (reveng.qa-receipt/1) sha256 f883af011ca4dc11905f971d072bcd6a3c305c6d4ace0c06916ce8be53a0b001; accepted with `charter gate slice-zero --accept --receipt` at DONE pin 486916b1, frozen 8533d25 (manifest 2c216de2).
   - slice-zero-live (G1): `charter/slice-zero.sh` prints `delivered_valid=true refused_valid=false` and `slice-zero: GREEN`; mutant prints `refused_valid=true` and exits 1. Reopened by QA in a fresh clone.
@@ -20,10 +20,13 @@ Proven (with the proof names):
 - odin-say slice 3 ACCEPTED (DONE pin f2614794): proof integrity. The sender proves the proof log writable before touching any pane and exits 8 (PROOF_LOG_UNWRITABLE) without sending if it is not; a record lost after a send exits 9 (PROOF_RECORD_LOST) and prints the record on stderr, never exit 0; each record is one write; waited_ms is monotonic wall time. Closes slice 1's QA findings F1 (medium), F2 (low), F3 (info), confirmed by the QA seat that raised them. QA PASS on e0c32b9. Markdown receipt sha256 70971841c9f7d966a5eb87a4a6104c132828e1360e8a41233d3593b77f9250c5; validated JSON receipt sha256 7de43566af0c7dcdbd1e23e77353b6d4ce8016470f85f8dedd5bd0bef521f05b; frozen d44faca (manifest bcde3486).
 - public-roots-crates ACCEPTED (DONE pin 8fdf7a72), closing standard gap CS-2 part 1: crates/ is inside the public-surface audit (35 more files checked); two tilde home paths and two Linux home-path test strings in crates/odin-say were reworded (test inputs only, no behaviour change; QA ruled the test-data edit within intent and proved it necessary). QA PASS on 08f1973. Markdown receipt sha256 510be747318e3a3c0147f5a9e3dc7463fb33f724f2274ec97fa3dfbbd006404a; validated JSON receipt sha256 767cde68ea7b6b4cde68da1b6b9a5a38f5d660d037330c33041863a75223f551; frozen 7fc8a5a (manifest fa467ce9).
 - say-validator-roundtrip ACCEPTED (DONE pin 478e7041, unchanged: the first landing on `charter reopen`, evidence in charter/.freeze/reopen/): the Rust sender and ODIN's TypeScript validator agree. A golden corpus produced by the real sender flow covers all 10 recordable outcomes (exits 1, 8, 9 write no record by design); every record gets the expected verdict from validateCmuxDeliveryProof and through the MCP tool; every record maps totally onto PlanGraph delivery facts under the vocabulary owner's ruling (TRANSPORT_ACK needs evidence the input was taken in, so every INPUT_BAR_ONLY record maps to no fact). QA FAIL on 16750df (that row, plus corpus gaps), repair 1 of 1, QA PASS on a4837a3 with zero defects. QA reports sha256 (pass) 5205ec4104c1cb2d043e02358448a8ba63befcca4acf59ab0ee28d3c275ff5c1; validated JSON receipt sha256 ce8baa1238ee51e9454d99a0655cddbae38b8c78fb7f34bdda3cfb18afac8677; frozen a4837a3 (charter.freeze/2 manifest d700205f).
+- sync-mcp-pins ACCEPTED (DONE pin c3a8c963, written at QA dispatch to record the 2026-09-26 story's AC1–AC7): the skill sync script re-pins harness MCP registrations to the master's release (default target list plus override file; rewrites only stale x.y.z pins through the existing file; dry-run and verify-only write nothing; non-regular files refused). Authored 2026-09-26, never QA'd until now. QA PASS on 08ef952 (shellcheck clean; 60/60 on bash 5.3 and bash 3.2; PR #2 CI green; 5 mutants red); finding D1 (low) recorded below. QA report sha256 3c9c5cb15478f9b45d394a98c3fecc3bac6a636b434b1ef15318f13a7b990cfd; receipt schema charter.receipt/1, validated; frozen 08ef952 (manifest 1a2981bc); evidence via `charter reopen`.
 Reopen markers: every accepted DONE list carries `reopened:` markers added by the Charter-sanctioned interim route (markers, re-pin, clean-clone freeze, QA re-issued JSON receipt, `gate --accept --receipt`). Receipts are kept with the team receipts outside this public repository because they cite local paths; their hashes are recorded here.
 Not proven / known gaps:
 - INTENT.md awaits owner ratification; GUARANTEES rows are `proposed`.
-- fix/sync-mcp-pins: merges clean onto 0.8.0 (merged candidate 8ad4898), never QA'd; queued.
+- sync-mcp-pins D1 (low, QA): the script also rewrites a package-version token that appears inside a comment or URL in a harness config, not only the pin itself; AC3 intends every other byte kept. Follow-up slice.
+- fix/registry-cli-store-20261020 (archived at 2997fc9, local branch kept, owner PM-ODIN): wires the event-registry store into the default MCP server and publishes registry argument schemas (2 commits, about 540 lines of tests), never reviewed. Prerequisite before it can land: the registry lock wait must stop blocking the event loop (asynchronous backoff or a short interactive budget), because wiring the store makes that wait reachable on the default server; then rebase onto main (its lockfile changes predate the 2026-10-31 advisory fix) and run it as a lane with QA.
+- Legacy local planning corpus (gitignored, local-only): a Mister Clean planning audit reports about 2,400 relationship and lifecycle findings accumulated before this repository adopted its charter. charter/ now governs new work; whether to conform or retire the legacy corpus is an open decision.
 - Registry lock follow-up (QA F2, low): the lock wait is synchronous, so a program that injects ODIN's registry store into the MCP server can block its event loop for up to the 10 s budget. The default MCP binary injects no store (its append tool fails closed), so this affects embedders only; an asynchronous backoff or a shorter interactive budget is a later slice.
 Common engineering standard v0.2 (linked from AGENTS.md): gaps recorded as obligations, each a future bounded slice:
 - CS-1 (§1) Private paths: research notes, receipts and briefs live under a team directory, not `AGENT_PRIVATE_ROOT/<repo>/{evidence,handoffs,...}`; odin-say defaults its proof log to the XDG state directory. Move to the standard root with an override.
@@ -38,22 +41,23 @@ Common engineering standard v0.2 (linked from AGENTS.md): gaps recorded as oblig
 - charter check --strict refuses DONE/_template.md at the earlier pin (upstream defect).
 Exact last-green command(s):
 - charter/slice-zero.sh
-- charter check (charter b842747)
+- charter check (charter e27e00a)
 - pnpm run audit:deps
 - pnpm run audit:public
 - pnpm run typecheck
 - charter gate registry-lock-budget --accept --receipt
 Exact last-red command(s) and why:
-- charter check on this checkout before this rewrite: "STATE.md was not rewritten after slice delivery-verdicts / registry-lock-budget was recorded accepted" (STATE lagged two landings).
+- none open on main. During this CLOSE: `charter receipt` with charter b842747 refused a receipt written from charter's newer template (schema charter.receipt/1); resolved by moving the tool pin to e27e00a, which reads it (tool and template skew, not a repository defect).
 Next three bounded items (in order):
-1. QA: public-roots-charter receipt update, then odin-say slice 1, odin-say slice 2, ci-action-pins, fix/sync-mcp-pins; land each on a validated JSON receipt and rewrite this file after each landing.
-2. Multi-repo swarm study (owner directive 2026-10-31): queued-delivery board trial (E3) once odin-say lands; re-measure at +24 h.
-3. Common-standard gap CS-2 (crates/ and tests/ into the public-safety scan) once public-roots-charter lands.
+1. Registry lock wait made non-blocking for the MCP server (asynchronous backoff or a short interactive budget), the prerequisite for landing fix/registry-cli-store-20261020 as a QA'd lane.
+2. Idle-seat wake-up watcher (multi-repo swarm study, E3 result): poll the PlanGraph board for messages addressed to a seat with no OBSERVED fact older than an age and send a content-free pane nudge with odin-say; PlanGraph owns the queue, ODIN the wake-up.
+3. sync-mcp-pins D1: rewrite only the pin value, never a version-like token in a comment or URL.
 Open owner decisions:
 - Ratify charter/INTENT.md.
 - How a public repository obtains the charter tool for CI (CS-7): make the charter repository public, host binaries elsewhere, or a per-repository read token (with EXEC-PM).
-- The separate Codex worktree on fix/registry-cli-store-20261020.
+- Conform or retire the legacy local planning corpus (about 2,400 audit findings; charter/ governs new work).
 Where everything is (branches, lanes, receipts):
-- Lanes, each in its own worktree outside this checkout: chore/public-roots-charter, feat/odin-say, feat/odin-say-mid-turn, chore/ci-action-pins, fix/sync-mcp-pins (+ integrate/sync-mcp-pins).
-- Landed and archived (tag `archive/<branch>`): chore/charter-adoption, fix/advisories-2026-10-31, docs/common-standard-adoption, feat/delivery-verdicts, fix/registry-lock-budget, feat/capability-seams-20261019, fix/security-review-20261019.
+- Open lanes: none. Unmerged branch with a named owner: fix/registry-cli-store-20261020 (PM-ODIN; archived at 2997fc9; prerequisite above).
+- Landed and archived (tag `archive/<branch>`, verified on origin): chore/charter-adoption, fix/advisories-2026-10-31, docs/common-standard-adoption, feat/delivery-verdicts, fix/registry-lock-budget, chore/public-roots-charter, feat/odin-say, feat/odin-say-mid-turn, feat/odin-say-proof-integrity, chore/ci-action-pins, chore/public-roots-crates, feat/say-validator-roundtrip, docs/state-refresh-1, feat/capability-seams-20261019, fix/security-review-20261019, integrate/sync-mcp-pins, and fix/sync-mcp-pins with this landing.
+- QA receipts and reports live with the team receipts outside this public repository; this file records their hashes.
 - PM ruling: the govdisp baseline manifest re-pin is in scope for lanes that change protocol/ or src/protocol/ (generator only, own rows only).
