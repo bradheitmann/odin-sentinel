@@ -1,0 +1,7 @@
+{
+  "base_commit": "c3240fd7dcc432065fa89dd229c6e6a3ea72703a",
+  "brief_sha256": null,
+  "done_sha256": "b31baa71b2347523f63fd4a8336e070c58239e88335d3190f13700fba55d1e6a",
+  "schema_version": "charter.dispatch/1",
+  "slice": "ci-charter-job"
+}
