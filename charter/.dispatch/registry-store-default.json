@@ -1,7 +1,10 @@
 {
+  "accepted_unix_s": 1793504336,
+  "accepted_utc": "2026-11-01T03:38:56Z",
   "base_commit": "e69de9103aaf1ac9edb08b30a2537a484078127b",
   "brief_sha256": null,
   "done_sha256": "6c69fac5d67ae2b245572872a12d1b87abc2353bf8b1a3579a886d520ac887b0",
   "schema_version": "charter.dispatch/1",
-  "slice": "registry-store-default"
+  "slice": "registry-store-default",
+  "state": "accepted"
 }

@@ -1,0 +1,45 @@
+{
+  "done_sha256": "6c69fac5d67ae2b245572872a12d1b87abc2353bf8b1a3579a886d520ac887b0",
+  "entries": [
+    {
+      "evidence_sha256": "d0e2df7e8e8672881b2bed7f3d0da71da44a90d7e3548923d64487d3876bedef",
+      "proof": "1",
+      "recorded_utc": "2026-11-01T03:38:56Z",
+      "run_id": "OD-QA-registry-store-default-5acbff9"
+    },
+    {
+      "evidence_sha256": "d0e2df7e8e8672881b2bed7f3d0da71da44a90d7e3548923d64487d3876bedef",
+      "proof": "2",
+      "recorded_utc": "2026-11-01T03:38:56Z",
+      "run_id": "OD-QA-registry-store-default-5acbff9"
+    },
+    {
+      "evidence_sha256": "d0e2df7e8e8672881b2bed7f3d0da71da44a90d7e3548923d64487d3876bedef",
+      "proof": "3",
+      "recorded_utc": "2026-11-01T03:38:56Z",
+      "run_id": "OD-QA-registry-store-default-5acbff9"
+    },
+    {
+      "evidence_sha256": "d0e2df7e8e8672881b2bed7f3d0da71da44a90d7e3548923d64487d3876bedef",
+      "proof": "4",
+      "recorded_utc": "2026-11-01T03:38:56Z",
+      "run_id": "OD-QA-registry-store-default-5acbff9"
+    },
+    {
+      "evidence_sha256": "d0e2df7e8e8672881b2bed7f3d0da71da44a90d7e3548923d64487d3876bedef",
+      "proof": "5",
+      "recorded_utc": "2026-11-01T03:38:56Z",
+      "run_id": "OD-QA-registry-store-default-5acbff9"
+    },
+    {
+      "evidence_sha256": "d0e2df7e8e8672881b2bed7f3d0da71da44a90d7e3548923d64487d3876bedef",
+      "proof": "6",
+      "recorded_utc": "2026-11-01T03:38:56Z",
+      "run_id": "OD-QA-registry-store-default-5acbff9"
+    }
+  ],
+  "head": "5acbff94a1397c8faa0b44dd068621bc62ae8814",
+  "manifest_sha256": "83a1b79489168e89c213dfc8662b70ea877f19b4db23f96b5712eb6c657c72cf",
+  "schema_version": "charter.reopen/1",
+  "slice": "registry-store-default"
+}
