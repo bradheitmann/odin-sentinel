@@ -272,6 +272,16 @@ export interface GovdispRegistryStoreLike {
   ):
     | { ok: true; path: string; event: GovdispEvent }
     | { ok: false; rejections: GovdispRegistryRejection[] };
+  /**
+   * OPTIONAL asynchronous append with the same result contract. A store that provides it
+   * lets the server wait for a contended lock without blocking its event loop; a store that
+   * does not is called synchronously, exactly as before.
+   */
+  appendRegistryEventAsync?(
+    scope: string,
+    event: unknown,
+    base?: string
+  ): Promise<GovdispRegistryAppendResult>;
   queryRegistryEvents(
     scope: string,
     query?: GovdispRegistryQuery,
@@ -327,10 +337,38 @@ export function appendGovdispEvent(
   event: unknown,
   base?: string
 ): GovdispRegistryAppendResult {
+  const fault = appendArgumentFault(store, scope);
+  if (fault) return { ok: false, rejections: [fault] };
+  return store.appendRegistryEvent(scope, event, base);
+}
+
+/** The shared fail-closed argument checks for both append paths (identical text). */
+function appendArgumentFault(
+  store: GovdispRegistryStoreLike,
+  scope: string
+): GovdispRegistryRejection | null {
   const storeFault = requireRegistryStore(store, "appendRegistryEvent");
-  if (storeFault) return { ok: false, rejections: [storeFault] };
-  const scopeFault = requireRegistryScope(scope);
-  if (scopeFault) return { ok: false, rejections: [scopeFault] };
+  if (storeFault) return storeFault;
+  return requireRegistryScope(scope);
+}
+
+/**
+ * Asynchronous form of `appendGovdispEvent`, used by the MCP handler: it prefers the
+ * store's optional `appendRegistryEventAsync` (timer waits, so a contended lock does not
+ * freeze the server) and otherwise calls the synchronous append. A store without the async
+ * method — including no store at all — therefore behaves exactly as before.
+ */
+export async function appendGovdispEventAsync(
+  store: GovdispRegistryStoreLike,
+  scope: string,
+  event: unknown,
+  base?: string
+): Promise<GovdispRegistryAppendResult> {
+  const fault = appendArgumentFault(store, scope);
+  if (fault) return { ok: false, rejections: [fault] };
+  if (typeof store.appendRegistryEventAsync === "function") {
+    return store.appendRegistryEventAsync(scope, event, base);
+  }
   return store.appendRegistryEvent(scope, event, base);
 }
 

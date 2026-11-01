@@ -275,21 +275,59 @@ export interface RegistryLockAcquisition {
   elapsedMs: number;
 }
 
+/**
+ * The wait policy, derived once and shared by the synchronous and the asynchronous
+ * acquisition paths so the two can never drift apart.
+ */
+interface LockPolicy {
+  mode: "fixed" | "backoff";
+  /** fixed mode: attempts and interval */
+  maxAttempts: number;
+  retryMs: number;
+  /** backoff mode: wall-clock budget */
+  budgetMs: number;
+}
+
+function lockPolicy(options: RegistryLockOptions): LockPolicy {
+  const fixedAttempts = options.maxLockAttempts !== undefined && options.maxLockAttempts !== null;
+  const fixedRetry = options.lockRetryMs !== undefined && options.lockRetryMs !== null;
+  if (fixedAttempts || fixedRetry) {
+    return {
+      mode: "fixed",
+      maxAttempts: Math.max(1, options.maxLockAttempts ?? DEFAULT_MAX_LOCK_ATTEMPTS),
+      retryMs: Math.max(0, options.lockRetryMs ?? DEFAULT_LOCK_RETRY_MS),
+      budgetMs: 0
+    };
+  }
+  return {
+    mode: "backoff",
+    maxAttempts: 0,
+    retryMs: 0,
+    budgetMs: Math.max(0, options.lockBudgetMs ?? DEFAULT_LOCK_BUDGET_MS)
+  };
+}
+
+/**
+ * Next backoff delay: jitter down from the current delay (never up past the cap) and clamp
+ * to the remaining budget so the wall-clock promise holds. Shared by both wait paths.
+ */
+function nextBackoffDelayMs(delayMs: number, elapsedMs: number, budgetMs: number): number {
+  const jittered = Math.round(delayMs * (0.5 + Math.random() * 0.5));
+  return Math.max(0, Math.min(jittered, budgetMs - elapsedMs));
+}
+
 export function acquireRegistryLock(
   lockDir: string,
   fsMkdir: typeof mkdirSync,
   options: RegistryLockOptions = {}
 ): RegistryLockAcquisition {
   const startedAt = Date.now();
+  const policy = lockPolicy(options);
   let attempts = 0;
-  const fixedAttempts = options.maxLockAttempts !== undefined && options.maxLockAttempts !== null;
-  const fixedRetry = options.lockRetryMs !== undefined && options.lockRetryMs !== null;
 
-  if (fixedAttempts || fixedRetry) {
-    const maxAttempts = Math.max(1, options.maxLockAttempts ?? DEFAULT_MAX_LOCK_ATTEMPTS);
-    const retryMs = Math.max(0, options.lockRetryMs ?? DEFAULT_LOCK_RETRY_MS);
+  if (policy.mode === "fixed") {
     let locked = false;
-    while (attempts < maxAttempts) {
+    while (attempts < policy.maxAttempts) {
       attempts += 1;
       try {
         fsMkdir(lockDir);
@@ -297,13 +335,12 @@ export function acquireRegistryLock(
         break;
       } catch (error) {
         if (!isEexists(error)) throw error;
-        if (attempts < maxAttempts) sleepSync(retryMs);
+        if (attempts < policy.maxAttempts) sleepSync(policy.retryMs);
       }
     }
     return { locked, attempts, elapsedMs: Date.now() - startedAt };
   }
 
-  const budgetMs = Math.max(0, options.lockBudgetMs ?? DEFAULT_LOCK_BUDGET_MS);
   let delayMs = DEFAULT_LOCK_BACKOFF_INITIAL_MS;
   let locked = false;
   for (;;) {
@@ -316,14 +353,132 @@ export function acquireRegistryLock(
       if (!isEexists(error)) throw error;
     }
     const elapsed = Date.now() - startedAt;
-    if (elapsed >= budgetMs) break;
-    // Jitter down from the current delay (never up past the cap) and clamp to
-    // the remaining budget so the wall-clock promise holds.
-    const jittered = Math.round(delayMs * (0.5 + Math.random() * 0.5));
-    sleepSync(Math.max(0, Math.min(jittered, budgetMs - elapsed)));
+    if (elapsed >= policy.budgetMs) break;
+    sleepSync(nextBackoffDelayMs(delayMs, elapsed, policy.budgetMs));
     delayMs = Math.min(DEFAULT_LOCK_BACKOFF_MAX_MS, delayMs * 2);
   }
   return { locked, attempts, elapsedMs: Date.now() - startedAt };
+}
+
+/** A timer wait that yields to the event loop instead of blocking it. */
+function sleepAsync(ms: number): Promise<void> {
+  if (ms <= 0) return Promise.resolve();
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+/**
+ * Asynchronous twin of [`acquireRegistryLock`]: SAME policy (the shared [`LockPolicy`], the
+ * same capped exponential backoff with jitter, the same wall-clock budget, the same
+ * `maxLockAttempts` / `lockRetryMs` handling) but every wait is a timer, so a contended lock
+ * never freezes the caller's event loop — in particular the MCP server's.
+ */
+export async function acquireRegistryLockAsync(
+  lockDir: string,
+  fsMkdir: typeof mkdirSync,
+  options: RegistryLockOptions = {}
+): Promise<RegistryLockAcquisition> {
+  const startedAt = Date.now();
+  const policy = lockPolicy(options);
+  let attempts = 0;
+
+  if (policy.mode === "fixed") {
+    let locked = false;
+    while (attempts < policy.maxAttempts) {
+      attempts += 1;
+      try {
+        fsMkdir(lockDir);
+        locked = true;
+        break;
+      } catch (error) {
+        if (!isEexists(error)) throw error;
+        if (attempts < policy.maxAttempts) await sleepAsync(policy.retryMs);
+      }
+    }
+    return { locked, attempts, elapsedMs: Date.now() - startedAt };
+  }
+
+  let delayMs = DEFAULT_LOCK_BACKOFF_INITIAL_MS;
+  let locked = false;
+  for (;;) {
+    attempts += 1;
+    try {
+      fsMkdir(lockDir);
+      locked = true;
+      break;
+    } catch (error) {
+      if (!isEexists(error)) throw error;
+    }
+    const elapsed = Date.now() - startedAt;
+    if (elapsed >= policy.budgetMs) break;
+    await sleepAsync(nextBackoffDelayMs(delayMs, elapsed, policy.budgetMs));
+    delayMs = Math.min(DEFAULT_LOCK_BACKOFF_MAX_MS, delayMs * 2);
+  }
+  return { locked, attempts, elapsedMs: Date.now() - startedAt };
+}
+
+/** The shared, side-effect-free part of an append: validation, size cap, paths. */
+type PreparedAppend =
+  | {
+      ok: true;
+      dir: string;
+      path: string;
+      lockDir: string;
+      line: string;
+      event: GovdispEvent;
+    }
+  | { ok: false; rejections: EventRejection[] };
+
+function prepareAppend(
+  scope: string,
+  event: unknown,
+  base: string,
+  options: RegistryAppendOptions
+): PreparedAppend {
+  // --- pure validation choke point (no side effects) ---
+  if (!isSafeRegistryScope(scope)) {
+    return { ok: false, rejections: [unsafeScopeRejection(scope)] };
+  }
+  const validation = validateGovdispEvent(event);
+  if (!validation.valid) {
+    return { ok: false, rejections: validation.rejections };
+  }
+  // Size-shape validation: measure the exact JSONL line to be appended
+  // (utf8 bytes, terminator included); over-cap events are rejected by name
+  // before any mkdir or append — nothing is written.
+  const line = `${JSON.stringify(validation.event)}\n`;
+  const maxEventBytes = Math.max(1, options.maxEventBytes ?? GOVDISP_EVENT_MAX_BYTES);
+  const lineBytes = Buffer.byteLength(line, "utf8");
+  if (lineBytes > maxEventBytes) {
+    return {
+      ok: false,
+      rejections: [{
+        field: "_size",
+        event_class: validation.event.event_class,
+        code: EVENT_TOO_LARGE_CODE,
+        detail: `serialized event line is ${lineBytes} bytes, exceeding the per-event cap of ${maxEventBytes} bytes (GOVDISP_EVENT_MAX_BYTES; doctrine: protocol/resources/proof-ttl.yaml); the append is refused fail-closed and nothing was written`
+      }]
+    };
+  }
+  const dir = join(base, scope);
+  return {
+    ok: true,
+    dir,
+    path: join(dir, REGISTRY_EVENTS_FILENAME),
+    lockDir: join(dir, REGISTRY_LOCK_DIRNAME),
+    line,
+    event: validation.event
+  };
+}
+
+function lockUnavailable(lockDir: string, eventClass: string, acquisition: RegistryLockAcquisition): EventRejection {
+  return {
+    field: REGISTRY_LOCK_DIRNAME,
+    event_class: eventClass,
+    code: "lock_unavailable",
+    detail: `registry lock ${lockDir} held by another writer after ${acquisition.attempts} attempt(s) over ${acquisition.elapsedMs} ms; failing closed instead of risking interleaved corruption`
+  };
 }
 
 /**
@@ -352,50 +507,16 @@ export function appendRegistryEvent(
   fsRmdir: typeof rmdirSync = rmdirSync,
   options: RegistryAppendOptions = {}
 ): AppendRegistryEventResult {
-  // --- pure validation choke point (no side effects) ---
-  if (!isSafeRegistryScope(scope)) {
-    return { ok: false, rejections: [unsafeScopeRejection(scope)] };
-  }
-  const validation = validateGovdispEvent(event);
-  if (!validation.valid) {
-    return { ok: false, rejections: validation.rejections };
-  }
-  // Size-shape validation: measure the exact JSONL line to be appended
-  // (utf8 bytes, terminator included); over-cap events are rejected by name
-  // before any mkdir or append — nothing is written.
-  const line = `${JSON.stringify(validation.event)}\n`;
-  const maxEventBytes = Math.max(1, options.maxEventBytes ?? GOVDISP_EVENT_MAX_BYTES);
-  const lineBytes = Buffer.byteLength(line, "utf8");
-  if (lineBytes > maxEventBytes) {
-    return {
-      ok: false,
-      rejections: [{
-        field: "_size",
-        event_class: validation.event.event_class,
-        code: EVENT_TOO_LARGE_CODE,
-        detail: `serialized event line is ${lineBytes} bytes, exceeding the per-event cap of ${maxEventBytes} bytes (GOVDISP_EVENT_MAX_BYTES; doctrine: protocol/resources/proof-ttl.yaml); the append is refused fail-closed and nothing was written`
-      }]
-    };
-  }
+  const prepared = prepareAppend(scope, event, base, options);
+  if (!prepared.ok) return { ok: false, rejections: prepared.rejections };
+  const { dir, path, lockDir, line, event: parsedEvent } = prepared;
 
   // --- mutations only after full incoming-event validation ---
-  const dir = join(base, scope);
-  const path = join(dir, REGISTRY_EVENTS_FILENAME);
-  const lockDir = join(dir, REGISTRY_LOCK_DIRNAME);
-
   fsMkdir(dir, { recursive: true });
 
-  const { locked, attempts, elapsedMs } = acquireRegistryLock(lockDir, fsMkdir, options);
-  if (!locked) {
-    return {
-      ok: false,
-      rejections: [{
-        field: REGISTRY_LOCK_DIRNAME,
-        event_class: validation.event.event_class,
-        code: "lock_unavailable",
-        detail: `registry lock ${lockDir} held by another writer after ${attempts} attempt(s) over ${elapsedMs} ms; failing closed instead of risking interleaved corruption`
-      }]
-    };
+  const acquisition = acquireRegistryLock(lockDir, fsMkdir, options);
+  if (!acquisition.locked) {
+    return { ok: false, rejections: [lockUnavailable(lockDir, parsedEvent.event_class, acquisition)] };
   }
 
   try {
@@ -403,7 +524,40 @@ export function appendRegistryEvent(
   } finally {
     fsRmdir(lockDir);
   }
-  return { ok: true, path, event: validation.event };
+  return { ok: true, path, event: parsedEvent };
+}
+
+/**
+ * Asynchronous append: same validation choke point, same policy, same named rejection as
+ * [`appendRegistryEvent`], but the lock wait yields to the event loop. Optional infrastructure
+ * failures (non-EEXIST errors) still propagate, exactly as in the synchronous path.
+ */
+export async function appendRegistryEventAsync(
+  scope: string,
+  event: unknown,
+  base = LOCAL_REGISTRY_BASE,
+  fsAppend: typeof appendFileSync = appendFileSync,
+  fsMkdir: typeof mkdirSync = mkdirSync,
+  fsRmdir: typeof rmdirSync = rmdirSync,
+  options: RegistryAppendOptions = {}
+): Promise<AppendRegistryEventResult> {
+  const prepared = prepareAppend(scope, event, base, options);
+  if (!prepared.ok) return { ok: false, rejections: prepared.rejections };
+  const { dir, path, lockDir, line, event: parsedEvent } = prepared;
+
+  fsMkdir(dir, { recursive: true });
+
+  const acquisition = await acquireRegistryLockAsync(lockDir, fsMkdir, options);
+  if (!acquisition.locked) {
+    return { ok: false, rejections: [lockUnavailable(lockDir, parsedEvent.event_class, acquisition)] };
+  }
+
+  try {
+    fsAppend(path, line, "utf8");
+  } finally {
+    fsRmdir(lockDir);
+  }
+  return { ok: true, path, event: parsedEvent };
 }
 
 /**

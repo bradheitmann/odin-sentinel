@@ -8,6 +8,7 @@ import {
   VERSION,
   GOVDISP_REGISTRY_AUTHORITY_FLAG_ENV_VAR,
   appendGovdispEvent,
+  appendGovdispEventAsync,
   evaluateReadinessGate,
   exportProtocolSnapshot,
   getActivationGates,
@@ -447,7 +448,7 @@ function registerGovdispRegistrySurface(server: McpServer, options: GovdispRegis
         `Append one governance event to the append-only registry log for a scope. Registered by default as of 0.6.0; set ${GOVDISP_REGISTRY_MCP_ENV_VAR} to a non-truthy value to opt out. The staged store is the single validation choke point: valid events are appended (one line-atomic JSONL record); malformed events fail closed and the store's named rejections (field, event_class, code, detail) are propagated verbatim in the tool result — never swallowed or genericized. Append-only: no mutation or deletion surface exists.`,
       inputSchema: appendEventToolInputShape
     },
-    (input) => registryToolResult(appendGovdispEvent(store, input.scope, input.event, base))
+    async (input) => registryToolResult(await appendGovdispEventAsync(store, input.scope, input.event, base))
   );
 
   server.registerTool(
