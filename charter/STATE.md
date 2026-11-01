@@ -1,5 +1,5 @@
-# State — odin-sentinel — 2026-11-01T04:45Z, written by PM-ODIN (Claude Opus 5.5)
-HEAD: main 4ca85bf (registry-store-default landed, PR #21) + this change (chore/cost-rows: measured cost rows for all accepted slices; Codex ref disposition). Charter tool pin: e27e00a.
+# State — odin-sentinel — 2026-11-01T05:15Z, written by PM-ODIN (Claude Opus 5.5)
+HEAD: main b34040b (cost rows, PR #22) + this change (docs/state-tool-gaps: records the Mister Clean tool gaps found by the closure bundle as coordination items). Charter tool pin: e27e00a.
 Rule (EXEC-PM, 2026-11-01): run `charter check --strict` locally, at the pin above, before every merge to main, and record its result in the PR. This stands in for CI until CS-7 is unblocked.
 Proven (with the proof names):
 - slice-zero ACCEPTED (DONE pin b087121d). QA: OD/QA, Pi, openrouter/xiaomi/mimo-v2.6-flash, high (author Claude Opus 5.5). Markdown receipt sha256 09bf1d87352c61bdcaebe7d0c5015a5a8235faecbc52cd56b0811b0fd11f5134; validated JSON receipt (reveng.qa-receipt/1) sha256 f883af011ca4dc11905f971d072bcd6a3c305c6d4ace0c06916ce8be53a0b001; accepted with `charter gate slice-zero --accept --receipt` at DONE pin 486916b1, frozen 8533d25 (manifest 2c216de2).
@@ -59,6 +59,7 @@ Next three bounded items (in order):
 Open owner decisions:
 - Ratify charter/INTENT.md.
 - How a public repository obtains the charter tool for CI (CS-7): make the charter repository public, host binaries elsewhere, or a per-repository read token (with EXEC-PM).
+Coordination required (not odin debt): Mister Clean tool gaps O-DISC-1 / O-RET-1 / O-RB-1, confirmed and queued by PM-MISTER-CLEAN on 2026-11-01. odin's Mister Clean closure bundle (run odin-close-2026-11-01, kept outside this repository) fails validation only because (O-DISC-1) planning discovery treats a gitignored harness command file as a planning root, and (O-RET-1) the tool has no record format for a ratified retirement, so the retired legacy corpus's 1,008 findings still count as debt; (O-RB-1) 16 of them carry no repair boundary. When the fixes ship, re-run prepare and bundle validation; the retirement ruling is kept as a stable, hash-bound file in the private evidence root for that record.
 Where everything is (branches, lanes, receipts):
 - Open lanes: none after this landing. fix/registry-cli-store-20261020 is retired: its registry wiring and schemas land with this change as registry-store-default (cherry-picked onto current main, its dependency bumps dropped as superseded); the original commits stay preserved by tag archive/fix/registry-cli-store-20261020 at 2997fc9.
 - The leftover Codex harness checkpoint ref (a tree snapshot from a removed Codex worktree session) was preserved as tag archive/codex-checkpoint-45d9167 (verified on origin) and the ref deleted (EXEC-PM ruling: a git ref, not owner-gated). No refs remain outside heads, tags and remotes.
