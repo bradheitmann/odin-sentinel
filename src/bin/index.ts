@@ -27,6 +27,7 @@ import { createServer } from "../mcp/server.js";
  */
 
 const COMPACT_REGISTRY_SUBCOMMAND = "compact-registry";
+const LEASE_SUBCOMMAND = "lease";
 
 /** Stdout/stderr seams so tests can capture output without process mocking. */
 export interface CompactRegistryCliIo {
@@ -108,10 +109,161 @@ export async function runCompactRegistryCli(argv: string[], io: CompactRegistryC
   return 0;
 }
 
+
+/** Stdout/stderr seams so tests can capture output without process mocking. */
+export interface LeaseCliIo {
+  out?: (line: string) => void;
+  err?: (line: string) => void;
+}
+
+/**
+ * Run the `lease` subcommand:
+ *
+ *   odin-sentinel lease <acquire|renew|release|check|status> --dir <dir> --slot <id>
+ *                       [--holder <id>] [--ttl <seconds>] [--token <n>]
+ *
+ * Prints exactly one JSON object on stdout and exits 0 on success, 1 on a typed refusal.
+ * The lease module is loaded lazily, so the MCP server startup path never loads it (the
+ * runtime-isolation invariant holds).
+ */
+export async function runLeaseCli(argv: string[], io: LeaseCliIo = {}): Promise<number> {
+  const out = io.out ?? ((line: string) => console.log(line));
+  const err = io.err ?? ((line: string) => console.error(line));
+
+  let values: {
+    dir?: string;
+    slot?: string;
+    holder?: string;
+    ttl?: string;
+    token?: string;
+  };
+  let positionals: string[];
+  try {
+    const parsed = parseArgs({
+      args: argv,
+      options: {
+        dir: { type: "string" },
+        slot: { type: "string" },
+        holder: { type: "string" },
+        ttl: { type: "string" },
+        token: { type: "string" }
+      },
+      allowPositionals: true,
+      strict: true
+    });
+    values = parsed.values;
+    positionals = parsed.positionals;
+  } catch (error) {
+    out(JSON.stringify({ ok: false, code: "invalid_args", detail: error instanceof Error ? error.message : String(error) }, null, 2));
+    return 1;
+  }
+
+  const operation = positionals[0];
+  if (operation === undefined) {
+    out(JSON.stringify({ ok: false, code: "invalid_args", detail: "operation is required: acquire|renew|release|check|status" }, null, 2));
+    return 1;
+  }
+  if (values.dir === undefined || values.dir.trim() === "") {
+    out(JSON.stringify({ ok: false, code: "invalid_args", detail: "--dir <dir> is required (there is no default lease directory)" }, null, 2));
+    return 1;
+  }
+  if (values.slot === undefined || values.slot.trim() === "") {
+    out(JSON.stringify({ ok: false, code: "invalid_args", detail: "--slot <id> is required" }, null, 2));
+    return 1;
+  }
+
+  const ttl = values.ttl === undefined ? undefined : Number(values.ttl);
+  if (ttl !== undefined && (!Number.isFinite(ttl) || ttl <= 0)) {
+    out(JSON.stringify({ ok: false, code: "invalid_ttl", detail: `--ttl must be a positive number of seconds; rejected: ${JSON.stringify(values.ttl)}` }, null, 2));
+    return 1;
+  }
+  const token = values.token === undefined ? undefined : Number(values.token);
+  if (token !== undefined && (!Number.isInteger(token) || token < 0)) {
+    out(JSON.stringify({ ok: false, code: "stale_token", detail: `--token must be a non-negative integer; rejected: ${JSON.stringify(values.token)}` }, null, 2));
+    return 1;
+  }
+
+  const dir = values.dir;
+  const slot = values.slot;
+  const holder = values.holder;
+
+  function requireHolder(): string | null {
+    if (holder === undefined || holder.trim() === "") {
+      out(JSON.stringify({ ok: false, code: "invalid_holder", detail: `--holder <id> is required for ${operation}` }, null, 2));
+      return null;
+    }
+    return holder;
+  }
+  function requireToken(): number | null {
+    if (token === undefined) {
+      out(JSON.stringify({ ok: false, code: "stale_token", detail: `--token <n> is required for ${operation}` }, null, 2));
+      return null;
+    }
+    return token;
+  }
+
+  // Lazy load: the MCP server path never pays for (or statically couples to) the lease module.
+  const lease = await import("../protocol/lease/index.js");
+
+  let result;
+  try {
+    switch (operation) {
+      case "acquire": {
+        const who = requireHolder();
+        if (who === null) return 1;
+        result = lease.acquireLease(dir, slot, who, ttl ?? lease.DEFAULT_LEASE_TTL_SECONDS);
+        break;
+      }
+      case "renew": {
+        const who = requireHolder();
+        if (who === null) return 1;
+        const presented = requireToken();
+        if (presented === null) return 1;
+        result = lease.renewLease(dir, slot, who, presented, ttl ?? lease.DEFAULT_LEASE_TTL_SECONDS);
+        break;
+      }
+      case "release": {
+        const who = requireHolder();
+        if (who === null) return 1;
+        const presented = requireToken();
+        if (presented === null) return 1;
+        result = lease.releaseLease(dir, slot, who, presented);
+        break;
+      }
+      case "check": {
+        const who = requireHolder();
+        if (who === null) return 1;
+        const presented = requireToken();
+        if (presented === null) return 1;
+        result = lease.checkLease(dir, slot, who, presented);
+        break;
+      }
+      case "status": {
+        result = lease.leaseStatus(dir, slot);
+        break;
+      }
+      default:
+        out(JSON.stringify({ ok: false, code: "invalid_args", detail: `unknown lease operation "${operation}"; expected acquire|renew|release|check|status` }, null, 2));
+        return 1;
+    }
+  } catch (error) {
+    err(`odin-sentinel lease failed: ${error instanceof Error ? error.message : String(error)}`);
+    out(JSON.stringify({ ok: false, code: "lease_error", detail: error instanceof Error ? error.message : String(error) }, null, 2));
+    return 1;
+  }
+
+  out(JSON.stringify(result, null, 2));
+  return result.ok ? 0 : 1;
+}
+
 async function main(): Promise<void> {
   const [subcommand, ...rest] = process.argv.slice(2);
   if (subcommand === COMPACT_REGISTRY_SUBCOMMAND) {
     process.exitCode = await runCompactRegistryCli(rest);
+    return;
+  }
+  if (subcommand === LEASE_SUBCOMMAND) {
+    process.exitCode = await runLeaseCli(rest);
     return;
   }
 

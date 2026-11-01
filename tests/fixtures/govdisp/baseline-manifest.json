@@ -5,7 +5,7 @@
     "src/protocol",
     "src/mcp"
   ],
-  "file_count": 55,
+  "file_count": 57,
   "files": [
     {
       "path": "protocol/bootstrap-skill.md",
@@ -246,6 +246,16 @@
       "path": "src/protocol/index.ts",
       "bytes": 2559,
       "sha256": "53aca935a7666142cee6a49b40de3b396fa38fbb4a64054b009dd771966586a6"
+    },
+    {
+      "path": "src/protocol/lease/index.ts",
+      "bytes": 772,
+      "sha256": "1856d07b4ae292a5f275cb9c8b3723821cb4eb627338d93e7f20af0e6d2f58e8"
+    },
+    {
+      "path": "src/protocol/lease/store.ts",
+      "bytes": 14238,
+      "sha256": "1a207bf6487e4f4a9090775237ee70270947d4be40fc3e77bf2153b341bed756"
     },
     {
       "path": "src/protocol/repository.ts",
