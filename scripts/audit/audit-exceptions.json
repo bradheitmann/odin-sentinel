@@ -43,6 +43,13 @@
       "pin": { "package": "qs", "range": "^6.15.2", "workspace": "." }
     },
     {
+      "advisory": "GHSA-27r3-jxmh-p828",
+      "owner": "ODIN Sentinel maintainers",
+      "expires": "2026-11-20",
+      "rationale": "body-parser is transitive through express under the MCP SDK HTTP transport stack. The stdio server does not invoke those code paths, and the override pins the patched 2.4 line so the advisory does not resolve in the installed tree. Review whether the pin is still needed when the SDK or express next moves.",
+      "pin": { "package": "body-parser", "range": "^2.4.0", "workspace": "." }
+    },
+    {
       "advisory": "GHSA-96hv-2xvq-fx4p",
       "owner": "ODIN Sentinel maintainers",
       "expires": "2026-11-20",

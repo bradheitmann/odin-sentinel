@@ -41,6 +41,7 @@ pnpm install
 pnpm run db:create                     # prints a database_id for local/deploy config
 cp wrangler.toml wrangler.deploy.toml  # keep account-specific IDs out of git
 pnpm run db:migrate                    # applies schema.sql to remote D1
+pnpm exec wrangler secret put INGEST_TOKEN # provision a random secret of at least 32 characters
 pnpm run deploy                        # uploads the Worker
 ```
 
@@ -72,11 +73,26 @@ Take the neutral deployed URL and configure clients:
 
 ```bash
 export ODIN_TELEMETRY_ENDPOINT="https://telemetry.example.com/report"
+# Provision ODIN_TELEMETRY_TOKEN privately with the same INGEST_TOKEN value.
 ```
 
-That's the only switch that activates telemetry for a client. With it unset,
+The endpoint opts a client into telemetry; the deployed Worker also requires its ingestion token. With it unset,
 `odin.submit_session_report` returns `{ submitted: false, reason: "telemetry
 not configured" }` and no network call is made.
+
+## Ingestion security
+
+The Worker rejects reports with 503 until `INGEST_TOKEN` is configured (at least
+32 characters), then requires `Authorization: Bearer <token>` for every report.
+Provision the same value privately as `ODIN_TELEMETRY_TOKEN` in approved clients.
+Never put this value in a spec, checked-in file or public client bundle. Public
+anonymous ingestion is not supported. Rotate the token when client access ends.
+Clients require HTTPS (or explicit loopback HTTP), reject URL credentials, and do not follow redirects. Client consent and redaction still apply. Use edge rate limits and storage quotas
+as additional protection against a compromised authorized client.
+
+Bodies must be JSON and are limited to 64 KiB of actual bytes, including when
+Content-Length is missing. Origin checks reject a cross-origin browser request
+unless it is explicitly allowed; CORS is not used as an authorization control.
 
 ## Optional hardening
 

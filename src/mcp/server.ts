@@ -1,3 +1,6 @@
+import { MCP_TOOL_CAPABILITIES, resolveMcpCapabilities, type McpCapability } from "./capabilities.js";
+export { MCP_CAPABILITIES, resolveMcpCapabilities } from "./capabilities.js";
+export type { McpCapability } from "./capabilities.js";
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import YAML from "yaml";
 import { z } from "zod";
@@ -406,6 +409,8 @@ export type GovdispRegistryMcpOptions = {
 };
 
 export type CreateServerOptions = {
+  /** Omit for full deployment. Narrow selection removes handlers, not only listings. */
+  capabilities?: readonly McpCapability[];
   govdispRegistry?: GovdispRegistryMcpOptions;
 };
 
@@ -489,517 +494,615 @@ function registerGovdispRegistrySurface(server: McpServer, options: GovdispRegis
 }
 
 export function createServer(options: CreateServerOptions = {}): McpServer {
+  const capabilities = resolveMcpCapabilities(options.capabilities);
+  const toolEnabled = (name: string): boolean => {
+    const capability = MCP_TOOL_CAPABILITIES[name];
+    if (capability === undefined) throw new TypeError(`Unclassified MCP tool: ${name}`);
+    return capabilities.has(capability);
+  };
   const server = new McpServer({
     name: "odin-sentinel",
     version: VERSION
   });
 
-  registerProtocolResources(server);
+  if (capabilities.has("protocol")) registerProtocolResources(server);
 
-  server.registerTool(
-    "odin.get_delegation_packet",
-    {
-      title: "Get Delegation Packet",
-      description:
-        "Build a self-contained visible-role delegation packet without relying on outside local extensions. Includes the CMUX delivery-proof contract: a dispatch counts as delivered only after submit (Enter) plus verified processing on the target surface; input-bar text is not delivery.",
-      inputSchema: delegationPacketInputShape
-    },
-    (input) => jsonText(getDelegationPacket(input))
-  );
+  if (toolEnabled("odin.get_delegation_packet")) {
+    server.registerTool(
+      "odin.get_delegation_packet",
+      {
+        title: "Get Delegation Packet",
+        description:
+          "Build a self-contained visible-role delegation packet without relying on outside local extensions. Includes the CMUX delivery-proof contract: a dispatch counts as delivered only after submit (Enter) plus verified processing on the target surface; input-bar text is not delivery.",
+        inputSchema: delegationPacketInputShape
+      },
+      (input) => jsonText(getDelegationPacket(input))
+    );
+  }
 
-  server.registerTool(
-    "odin.validate_delegation_packet",
-    {
-      title: "Validate Delegation Packet",
-      description:
-        "Check a delegation packet for required ODIN fields and role-separation warnings, and validate any attached CMUX delivery_proof (warns when a CMUX dispatch requires delivery proof but omits it).",
-      inputSchema: recordInputShape
-    },
-    (input) => jsonText(validateDelegationPacket(input.packet))
-  );
+  if (toolEnabled("odin.validate_delegation_packet")) {
+    server.registerTool(
+      "odin.validate_delegation_packet",
+      {
+        title: "Validate Delegation Packet",
+        description:
+          "Check a delegation packet for required ODIN fields and role-separation warnings, and validate any attached CMUX delivery_proof (warns when a CMUX dispatch requires delivery proof but omits it).",
+        inputSchema: recordInputShape
+      },
+      (input) => jsonText(validateDelegationPacket(input.packet))
+    );
+  }
 
-  server.registerTool(
-    "odin.get_version",
-    {
-      title: "Get ODIN Sentinel Version",
-      description: "Return server and protocol version metadata."
-    },
-    () => jsonText(getVersionMetadata())
-  );
+  if (toolEnabled("odin.get_version")) {
+    server.registerTool(
+      "odin.get_version",
+      {
+        title: "Get ODIN Sentinel Version",
+        description: "Return server and protocol version metadata."
+      },
+      () => jsonText(getVersionMetadata())
+    );
+  }
 
-  server.registerTool(
-    "odin.get_boot_receipt_schema",
-    {
-      title: "Get Boot Receipt Schema",
-      description: "Return canonical boot receipt fields, types, lifecycle states, examples, and minimum MCP version."
-    },
-    () => jsonText(getBootReceiptSchema())
-  );
+  if (toolEnabled("odin.get_boot_receipt_schema")) {
+    server.registerTool(
+      "odin.get_boot_receipt_schema",
+      {
+        title: "Get Boot Receipt Schema",
+        description: "Return canonical boot receipt fields, types, lifecycle states, examples, and minimum MCP version."
+      },
+      () => jsonText(getBootReceiptSchema())
+    );
+  }
 
-  server.registerTool(
-    "odin.get_boot_receipt_examples",
-    {
-      title: "Get Boot Receipt Examples",
-      description: "Return valid PM, ODIN, DEV waiting-for-scope, QA, and SHADOW receipt examples."
-    },
-    () => jsonText(getBootReceiptExamples())
-  );
+  if (toolEnabled("odin.get_boot_receipt_examples")) {
+    server.registerTool(
+      "odin.get_boot_receipt_examples",
+      {
+        title: "Get Boot Receipt Examples",
+        description: "Return valid PM, ODIN, DEV waiting-for-scope, QA, and SHADOW receipt examples."
+      },
+      () => jsonText(getBootReceiptExamples())
+    );
+  }
 
-  server.registerTool(
-    "odin.get_runtime_notice",
-    {
-      title: "Get Runtime Notice",
-      description: "Return cost, privacy, inference, telemetry, and standalone runtime boundaries."
-    },
-    () => jsonText(getRuntimeNotice())
-  );
+  if (toolEnabled("odin.get_runtime_notice")) {
+    server.registerTool(
+      "odin.get_runtime_notice",
+      {
+        title: "Get Runtime Notice",
+        description: "Return cost, privacy, inference, telemetry, and standalone runtime boundaries."
+      },
+      () => jsonText(getRuntimeNotice())
+    );
+  }
 
-  server.registerTool(
-    "odin.get_startup_packet",
-    {
-      title: "Get Startup Packet",
-      description: "Return a generic SCP/ODIN startup packet for a role and pod count.",
-      inputSchema: startupPacketInputShape
-    },
-    (input) => jsonText(getStartupPacket(input))
-  );
+  if (toolEnabled("odin.get_startup_packet")) {
+    server.registerTool(
+      "odin.get_startup_packet",
+      {
+        title: "Get Startup Packet",
+        description: "Return a generic SCP/ODIN startup packet for a role and pod count.",
+        inputSchema: startupPacketInputShape
+      },
+      (input) => jsonText(getStartupPacket(input))
+    );
+  }
 
-  server.registerTool(
-    "odin.get_role_profile",
-    {
-      title: "Get Role Profile",
-      description: "Return the authority profile for a generic ODIN/SCP role.",
-      inputSchema: roleProfileInputShape
-    },
-    (input) => jsonText(getRoleProfile(input.role))
-  );
+  if (toolEnabled("odin.get_role_profile")) {
+    server.registerTool(
+      "odin.get_role_profile",
+      {
+        title: "Get Role Profile",
+        description: "Return the authority profile for a generic ODIN/SCP role.",
+        inputSchema: roleProfileInputShape
+      },
+      (input) => jsonText(getRoleProfile(input.role))
+    );
+  }
 
-  server.registerTool(
-    "odin.get_role_card",
-    {
-      title: "Get Role Card",
-      description:
-        "Return the quick-start role card for a given SCP role ID. Returns role_id, role_name, version, payload_bytes, content_sha256, and content. Valid role_ids: exec-pm, team-pm, dev-worker, qa-worker, exec-asst.",
-      inputSchema: roleCardInputShape
-    },
-    (input) => jsonText(getRoleCard(input.role_id))
-  );
+  if (toolEnabled("odin.get_role_card")) {
+    server.registerTool(
+      "odin.get_role_card",
+      {
+        title: "Get Role Card",
+        description:
+          "Return the quick-start role card for a given SCP role ID. Returns role_id, role_name, version, payload_bytes, content_sha256, and content. Valid role_ids: exec-pm, team-pm, dev-worker, qa-worker, exec-asst.",
+        inputSchema: roleCardInputShape
+      },
+      (input) => jsonText(getRoleCard(input.role_id))
+    );
+  }
 
-  server.registerTool(
-    "odin.validate_boot_receipt",
-    {
-      title: "Validate Boot Receipt",
-      description: "Check a boot receipt for required ODIN/SCP fields and basic authority warnings.",
-      inputSchema: bootReceiptInputShape
-    },
-    (input) => jsonText(validateBootReceipt(input.receipt))
-  );
+  if (toolEnabled("odin.validate_boot_receipt")) {
+    server.registerTool(
+      "odin.validate_boot_receipt",
+      {
+        title: "Validate Boot Receipt",
+        description: "Check a boot receipt for required ODIN/SCP fields and basic authority warnings.",
+        inputSchema: bootReceiptInputShape
+      },
+      (input) => jsonText(validateBootReceipt(input.receipt))
+    );
+  }
 
-  server.registerTool(
-    "odin.validate_bring_up_plan",
-    {
-      title: "Validate Bring-Up Plan",
-      description:
-        "Validate a pod bring-up plan: ground truth captured AFTER boot (SessionStart hooks mutate the repo), count-agnostic preserve framing, and TARGET_ARTIFACT_WRONG as the only stop trigger.",
-      inputSchema: recordInputShape
-    },
-    (input) => jsonText(validateBringUpPlan(input.packet))
-  );
+  if (toolEnabled("odin.validate_bring_up_plan")) {
+    server.registerTool(
+      "odin.validate_bring_up_plan",
+      {
+        title: "Validate Bring-Up Plan",
+        description:
+          "Validate a pod bring-up plan: ground truth captured AFTER boot (SessionStart hooks mutate the repo), count-agnostic preserve framing, and TARGET_ARTIFACT_WRONG as the only stop trigger.",
+        inputSchema: recordInputShape
+      },
+      (input) => jsonText(validateBringUpPlan(input.packet))
+    );
+  }
 
-  server.registerTool(
-    "odin.evaluate_escalation_gate",
-    {
-      title: "Evaluate Escalation Gate",
-      description:
-        "Step-Up Remediation Ladder gate: given tier position and independent gate observations (QA verdict, sealed holdout, self-proof), return DONE, REMEDIATE (next tier, rework-not-restart), ESCALATE_OPERATOR (reserve-tier failure), or INSUFFICIENT_EVIDENCE (self-tool green never passes).",
-      inputSchema: escalationGateInputShape
-    },
-    (input) => jsonText(evaluateEscalationGate(input))
-  );
+  if (toolEnabled("odin.evaluate_escalation_gate")) {
+    server.registerTool(
+      "odin.evaluate_escalation_gate",
+      {
+        title: "Evaluate Escalation Gate",
+        description:
+          "Step-Up Remediation Ladder gate: given tier position and independent gate observations (QA verdict, sealed holdout, self-proof), return DONE, REMEDIATE (next tier, rework-not-restart), ESCALATE_OPERATOR (reserve-tier failure), or INSUFFICIENT_EVIDENCE (self-tool green never passes).",
+        inputSchema: escalationGateInputShape
+      },
+      (input) => jsonText(evaluateEscalationGate(input))
+    );
+  }
 
-  server.registerTool(
-    "odin.validate_remediation_packet",
-    {
-      title: "Validate Remediation Packet",
-      description:
-        "Validate a step-up remediation packet (the baton): non-empty salvaged artifact, exact failure reason, immutable acceptance bar, one-rung step, and a review lane that travels with the DEV.",
-      inputSchema: remediationPacketInputShape
-    },
-    (input) => jsonText(validateRemediationPacket(input.packet))
-  );
+  if (toolEnabled("odin.validate_remediation_packet")) {
+    server.registerTool(
+      "odin.validate_remediation_packet",
+      {
+        title: "Validate Remediation Packet",
+        description:
+          "Validate a step-up remediation packet (the baton): non-empty salvaged artifact, exact failure reason, immutable acceptance bar, one-rung step, and a review lane that travels with the DEV.",
+        inputSchema: remediationPacketInputShape
+      },
+      (input) => jsonText(validateRemediationPacket(input.packet))
+    );
+  }
 
-  server.registerTool(
-    "odin.validate_fallback_contract",
-    {
-      title: "Validate Fallback Contract",
-      description:
-        "Validate a dev-pod pre-staged fallback contract: every rung pins model + flags (never a harness default), no-substitute resolves to PAUSE_ESCALATE, billing errors are not failover triggers, and the post-relaunch model re-verify is required.",
-      inputSchema: recordInputShape
-    },
-    (input) => jsonText(validateFallbackContract(input.packet))
-  );
+  if (toolEnabled("odin.validate_fallback_contract")) {
+    server.registerTool(
+      "odin.validate_fallback_contract",
+      {
+        title: "Validate Fallback Contract",
+        description:
+          "Validate a dev-pod pre-staged fallback contract: every rung pins model + flags (never a harness default), no-substitute resolves to PAUSE_ESCALATE, billing errors are not failover triggers, and the post-relaunch model re-verify is required.",
+        inputSchema: recordInputShape
+      },
+      (input) => jsonText(validateFallbackContract(input.packet))
+    );
+  }
 
-  server.registerTool(
-    "odin.validate_successor_contract",
-    {
-      title: "Validate Successor Contract",
-      description:
-        "Validate an exec-team successor contract: locked roster, in-flight worklist, canonical hashes, roster mutation restricted to operator/Team-A EXEC, and report-up (no lateral roster negotiation).",
-      inputSchema: recordInputShape
-    },
-    (input) => jsonText(validateSuccessorContract(input.packet))
-  );
+  if (toolEnabled("odin.validate_successor_contract")) {
+    server.registerTool(
+      "odin.validate_successor_contract",
+      {
+        title: "Validate Successor Contract",
+        description:
+          "Validate an exec-team successor contract: locked roster, in-flight worklist, canonical hashes, roster mutation restricted to operator/Team-A EXEC, and report-up (no lateral roster negotiation).",
+        inputSchema: recordInputShape
+      },
+      (input) => jsonText(validateSuccessorContract(input.packet))
+    );
+  }
 
-  server.registerTool(
-    "odin.validate_outage_handoff",
-    {
-      title: "Validate Outage Handoff",
-      description:
-        "Validate an [SCP-OUTAGE-HANDOFF] pre-dark receipt for provider-credit mass outages: affected slots enumerated, provider-diverse surviving continuity seat, bounded expiring exception, and a real restoration trigger.",
-      inputSchema: recordInputShape
-    },
-    (input) => jsonText(validateOutageHandoff(input.packet))
-  );
+  if (toolEnabled("odin.validate_outage_handoff")) {
+    server.registerTool(
+      "odin.validate_outage_handoff",
+      {
+        title: "Validate Outage Handoff",
+        description:
+          "Validate an [SCP-OUTAGE-HANDOFF] pre-dark receipt for provider-credit mass outages: affected slots enumerated, provider-diverse surviving continuity seat, bounded expiring exception, and a real restoration trigger.",
+        inputSchema: recordInputShape
+      },
+      (input) => jsonText(validateOutageHandoff(input.packet))
+    );
+  }
 
-  server.registerTool(
-    "odin.validate_closure_independence",
-    {
-      title: "Validate Closure Independence",
-      description:
-        "Actively detect QA-independence breaches at closure: self-asserted verdicts, reviewer == implementer lane, missing verdicts, slice-QA-pass-only evidence, and advisory internal validators counted as closure.",
-      inputSchema: recordInputShape
-    },
-    (input) => jsonText(validateClosureIndependence(input.packet))
-  );
+  if (toolEnabled("odin.validate_closure_independence")) {
+    server.registerTool(
+      "odin.validate_closure_independence",
+      {
+        title: "Validate Closure Independence",
+        description:
+          "Actively detect QA-independence breaches at closure: self-asserted verdicts, reviewer == implementer lane, missing verdicts, slice-QA-pass-only evidence, and advisory internal validators counted as closure.",
+        inputSchema: recordInputShape
+      },
+      (input) => jsonText(validateClosureIndependence(input.packet))
+    );
+  }
 
-  server.registerTool(
-    "odin.validate_commit_gate",
-    {
-      title: "Validate Commit Gate",
-      description:
-        "Validate an exec-gated commit record (commit_gate: exec): EXEC-issued token after independent ground-truth verification, no self-issued authorization, and post-commit EXEC re-verification.",
-      inputSchema: recordInputShape
-    },
-    (input) => jsonText(validateCommitGate(input.packet))
-  );
+  if (toolEnabled("odin.validate_commit_gate")) {
+    server.registerTool(
+      "odin.validate_commit_gate",
+      {
+        title: "Validate Commit Gate",
+        description:
+          "Validate an exec-gated commit record (commit_gate: exec): EXEC-issued token after independent ground-truth verification, no self-issued authorization, and post-commit EXEC re-verification.",
+        inputSchema: recordInputShape
+      },
+      (input) => jsonText(validateCommitGate(input.packet))
+    );
+  }
 
-  server.registerTool(
-    "odin.validate_control_recipe",
-    {
-      title: "Validate Control Recipe",
-      description:
-        "Validate a harness control-matrix entry: recipes must be arrow/nav-token-free, version-pinned to the verified harness release, and quit by in-app verb (never ctrl+c).",
-      inputSchema: recordInputShape
-    },
-    (input) => jsonText(validateControlRecipe(input.packet))
-  );
+  if (toolEnabled("odin.validate_control_recipe")) {
+    server.registerTool(
+      "odin.validate_control_recipe",
+      {
+        title: "Validate Control Recipe",
+        description:
+          "Validate a harness control-matrix entry: recipes must be arrow/nav-token-free, version-pinned to the verified harness release, and quit by in-app verb (never ctrl+c).",
+        inputSchema: recordInputShape
+      },
+      (input) => jsonText(validateControlRecipe(input.packet))
+    );
+  }
 
-  server.registerTool(
-    "odin.validate_authority_action",
-    {
-      title: "Validate Authority Action",
-      description:
-        "Check a staffing/roster action against the standing authority chain: no worker self-re-staffing or self binding changes; roster mutation only by operator/Team-A EXEC; lateral roster negotiation rejected.",
-      inputSchema: recordInputShape
-    },
-    (input) => jsonText(validateAuthorityAction(input.packet))
-  );
+  if (toolEnabled("odin.validate_authority_action")) {
+    server.registerTool(
+      "odin.validate_authority_action",
+      {
+        title: "Validate Authority Action",
+        description:
+          "Check a staffing/roster action against the standing authority chain: no worker self-re-staffing or self binding changes; roster mutation only by operator/Team-A EXEC; lateral roster negotiation rejected.",
+        inputSchema: recordInputShape
+      },
+      (input) => jsonText(validateAuthorityAction(input.packet))
+    );
+  }
 
-  server.registerTool(
-    "odin.evaluate_blocked_pod_rollover",
-    {
-      title: "Evaluate Blocked-Pod Rollover",
-      description:
-        "Decide a blocked-pod rollover: next team letter (B->C->D->E), STOP at F -> ESCALATE_OPERATOR; rejects re-staff framing and dropped blocked-pod state.",
-      inputSchema: blockedPodRolloverInputShape
-    },
-    (input) => jsonText(evaluateBlockedPodRollover(input))
-  );
+  if (toolEnabled("odin.evaluate_blocked_pod_rollover")) {
+    server.registerTool(
+      "odin.evaluate_blocked_pod_rollover",
+      {
+        title: "Evaluate Blocked-Pod Rollover",
+        description:
+          "Decide a blocked-pod rollover: next team letter (B->C->D->E), STOP at F -> ESCALATE_OPERATOR; rejects re-staff framing and dropped blocked-pod state.",
+        inputSchema: blockedPodRolloverInputShape
+      },
+      (input) => jsonText(evaluateBlockedPodRollover(input))
+    );
+  }
 
-  server.registerTool(
-    "odin.evaluate_slice_health",
-    {
-      title: "Evaluate Slice Health",
-      description:
-        "Run the OVERSIZED_SLICE / QA_WINDOW_TOO_SMALL / SPEC_DEFECT sentinels over run events; returns surface-to-PM signals, never auto-blocks.",
-      inputSchema: sliceHealthInputShape
-    },
-    (input) => jsonText(evaluateSliceHealth(input))
-  );
+  if (toolEnabled("odin.evaluate_slice_health")) {
+    server.registerTool(
+      "odin.evaluate_slice_health",
+      {
+        title: "Evaluate Slice Health",
+        description:
+          "Run the OVERSIZED_SLICE / QA_WINDOW_TOO_SMALL / SPEC_DEFECT sentinels over run events; returns surface-to-PM signals, never auto-blocks.",
+        inputSchema: sliceHealthInputShape
+      },
+      (input) => jsonText(evaluateSliceHealth(input))
+    );
+  }
 
-  server.registerTool(
-    "odin.validate_harness_control_recipe",
-    {
-      title: "Validate Harness Control Recipe",
-      description:
-        "Validate a harness control recipe in the holdout field shape ({ recipe, harness_version }): the recipe must be arrow/nav-token-free and the harness_version an exact verified pin (not latest/any). Thin surface over the control-recipe rules.",
-      inputSchema: harnessControlRecipeInputShape
-    },
-    (input) => jsonText(validateHarnessControlRecipe(input))
-  );
+  if (toolEnabled("odin.validate_harness_control_recipe")) {
+    server.registerTool(
+      "odin.validate_harness_control_recipe",
+      {
+        title: "Validate Harness Control Recipe",
+        description:
+          "Validate a harness control recipe in the holdout field shape ({ recipe, harness_version }): the recipe must be arrow/nav-token-free and the harness_version an exact verified pin (not latest/any). Thin surface over the control-recipe rules.",
+        inputSchema: harnessControlRecipeInputShape
+      },
+      (input) => jsonText(validateHarnessControlRecipe(input))
+    );
+  }
 
-  server.registerTool(
-    "odin.validate_delivery_verification",
-    {
-      title: "Validate Delivery Verification",
-      description:
-        "Validate a delivery-verification method for a surface type. Alt-screen TUIs (no scrollback, e.g. Crush) REQUIRE behavioral verification — marker-grep-only is rejected as structurally unreliable. Scrollback-capable surfaces accept scrollback_grep, timed_reread, or behavioral.",
-      inputSchema: deliveryVerificationInputShape
-    },
-    (input) => jsonText(validateDeliveryVerification(input))
-  );
+  if (toolEnabled("odin.validate_delivery_verification")) {
+    server.registerTool(
+      "odin.validate_delivery_verification",
+      {
+        title: "Validate Delivery Verification",
+        description:
+          "Validate a delivery-verification method for a surface type. Alt-screen TUIs (no scrollback, e.g. Crush) REQUIRE behavioral verification — marker-grep-only is rejected as structurally unreliable. Scrollback-capable surfaces accept scrollback_grep, timed_reread, or behavioral.",
+        inputSchema: deliveryVerificationInputShape
+      },
+      (input) => jsonText(validateDeliveryVerification(input))
+    );
+  }
 
-  server.registerTool(
-    "odin.evaluate_oversized_slice_sentinel",
-    {
-      title: "Evaluate Oversized-Slice Sentinel",
-      description:
-        "Per-sentinel façade over slice health: surface the OVERSIZED_SLICE signal when the same slice DNFs two or more INDEPENDENT agents ({ slice_ref, dnf_agents }); returns null for a single-agent DNF. PM-bound signal (SURFACE_TO_PM), never auto-retries.",
-      inputSchema: oversizedSliceSentinelInputShape
-    },
-    (input) => jsonText(evaluateOversizedSliceSentinel(input))
-  );
+  if (toolEnabled("odin.evaluate_oversized_slice_sentinel")) {
+    server.registerTool(
+      "odin.evaluate_oversized_slice_sentinel",
+      {
+        title: "Evaluate Oversized-Slice Sentinel",
+        description:
+          "Per-sentinel façade over slice health: surface the OVERSIZED_SLICE signal when the same slice DNFs two or more INDEPENDENT agents ({ slice_ref, dnf_agents }); returns null for a single-agent DNF. PM-bound signal (SURFACE_TO_PM), never auto-retries.",
+        inputSchema: oversizedSliceSentinelInputShape
+      },
+      (input) => jsonText(evaluateOversizedSliceSentinel(input))
+    );
+  }
 
-  server.registerTool(
-    "odin.evaluate_qa_timeout_sentinel",
-    {
-      title: "Evaluate QA-Timeout Sentinel",
-      description:
-        "Per-sentinel façade over slice health: surface the QA_WINDOW_TOO_SMALL signal when a FLAT timeout (per_file_seconds <= 0) is applied to a review larger than the sizing basis ({ timeout_config: { base_seconds, per_file_seconds, max_seconds }, review_file_count }); returns null once the window scales with review size. PM-bound signal (SURFACE_TO_PM).",
-      inputSchema: qaTimeoutSentinelInputShape
-    },
-    (input) => jsonText(evaluateQaTimeoutSentinel(input))
-  );
+  if (toolEnabled("odin.evaluate_qa_timeout_sentinel")) {
+    server.registerTool(
+      "odin.evaluate_qa_timeout_sentinel",
+      {
+        title: "Evaluate QA-Timeout Sentinel",
+        description:
+          "Per-sentinel façade over slice health: surface the QA_WINDOW_TOO_SMALL signal when a FLAT timeout (per_file_seconds <= 0) is applied to a review larger than the sizing basis ({ timeout_config: { base_seconds, per_file_seconds, max_seconds }, review_file_count }); returns null once the window scales with review size. PM-bound signal (SURFACE_TO_PM).",
+        inputSchema: qaTimeoutSentinelInputShape
+      },
+      (input) => jsonText(evaluateQaTimeoutSentinel(input))
+    );
+  }
 
-  server.registerTool(
-    "odin.evaluate_spec_defect_sentinel",
-    {
-      title: "Evaluate Spec-Defect Sentinel",
-      description:
-        "Per-sentinel façade over slice health: surface the SPEC_DEFECT signal when two or more INDEPENDENT agents converge on writing the SAME WRITE-PROHIBITED path ({ prohibited_path, convergent_agents }); returns null for a single agent (a scope violation, not this sentinel). PM investigates; the sentinel never auto-fails. PM-bound signal (SURFACE_TO_PM).",
-      inputSchema: specDefectSentinelInputShape
-    },
-    (input) => jsonText(evaluateSpecDefectSentinel(input))
-  );
+  if (toolEnabled("odin.evaluate_spec_defect_sentinel")) {
+    server.registerTool(
+      "odin.evaluate_spec_defect_sentinel",
+      {
+        title: "Evaluate Spec-Defect Sentinel",
+        description:
+          "Per-sentinel façade over slice health: surface the SPEC_DEFECT signal when two or more INDEPENDENT agents converge on writing the SAME WRITE-PROHIBITED path ({ prohibited_path, convergent_agents }); returns null for a single agent (a scope violation, not this sentinel). PM investigates; the sentinel never auto-fails. PM-bound signal (SURFACE_TO_PM).",
+        inputSchema: specDefectSentinelInputShape
+      },
+      (input) => jsonText(evaluateSpecDefectSentinel(input))
+    );
+  }
 
-  server.registerTool(
-    "odin.validate_team_manifest",
-    {
-      title: "Validate Team Manifest",
-      description: "Check a team manifest for required ODIN/SCP topology fields.",
-      inputSchema: teamManifestInputShape
-    },
-    (input) => jsonText(validateTeamManifest(input.manifest))
-  );
+  if (toolEnabled("odin.validate_team_manifest")) {
+    server.registerTool(
+      "odin.validate_team_manifest",
+      {
+        title: "Validate Team Manifest",
+        description: "Check a team manifest for required ODIN/SCP topology fields.",
+        inputSchema: teamManifestInputShape
+      },
+      (input) => jsonText(validateTeamManifest(input.manifest))
+    );
+  }
 
-  server.registerTool(
-    "odin.validate_cmux_delivery_proof",
-    {
-      title: "Validate CMUX Delivery Proof",
-      description:
-        "Check a CMUX delivery proof. A dispatch is delivered only when submitted=true with verified processing on the target surface; unsubmitted sends and INPUT_BAR_ONLY text fail. Required fields: target_surface_locator, submitted, verification_method, observed_processing_state, timestamp, sender_role.",
-      inputSchema: cmuxDeliveryProofInputShape
-    },
-    (input) => jsonText(validateCmuxDeliveryProof(input.proof))
-  );
+  if (toolEnabled("odin.validate_cmux_delivery_proof")) {
+    server.registerTool(
+      "odin.validate_cmux_delivery_proof",
+      {
+        title: "Validate CMUX Delivery Proof",
+        description:
+          "Check a CMUX delivery proof. A dispatch is delivered only when submitted=true with verified processing on the target surface; unsubmitted sends and INPUT_BAR_ONLY text fail. Required fields: target_surface_locator, submitted, verification_method, observed_processing_state, timestamp, sender_role. Optional record_kind: absent or \"delivery\" keeps the post-send verdict; \"send_refusal\" marks a typed pre-send refusal (submitted=false, state PANE_STILL_THINKING, PANE_BLOCKED_ON_PERMISSION or INPUT_BAR_ONLY) that is valid as a record but never as a delivery. Every result carries an additive delivery field: delivered, delivered_no_ack, not_delivered, or not_proven.",
+        inputSchema: cmuxDeliveryProofInputShape
+      },
+      (input) => jsonText(validateCmuxDeliveryProof(input.proof))
+    );
+  }
 
-  server.registerTool(
-    "odin.validate_instruction_read_proof",
-    {
-      title: "Validate Instruction-Read Proof",
-      description:
-        "Check the shape of a full-instruction-read proof (role, generated_at, and files[] each with path, byte or line count, and sha256). Activated roles must produce this before implementation, QA acceptance, or ACTIVE_WATCH. Disk verification is performed by scripts/protocol/verify-instruction-read.mjs.",
-      inputSchema: instructionReadProofInputShape
-    },
-    (input) => jsonText(validateInstructionReadProof(input.proof))
-  );
+  if (toolEnabled("odin.validate_instruction_read_proof")) {
+    server.registerTool(
+      "odin.validate_instruction_read_proof",
+      {
+        title: "Validate Instruction-Read Proof",
+        description:
+          "Check the shape of a full-instruction-read proof (role, generated_at, and files[] each with path, byte or line count, and sha256). Activated roles must produce this before implementation, QA acceptance, or ACTIVE_WATCH. Disk verification is performed by scripts/protocol/verify-instruction-read.mjs.",
+        inputSchema: instructionReadProofInputShape
+      },
+      (input) => jsonText(validateInstructionReadProof(input.proof))
+    );
+  }
 
-  server.registerTool(
-    "odin.get_activation_gates",
-    {
-      title: "Get Activation Gates",
-      description:
-        "Return the SCP activation gates an agent must satisfy before acting: CMUX delivery proof (submit + verify; input-bar text is not delivery), full-instruction-read proof (path + count + sha256 per file), and governed-context proof (fail-closed: MCP configured or a skill on disk is NOT enough — protocol uptake must be verified at adequate assurance). Includes verifier/installer script paths and validation tool names."
-    },
-    () => jsonText(getActivationGates())
-  );
+  if (toolEnabled("odin.get_activation_gates")) {
+    server.registerTool(
+      "odin.get_activation_gates",
+      {
+        title: "Get Activation Gates",
+        description:
+          "Return the SCP activation gates an agent must satisfy before acting: CMUX delivery proof (submit + verify; input-bar text is not delivery), full-instruction-read proof (path + count + sha256 per file), and governed-context proof (fail-closed: MCP configured or a skill on disk is NOT enough — protocol uptake must be verified at adequate assurance). Includes verifier/installer script paths and validation tool names."
+      },
+      () => jsonText(getActivationGates())
+    );
+  }
 
-  server.registerTool(
-    "odin.evaluate_readiness_gate",
-    {
-      title: "Evaluate Governed Launch Readiness Gate",
-      description:
-        "Return the governed launch readiness matrix before occupant launch. Output is zero-secret and classifies MCP, SCP skill, auth, permission, model, and role-compatibility blockers. Each slot also reports a fail-closed governedReadiness state (GOVERNED_READY, FIXABLE_BLOCKED, NON_GOVERNED_ONE_SHOT_ONLY, UNSUPPORTED): presence of MCP/skill is not authority, and PM/ODIN roles require the highest assurance the harness supports.",
-      inputSchema: readinessGateInputShape
-    },
-    (input) => jsonText(evaluateReadinessGate(input))
-  );
+  if (toolEnabled("odin.evaluate_readiness_gate")) {
+    server.registerTool(
+      "odin.evaluate_readiness_gate",
+      {
+        title: "Evaluate Governed Launch Readiness Gate",
+        description:
+          "Return the governed launch readiness matrix before occupant launch. Output is zero-secret and classifies MCP, SCP skill, auth, permission, model, and role-compatibility blockers. Each slot also reports a fail-closed governedReadiness state (GOVERNED_READY, FIXABLE_BLOCKED, NON_GOVERNED_ONE_SHOT_ONLY, UNSUPPORTED): presence of MCP/skill is not authority, and PM/ODIN roles require the highest assurance the harness supports.",
+        inputSchema: readinessGateInputShape
+      },
+      (input) => jsonText(evaluateReadinessGate(input))
+    );
+  }
 
-  server.registerTool(
-    "odin.get_active_watch_packet",
-    {
-      title: "Get ODIN Active Watch Packet",
-      description:
-        "Return exact ACTIVE_WATCH prompt text, watch targets, cadence, blocker taxonomy, interventions, and terminal states for an ODIN role.",
-      inputSchema: activeWatchPacketInputShape
-    },
-    (input) => jsonText(getActiveWatchPacket(input))
-  );
+  if (toolEnabled("odin.get_active_watch_packet")) {
+    server.registerTool(
+      "odin.get_active_watch_packet",
+      {
+        title: "Get ODIN Active Watch Packet",
+        description:
+          "Return exact ACTIVE_WATCH prompt text, watch targets, cadence, blocker taxonomy, interventions, and terminal states for an ODIN role.",
+        inputSchema: activeWatchPacketInputShape
+      },
+      (input) => jsonText(getActiveWatchPacket(input))
+    );
+  }
 
-  server.registerTool(
-    "odin.get_harness_probe_matrix",
-    {
-      title: "Get Harness Probe Matrix",
-      description:
-        "Classify harness readiness, auth/login/permission blockers, local inference visible-output smoke results, and skill/MCP capability flags without emitting secret values.",
-      inputSchema: harnessProbeInputShape
-    },
-    (input) => jsonText(getHarnessProbeMatrix(input))
-  );
+  if (toolEnabled("odin.get_harness_probe_matrix")) {
+    server.registerTool(
+      "odin.get_harness_probe_matrix",
+      {
+        title: "Get Harness Probe Matrix",
+        description:
+          "Classify harness readiness, auth/login/permission blockers, local inference visible-output smoke results, and skill/MCP capability flags without emitting secret values.",
+        inputSchema: harnessProbeInputShape
+      },
+      (input) => jsonText(getHarnessProbeMatrix(input))
+    );
+  }
 
-  server.registerTool(
-    "odin.get_onboarding_plan",
-    {
-      title: "Get Harness-Aware Onboarding Plan",
-      description:
-        "Return a zero-secret onboarding plan that reuses harness readiness classification and presents two setup choices: guided manual setup (safe default) and assisted computer-use setup (offered only when computerUseAvailable is true). Includes readiness rows, classifications, recommended mode, guided steps, assisted-mode eligibility, install-ledger path, blocker summary, and next user action. MCP returns plans only; actual GUI/computer use is performed by an available computer-use-capable harness after the user chooses. Reports secret/provider readiness by status only and never accepts or prints secrets.",
-      inputSchema: onboardingPlanInputShape
-    },
-    (input) => jsonText(getOnboardingPlan(input))
-  );
+  if (toolEnabled("odin.get_onboarding_plan")) {
+    server.registerTool(
+      "odin.get_onboarding_plan",
+      {
+        title: "Get Harness-Aware Onboarding Plan",
+        description:
+          "Return a zero-secret onboarding plan that reuses harness readiness classification and presents two setup choices: guided manual setup (safe default) and assisted computer-use setup (offered only when computerUseAvailable is true). Includes readiness rows, classifications, recommended mode, guided steps, assisted-mode eligibility, install-ledger path, blocker summary, and next user action. MCP returns plans only; actual GUI/computer use is performed by an available computer-use-capable harness after the user chooses. Reports secret/provider readiness by status only and never accepts or prints secrets.",
+        inputSchema: onboardingPlanInputShape
+      },
+      (input) => jsonText(getOnboardingPlan(input))
+    );
+  }
 
-  server.registerTool(
-    "odin.get_closeout_checklist",
-    {
-      title: "Get Closeout Checklist",
-      description: "Return the checklist for continuity parking or full session shutdown.",
-      inputSchema: closeoutChecklistInputShape
-    },
-    (input) => jsonText(getCloseoutChecklist(input.mode))
-  );
+  if (toolEnabled("odin.get_closeout_checklist")) {
+    server.registerTool(
+      "odin.get_closeout_checklist",
+      {
+        title: "Get Closeout Checklist",
+        description: "Return the checklist for continuity parking or full session shutdown.",
+        inputSchema: closeoutChecklistInputShape
+      },
+      (input) => jsonText(getCloseoutChecklist(input.mode))
+    );
+  }
 
-  server.registerTool(
-    "odin.export_protocol_snapshot",
-    {
-      title: "Export Protocol Snapshot",
-      description: "Return generated fallback protocol files for clients that cannot use MCP."
-    },
-    () => jsonText({ version: VERSION, files: exportProtocolSnapshot() })
-  );
+  if (toolEnabled("odin.export_protocol_snapshot")) {
+    server.registerTool(
+      "odin.export_protocol_snapshot",
+      {
+        title: "Export Protocol Snapshot",
+        description: "Return generated fallback protocol files for clients that cannot use MCP."
+      },
+      () => jsonText({ version: VERSION, files: exportProtocolSnapshot() })
+    );
+  }
 
-  server.registerTool(
-    "odin.compute_surface_layout",
-    {
-      title: "Compute Surface Layout",
-      description:
-        "Return the deterministic CMUX surface layout for a given team count. EXEC PM must call this before any spawn beyond A/EXEC to honor the surface custodianship contract.",
-      inputSchema: surfaceLayoutInputShape
-    },
-    (input) => {
-      const profile = input.profile ?? "human_cmux_quad";
-      const layout = profile === "human_cmux_quad"
-        ? computeHumanCmuxQuadLayout(input.teamCount)
-        : computeSurfaceLayout(input.teamCount);
-      return jsonText({
-        ...layout,
-        ascii: "columns" in layout ? renderSurfaceLayoutAscii(layout) : "[EXEC] [TEAM-B] [TEAM-C] [BLOCKERS]"
-      });
-    }
-  );
+  if (toolEnabled("odin.compute_surface_layout")) {
+    server.registerTool(
+      "odin.compute_surface_layout",
+      {
+        title: "Compute Surface Layout",
+        description:
+          "Return the deterministic CMUX surface layout for a given team count. EXEC PM must call this before any spawn beyond A/EXEC to honor the surface custodianship contract.",
+        inputSchema: surfaceLayoutInputShape
+      },
+      (input) => {
+        const profile = input.profile ?? "human_cmux_quad";
+        const layout = profile === "human_cmux_quad"
+          ? computeHumanCmuxQuadLayout(input.teamCount)
+          : computeSurfaceLayout(input.teamCount);
+        return jsonText({
+          ...layout,
+          ascii: "columns" in layout ? renderSurfaceLayoutAscii(layout) : "[EXEC] [TEAM-B] [TEAM-C] [BLOCKERS]"
+        });
+      }
+    );
+  }
 
-  server.registerTool(
-    "odin.compute_human_cmux_quad_layout",
-    {
-      title: "Compute Human CMUX Quad Layout",
-      description:
-        "Return the canonical human_cmux_quad governed team layout with one workspace, four panes, explicit role-slot surfaces, empty pre-launch slots, and machine CMUX instructions.",
-      inputSchema: surfaceLayoutInputShape
-    },
-    (input) => jsonText(computeHumanCmuxQuadLayout(input.teamCount))
-  );
+  if (toolEnabled("odin.compute_human_cmux_quad_layout")) {
+    server.registerTool(
+      "odin.compute_human_cmux_quad_layout",
+      {
+        title: "Compute Human CMUX Quad Layout",
+        description:
+          "Return the canonical human_cmux_quad governed team layout with one workspace, four panes, explicit role-slot surfaces, empty pre-launch slots, and machine CMUX instructions.",
+        inputSchema: surfaceLayoutInputShape
+      },
+      (input) => jsonText(computeHumanCmuxQuadLayout(input.teamCount))
+    );
+  }
 
-  server.registerTool(
-    "odin.compute_surface_layout_gate",
-    {
-      title: "Compute Surface Layout Gate",
-      description:
-        "Return the pre-staffing checklist EXEC PM must complete when growing the team roster from fromTeamCount to toTeamCount.",
-      inputSchema: surfaceLayoutGateInputShape
-    },
-    (input) => jsonText(computeSurfaceLayoutGate(input.fromTeamCount, input.toTeamCount, input))
-  );
+  if (toolEnabled("odin.compute_surface_layout_gate")) {
+    server.registerTool(
+      "odin.compute_surface_layout_gate",
+      {
+        title: "Compute Surface Layout Gate",
+        description:
+          "Return the pre-staffing checklist EXEC PM must complete when growing the team roster from fromTeamCount to toTeamCount.",
+        inputSchema: surfaceLayoutGateInputShape
+      },
+      (input) => jsonText(computeSurfaceLayoutGate(input.fromTeamCount, input.toTeamCount, input))
+    );
+  }
 
-  server.registerTool(
-    "odin.get_bootstrap_skill",
-    {
-      title: "Get Bootstrap Skill",
-      description:
-        "Return the full Sentinel Coordination Protocol skill content. Agents on any MCP-capable host can invoke this at session start to load the SCP governance contract, self-bootstrap procedure, and role topology rules without needing a Claude Code skill installed locally."
-    },
-    () => ({
-      content: [
-        {
-          type: "text" as const,
-          text: loadProtocolData().bootstrapSkill
-        }
-      ]
-    })
-  );
+  if (toolEnabled("odin.get_bootstrap_skill")) {
+    server.registerTool(
+      "odin.get_bootstrap_skill",
+      {
+        title: "Get Bootstrap Skill",
+        description:
+          "Return the full Sentinel Coordination Protocol skill content. Agents on any MCP-capable host can invoke this at session start to load the SCP governance contract, self-bootstrap procedure, and role topology rules without needing a Claude Code skill installed locally."
+      },
+      () => ({
+        content: [
+          {
+            type: "text" as const,
+            text: loadProtocolData().bootstrapSkill
+          }
+        ]
+      })
+    );
+  }
 
-  server.registerTool(
-    "odin.get_telemetry_config",
-    {
-      title: "Get Telemetry Config",
-      description:
-        "Return current telemetry configuration. Telemetry is opt-in; reports are never sent unless ODIN_TELEMETRY_ENDPOINT is set in the environment."
-    },
-    () => jsonText(publicTelemetryConfig(readTelemetryConfig()))
-  );
+  if (toolEnabled("odin.get_telemetry_config")) {
+    server.registerTool(
+      "odin.get_telemetry_config",
+      {
+        title: "Get Telemetry Config",
+        description:
+          "Return current telemetry configuration. Telemetry is opt-in; reports are never sent unless ODIN_TELEMETRY_ENDPOINT is set in the environment."
+      },
+      () => jsonText(publicTelemetryConfig(readTelemetryConfig()))
+    );
+  }
 
-  server.registerTool(
-    "odin.compile_session_report",
-    {
-      title: "Compile Session Report",
-      description:
-        "Build a structured end-of-session report from counts and class labels. EXEC PM should call this at closeout. The compiled report is returned to the caller; user review and explicit submission are required before any network transmission.",
-      inputSchema: sessionReportInputShape
-    },
-    (input) =>
-      jsonText(compileSessionReport(input as SessionReportInput, VERSION))
-  );
+  if (toolEnabled("odin.compile_session_report")) {
+    server.registerTool(
+      "odin.compile_session_report",
+      {
+        title: "Compile Session Report",
+        description:
+          "Build a structured end-of-session report from counts and class labels. EXEC PM should call this at closeout. The compiled report is returned to the caller; user review and explicit submission are required before any network transmission.",
+        inputSchema: sessionReportInputShape
+      },
+      (input) =>
+        jsonText(compileSessionReport(input as SessionReportInput, VERSION))
+    );
+  }
 
-  server.registerTool(
-    "odin.preview_telemetry_redaction",
-    {
-      title: "Preview Telemetry Redaction",
-      description:
-        "Return the redacted form of a report payload (file paths, emails, and common secret tokens replaced). Use this for user-facing consent flows before any submission.",
-      inputSchema: reportRecordInputSchema
-    },
-    (input) => jsonText(redactPayload(input.report as Record<string, unknown>))
-  );
+  if (toolEnabled("odin.preview_telemetry_redaction")) {
+    server.registerTool(
+      "odin.preview_telemetry_redaction",
+      {
+        title: "Preview Telemetry Redaction",
+        description:
+          "Return the redacted form of a report payload (file paths, emails, and common secret tokens replaced). Use this for user-facing consent flows before any submission.",
+        inputSchema: reportRecordInputSchema
+      },
+      (input) => jsonText(redactPayload(input.report as Record<string, unknown>))
+    );
+  }
 
-  server.registerTool(
-    "odin.submit_session_report",
-    {
-      title: "Submit Session Report",
-      description:
-        "Submit a redacted session report to the configured telemetry endpoint. Telemetry is disabled by default; this tool returns {submitted: false, reason: ...} unless ODIN_TELEMETRY_ENDPOINT is set. Only invoke after explicit user consent for the current session.",
-      inputSchema: submitSessionReportInputSchema
-    },
-    async (input) => jsonText(await submitSessionReport(input.report as Record<string, unknown>, { userConsentConfirmed: input.userConsentConfirmed === true }))
-  );
+  if (toolEnabled("odin.submit_session_report")) {
+    server.registerTool(
+      "odin.submit_session_report",
+      {
+        title: "Submit Session Report",
+        description:
+          "Submit a redacted session report to the configured telemetry endpoint. Telemetry is disabled by default; this tool returns {submitted: false, reason: ...} unless ODIN_TELEMETRY_ENDPOINT is set. Only invoke after explicit user consent for the current session.",
+        inputSchema: submitSessionReportInputSchema
+      },
+      async (input) => jsonText(await submitSessionReport(input.report as Record<string, unknown>, { userConsentConfirmed: input.userConsentConfirmed === true }))
+    );
+  }
 
-  server.registerTool(
-    "odin.get_mission_frontrun_pack",
-    {
-      title: "Get Factory Mission Front-Runner Contract Pack",
-      description:
-        "Assemble a Factory Mission governance contract pack using the PROVEN --append-system-prompt-file seam (live-verified 2026-06-12). Returns four role contracts (orchestrator, worker, scrutiny-validator, scrutiny-feature-reviewer), the .factory/droids/scrutiny-feature-reviewer.md file content, a launch command template, a boot_contract_receipt template with all six required fields (role, session_id, contract_path, byte_count, sha256, timestamp), and a notes block distinguishing PROVEN vs UNPROVEN seams. All placeholder tokens ({{WRITE_SCOPE}}, {{TASK_ID}}, {{REPO_PATH}}, {{MISSION_NAME}}) are substituted from input.",
-      inputSchema: missionFrontrunInputShape
-    },
-    (input) => jsonText(getMissionFrontrunPack(input))
-  );
+  if (toolEnabled("odin.get_mission_frontrun_pack")) {
+    server.registerTool(
+      "odin.get_mission_frontrun_pack",
+      {
+        title: "Get Factory Mission Front-Runner Contract Pack",
+        description:
+          "Assemble a Factory Mission governance contract pack using the PROVEN --append-system-prompt-file seam (live-verified 2026-06-12). Returns four role contracts (orchestrator, worker, scrutiny-validator, scrutiny-feature-reviewer), the .factory/droids/scrutiny-feature-reviewer.md file content, a launch command template, a boot_contract_receipt template with all six required fields (role, session_id, contract_path, byte_count, sha256, timestamp), and a notes block distinguishing PROVEN vs UNPROVEN seams. All placeholder tokens ({{WRITE_SCOPE}}, {{TASK_ID}}, {{REPO_PATH}}, {{MISSION_NAME}}) are substituted from input.",
+        inputSchema: missionFrontrunInputShape
+      },
+      (input) => jsonText(getMissionFrontrunPack(input))
+    );
+  }
 
   // Compatibility surface is registered LAST whenever the flag resolves on —
   // which is the DEFAULT as of 0.6.0 (Amendment 46); an explicit opt-out
@@ -1007,7 +1110,7 @@ export function createServer(options: CreateServerOptions = {}): McpServer {
   // untouched and byte-identical to baseline.
   const govdispRegistry = options.govdispRegistry ?? {};
   const govdispRegistryEnabled = govdispRegistry.enabled ?? readGovdispRegistryMcpFlag(govdispRegistry.env).enabled;
-  if (govdispRegistryEnabled) {
+  if (capabilities.has("governance") && govdispRegistryEnabled) {
     registerGovdispRegistrySurface(server, govdispRegistry);
   }
 

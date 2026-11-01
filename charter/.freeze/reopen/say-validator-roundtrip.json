@@ -1,0 +1,33 @@
+{
+  "done_sha256": "478e7041f5bd2f66547b41dca00d94891984816ad80f56eefdefb76444e32626",
+  "entries": [
+    {
+      "evidence_sha256": "5205ec4104c1cb2d043e02358448a8ba63befcca4acf59ab0ee28d3c275ff5c1",
+      "proof": "1",
+      "recorded_utc": "2026-10-31T08:22:52Z",
+      "run_id": "OD-QA-say-validator-roundtrip-a4837a3"
+    },
+    {
+      "evidence_sha256": "5205ec4104c1cb2d043e02358448a8ba63befcca4acf59ab0ee28d3c275ff5c1",
+      "proof": "2",
+      "recorded_utc": "2026-10-31T08:22:52Z",
+      "run_id": "OD-QA-say-validator-roundtrip-a4837a3"
+    },
+    {
+      "evidence_sha256": "5205ec4104c1cb2d043e02358448a8ba63befcca4acf59ab0ee28d3c275ff5c1",
+      "proof": "3",
+      "recorded_utc": "2026-10-31T08:22:52Z",
+      "run_id": "OD-QA-say-validator-roundtrip-a4837a3"
+    },
+    {
+      "evidence_sha256": "5205ec4104c1cb2d043e02358448a8ba63befcca4acf59ab0ee28d3c275ff5c1",
+      "proof": "4",
+      "recorded_utc": "2026-10-31T08:22:52Z",
+      "run_id": "OD-QA-say-validator-roundtrip-a4837a3"
+    }
+  ],
+  "head": "a4837a32b3373eb74c86bf54bc1bd00c5c1b78eb",
+  "manifest_sha256": "d700205f2590ca406229c42856a4e10380c9c91172bc1a72b02e86b54da0368b",
+  "schema_version": "charter.reopen/1",
+  "slice": "say-validator-roundtrip"
+}

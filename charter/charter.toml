@@ -1,0 +1,15 @@
+#:schema ../schemas/charter-toml.schema.json
+charter_version = "1"
+spec_version = "1"
+project = "odin-sentinel"
+owner = "Brad Heitmann (owner and operator)"
+# The tiniest end-to-end live run that must be green before anything scales.
+[slice_zero]
+description = "Build ODIN Sentinel, start the real stdio MCP server, and have odin.validate_cmux_delivery_proof accept a sent-and-acknowledged delivery and refuse a busy-pane refusal"
+command = "charter/slice-zero.sh"
+proven_on = "2026-10-31 (macOS arm64, Node, base 599b905; one live run green; fail-without mutant red)"
+# Verification is a loop: budget it.
+[verification_budget]
+qa_attempts_per_slice = 3
+repair_cycles_per_slice = 1
+review_families_required = 2   # author and verifier from different model families

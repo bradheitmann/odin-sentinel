@@ -1,6 +1,6 @@
 {
   "name": "@bradheitmann/odin-sentinel",
-  "version": "0.7.2",
+  "version": "0.8.0",
   "publishConfig": {
     "access": "public"
   },
@@ -17,7 +17,19 @@
       "types": "./dist/src/mcp/server.d.ts",
       "import": "./dist/src/mcp/server.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./governance": {
+      "types": "./dist/src/protocol/governance.d.ts",
+      "import": "./dist/src/protocol/governance.js"
+    },
+    "./surface-layout": {
+      "types": "./dist/src/protocol/surface-layout.d.ts",
+      "import": "./dist/src/protocol/surface-layout.js"
+    },
+    "./role-identity": {
+      "types": "./dist/src/protocol/role-identity.d.ts",
+      "import": "./dist/src/protocol/role-identity.js"
+    }
   },
   "packageManager": "pnpm@11.0.3",
   "bin": {
@@ -65,17 +77,17 @@
   "author": "ODIN Sentinel contributors",
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.29.0",
+    "@modelcontextprotocol/sdk": "1.32.1",
     "yaml": "2.8.4",
-    "zod": "4.4.3"
+    "zod": "4.6.7"
   },
   "devDependencies": {
-    "@types/node": "^24.13.3",
-    "@vitest/coverage-v8": "4.1.10",
-    "tsx": "^4.23.12",
+    "@types/node": "^24.19.2",
+    "@vitest/coverage-v8": "4.1.11",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3",
-    "vite": "^8.2.2",
-    "vitest": "4.1.10"
+    "vite": "^8.3.4",
+    "vitest": "4.1.11"
   },
   "engines": {
     "node": ">=22.13.0",
@@ -90,7 +102,7 @@
     "url": "https://github.com/bradheitmann/odin-sentinel/issues"
   },
   "odin": {
-    "publicVersion": "0.7.2",
+    "publicVersion": "0.8.0",
     "minimumCompatibleChildMcpVersion": "0.4.5"
   }
 }

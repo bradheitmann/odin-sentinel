@@ -1,0 +1,22 @@
+# One entry per guarantee. A guarantee without a proof is a wish; without a cost it is a trap.
+- id: G1
+  statement: "A delivery is proven, never assumed: odin.validate_cmux_delivery_proof, reached over the real stdio MCP server, returns valid for a sent-and-acknowledged proof and refuses a proof whose message was not submitted."
+  owner: "ODIN PM"
+  proof: "charter/slice-zero.sh (Slice Zero); tests/protocol/epic-020-delivery-contract.test.ts"
+  cost_per_run: "one build (about 20 s) plus one stdio server start and two tool calls (about 2 s)"
+  if_dropped: "an operator trusts a message that sat in an input bar or was refused by a busy pane, and the team acts on instructions nobody received"
+  status: proposed
+- id: G2
+  statement: "Governed readiness is fail-closed: a configured MCP server or a skill on disk is not readiness; GOVERNED_READY requires verified protocol uptake, otherwise the role is FIXABLE_BLOCKED, NON_GOVERNED_ONE_SHOT_ONLY or UNSUPPORTED."
+  owner: "ODIN PM"
+  proof: "tests/protocol/governed-readiness.test.ts; tests/protocol/readiness-gate.test.ts"
+  cost_per_run: "part of the vitest suite (about 3 min for the whole suite)"
+  if_dropped: "an occupant that never read the protocol is activated as governed and acts with authority it does not understand"
+  status: proposed
+- id: G3
+  statement: "The published surface (README, AGENTS.md, CLAUDE.md, docs, protocol, templates, plugins, scripts/audit, package.json) carries no home paths, local agent config paths, private planning paths, private project markers or secret-looking literals."
+  owner: "ODIN PM"
+  proof: "pnpm run audit:public (scripts/audit/public-surface.mjs)"
+  cost_per_run: "under 1 s"
+  if_dropped: "a public npm release leaks the operator's private paths, project names or credentials"
+  status: proposed

@@ -1,0 +1,23 @@
+# Every retry / re-verify / until-accepted / for-each / on-failure in the design.
+# Every bound must be finite.
+- id: L1
+  where: "independent QA of a DEV slice"
+  trigger: "QA returns FAIL with evidence"
+  bound: "3 QA attempts per slice (charter.toml verification_budget)"
+  cost_per_trip: "one fresh QA session plus the full suite run (about 3 min) on the frozen bytes"
+  stop_condition: "QA PASS on the frozen tip, or the third FAIL; then the slice goes to the owner (S5)"
+  who_decides_extension: owner
+- id: L2
+  where: "DEV repair after a QA FAIL"
+  trigger: "a QA finding inside the slice's own DONE list"
+  bound: "1 repair cycle per slice (charter.toml verification_budget)"
+  cost_per_trip: "one DEV session plus the full suite run"
+  stop_condition: "the repaired tip goes back to QA; any new finding becomes an obligation on the next slice (S1)"
+  who_decides_extension: owner
+- id: L3
+  where: "Slice Zero live run (charter/slice-zero.sh)"
+  trigger: "the run fails"
+  bound: "2 reruns before the failure is recorded as last-red in STATE.md and investigated"
+  cost_per_trip: "one build plus one stdio round trip (about 25 s)"
+  stop_condition: "a green run, or the second failed rerun"
+  who_decides_extension: owner

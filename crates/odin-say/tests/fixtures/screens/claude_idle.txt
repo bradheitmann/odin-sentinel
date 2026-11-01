@@ -1,0 +1,7 @@
+
+  ※ recap: idle, waiting for the next lane. (disable recaps in /config)
+
+──────────────────────────────────────────────
+❯ 
+──────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle)

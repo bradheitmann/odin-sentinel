@@ -1,0 +1,9 @@
+{
+  "accepted_unix_ms": 1793423762,
+  "base_commit": "b6d435e0721feb66c306e3f0a5f24c32e1e8156b",
+  "brief_sha256": null,
+  "done_sha256": "9fae6131b3bfb45faed8feeb81e7c81808007136c44c6d04658fff80e323bf64",
+  "schema_version": "charter.dispatch/1",
+  "slice": "delivery-verdicts",
+  "state": "accepted"
+}
