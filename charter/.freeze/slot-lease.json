@@ -1,5 +1,5 @@
 {
-  "commit": "ef2d799646addb825ae064f4e909e06abe694baa",
+  "commit": "729bdfc0675434dbdd0bebc2558727e3985fb2e1",
   "entries": [
     {
       "mode": "100644",
@@ -24,9 +24,9 @@
     },
     {
       "mode": "100644",
-      "object": "f9e0077f649ae3e50d7d9c4130583326075c6b07",
+      "object": "301d158215eedfbca908e72155c4b7929699598c",
       "path": ".github/workflows/ci.yml",
-      "sha256": "0202c7e270234602d2f42b35a886acfb07cf8364ad3ab29e6e354bdf8d9cd2d9",
+      "sha256": "b5ba9251bee5b9729359a67765f3eb0ec1c43b8c85602cdbd2a58bc8372f520c",
       "type": "blob"
     },
     {
@@ -104,6 +104,20 @@
       "object": "eac8e4eabff998e4bdb85e72afafae2c2cac45c6",
       "path": "charter/.dispatch/ci-action-pins.sha256",
       "sha256": "09d4566c0843eb96ae3e29c6887d8dd420fcc56bb8856a6dd87f9705dc0ab110",
+      "type": "blob"
+    },
+    {
+      "mode": "100644",
+      "object": "d19dfda7cddcb6aa4815465ee5c4a1092dd2dfae",
+      "path": "charter/.dispatch/ci-charter-job.json",
+      "sha256": "c724f14d63546c5554e8d0763a97095e8e49ae49a1d8ffe92a1903afb3f803ea",
+      "type": "blob"
+    },
+    {
+      "mode": "100644",
+      "object": "5125c0db3d52e36ce228a06455a780f5b8d75c5a",
+      "path": "charter/.dispatch/ci-charter-job.sha256",
+      "sha256": "1c09d736a69135860e0d522db3f6378d3659653a8323b6613ca013dbc790fa48",
       "type": "blob"
     },
     {
@@ -262,9 +276,9 @@
     },
     {
       "mode": "100644",
-      "object": "ab329a0bbd70fcd0048f2b79309359478f9aa846",
+      "object": "e8349e40a1e5bb2dafa92b269e70785df602a67a",
       "path": "charter/.dispatch/slot-lease.json",
-      "sha256": "601e6457fa95888dd999f983e185a06431dea1bc8eb27a9d4c2a8ca79ff1678c",
+      "sha256": "35091528f7953b495f4f1883443545978a450083c0e8fc6df44fe14f24edc535",
       "type": "blob"
     },
     {
@@ -290,9 +304,9 @@
     },
     {
       "mode": "100644",
-      "object": "13855ba692b9758d68e042fd9c50aee28af8d4e9",
+      "object": "f843c809f1b92e905f64b9511f364e46843aa702",
       "path": "charter/COST.jsonl",
-      "sha256": "38613dfd6da3595e32cceb8c7f59d152bb745070330fb60dd499a8435e7bd971",
+      "sha256": "29ea69fa7c70c997a34647d903130568733eba637f72d99810a0d699efbfecdf",
       "type": "blob"
     },
     {
@@ -314,6 +328,13 @@
       "object": "189fb79289e7106aa78f3b8b39c224ab31c13823",
       "path": "charter/DONE/ci-action-pins.md",
       "sha256": "ce62fdc416638ea96bb599d9f207879e87ac6e78d9a01ad186a7ecc3f50ba106",
+      "type": "blob"
+    },
+    {
+      "mode": "100644",
+      "object": "69bf3f7c1a955d9320c91d17bbe38d8fad040ed0",
+      "path": "charter/DONE/ci-charter-job.md",
+      "sha256": "b31baa71b2347523f63fd4a8336e070c58239e88335d3190f13700fba55d1e6a",
       "type": "blob"
     },
     {
@@ -437,9 +458,9 @@
     },
     {
       "mode": "100644",
-      "object": "a6d5a341cb1a7217b2647a95bcb201647ed50ee7",
+      "object": "f60d2cf3dddfb85e6118ec40488151d7e1cda77a",
       "path": "charter/STATE.md",
-      "sha256": "28bf8a76035ee63fbb9a45dfed2803b78dca559695ea65792e636ecd5a89aa13",
+      "sha256": "81848232346fbc28f352ca33988348ec3c5237bac43ab607a9680c6fc46f0be9",
       "type": "blob"
     },
     {
@@ -1480,9 +1501,9 @@
     },
     {
       "mode": "100644",
-      "object": "146721611ba4d31b6918ed86b3061f68a7e02066",
+      "object": "0b5481a700c1c52865dd6fc6162e106b79a3c77f",
       "path": "src/protocol/lease/store.ts",
-      "sha256": "1a207bf6487e4f4a9090775237ee70270947d4be40fc3e77bf2153b341bed756",
+      "sha256": "6d5c51ff335a1307633dc43aa835d89f604a236b3fa03aa434f249f3b8515715",
       "type": "blob"
     },
     {
@@ -1676,9 +1697,9 @@
     },
     {
       "mode": "100644",
-      "object": "0a6789d988135a1dde597f3b49261b5c9007f2e2",
+      "object": "ac0304c622459e5cd76dc84677c479f3f2cfcbf0",
       "path": "tests/audit/actions-pinned.test.ts",
-      "sha256": "862c88b451c352ed9af2d41bf1ba423d48a1b7ce7309f783d963ea5fc614af3e",
+      "sha256": "822fdbc60e8c18060c49ca470e3e2b35d8a75c989dfb3ea954463970552a484d",
       "type": "blob"
     },
     {
@@ -1725,9 +1746,9 @@
     },
     {
       "mode": "100644",
-      "object": "95b5395475fd4563e0b08b7d53094366de1eb823",
+      "object": "6493da8d42fa384fb83dc1a5d65d9997703e6b24",
       "path": "tests/fixtures/govdisp/baseline-manifest.json",
-      "sha256": "e979070bcf19a9ae4ee0ff0782503a2f5eae231fb649e0e538236c5c609512c3",
+      "sha256": "8cbe1dfeec73acbc197dd12255439e015c8f1ad782acec0ea5b8327d00e857d0",
       "type": "blob"
     },
     {
@@ -2005,9 +2026,9 @@
     },
     {
       "mode": "100644",
-      "object": "056e4a9ccd96343c70e1d1682dd3dc80fee390a6",
+      "object": "ccc7361307ef37ecd49a8ad18e1f30813dde7460",
       "path": "tests/protocol/lease.test.ts",
-      "sha256": "47ca172e45cfc99db22cdd8508d869118afb9bc61b0c278b1c5bedddbb600fd2",
+      "sha256": "b72d3e24628e616ba9ab632cbaa6bc0395a919df3c1b9ce3e105d089352c2c02",
       "type": "blob"
     },
     {
@@ -2193,12 +2214,12 @@
       "type": "blob"
     }
   ],
-  "entry_count": 313,
-  "head": "ef2d799646addb825ae064f4e909e06abe694baa",
+  "entry_count": 316,
+  "head": "729bdfc0675434dbdd0bebc2558727e3985fb2e1",
   "kind": "git-commit-tree",
-  "manifest_sha256": "5273c5f77a42d2968063cad32c403f8faef1e5d3fb0050039f8ece7b80194bb0",
+  "manifest_sha256": "7192e6d47795954e3df64da74ee2cf6b7272d3a6e48d031c581938f9e62a72aa",
   "schema_version": "charter.freeze/2",
   "selector": "git-ls-tree:HEAD",
   "slice": "slot-lease",
-  "tree": "8a215fd582b2cd160c7388daad4c13651787b08b"
+  "tree": "7031547a559243d7a684d8de1708992e83fdd000"
 }
