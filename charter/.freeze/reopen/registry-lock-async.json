@@ -1,0 +1,33 @@
+{
+  "done_sha256": "b050c3ac1c96aabfa7704282ba71e482c633d3f11ec48e8e5c56998339fd6551",
+  "entries": [
+    {
+      "evidence_sha256": "f7263addb1441a1bfd8c15a65bc9026bef6aeb74dec5b6ec7f5c1115557fddad",
+      "proof": "1",
+      "recorded_utc": "2026-11-01T03:23:19Z",
+      "run_id": "OD-QA-registry-lock-async-862edfa"
+    },
+    {
+      "evidence_sha256": "f7263addb1441a1bfd8c15a65bc9026bef6aeb74dec5b6ec7f5c1115557fddad",
+      "proof": "2",
+      "recorded_utc": "2026-11-01T03:23:19Z",
+      "run_id": "OD-QA-registry-lock-async-862edfa"
+    },
+    {
+      "evidence_sha256": "f7263addb1441a1bfd8c15a65bc9026bef6aeb74dec5b6ec7f5c1115557fddad",
+      "proof": "3",
+      "recorded_utc": "2026-11-01T03:23:19Z",
+      "run_id": "OD-QA-registry-lock-async-862edfa"
+    },
+    {
+      "evidence_sha256": "f7263addb1441a1bfd8c15a65bc9026bef6aeb74dec5b6ec7f5c1115557fddad",
+      "proof": "4",
+      "recorded_utc": "2026-11-01T03:23:19Z",
+      "run_id": "OD-QA-registry-lock-async-862edfa"
+    }
+  ],
+  "head": "862edfa075926666c18499d1c200c443f318a612",
+  "manifest_sha256": "003a159daca2e5cba40f42a6ab2c9d5d289eaa0cc5036370da9bfecbca127c7f",
+  "schema_version": "charter.reopen/1",
+  "slice": "registry-lock-async"
+}
