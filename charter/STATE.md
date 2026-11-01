@@ -1,5 +1,6 @@
-# State — odin-sentinel — 2026-11-01T03:00Z, written by PM-ODIN (Claude Opus 5.5) during Mister Clean CLOSE
-HEAD: main e00e425 (say-validator-roundtrip landed, PR #17) + this landing (fix/sync-mcp-pins, PR #2; freeze, reopen evidence, acceptance and this STATE rewrite are one change). Charter tool pin: e27e00a.
+# State — odin-sentinel — 2026-11-01T03:30Z, written by PM-ODIN (Claude Opus 5.5) after the Mister Clean CLOSE rulings
+HEAD: main 1c5ff0e (sync-mcp-pins landed, PR #2) + this change (docs/close-rulings: EXEC-PM rulings on the 2026-11-01 Mister Clean CLOSE; charter/SPEC.md refreshed to the current text). Charter tool pin: e27e00a.
+Rule (EXEC-PM, 2026-11-01): run `charter check --strict` locally, at the pin above, before every merge to main, and record its result in the PR. This stands in for CI until CS-7 is unblocked.
 Proven (with the proof names):
 - slice-zero ACCEPTED (DONE pin b087121d). QA: OD/QA, Pi, openrouter/xiaomi/mimo-v2.6-flash, high (author Claude Opus 5.5). Markdown receipt sha256 09bf1d87352c61bdcaebe7d0c5015a5a8235faecbc52cd56b0811b0fd11f5134; validated JSON receipt (reveng.qa-receipt/1) sha256 f883af011ca4dc11905f971d072bcd6a3c305c6d4ace0c06916ce8be53a0b001; accepted with `charter gate slice-zero --accept --receipt` at DONE pin 486916b1, frozen 8533d25 (manifest 2c216de2).
   - slice-zero-live (G1): `charter/slice-zero.sh` prints `delivered_valid=true refused_valid=false` and `slice-zero: GREEN`; mutant prints `refused_valid=true` and exits 1. Reopened by QA in a fresh clone.
@@ -26,7 +27,8 @@ Not proven / known gaps:
 - INTENT.md awaits owner ratification; GUARANTEES rows are `proposed`.
 - sync-mcp-pins D1 (low, QA): the script also rewrites a package-version token that appears inside a comment or URL in a harness config, not only the pin itself; AC3 intends every other byte kept. Follow-up slice.
 - fix/registry-cli-store-20261020 (archived at 2997fc9, local branch kept, owner PM-ODIN): wires the event-registry store into the default MCP server and publishes registry argument schemas (2 commits, about 540 lines of tests), never reviewed. Prerequisite before it can land: the registry lock wait must stop blocking the event loop (asynchronous backoff or a short interactive budget), because wiring the store makes that wait reachable on the default server; then rebase onto main (its lockfile changes predate the 2026-10-31 advisory fix) and run it as a lane with QA.
-- Legacy local planning corpus (gitignored, local-only): a Mister Clean planning audit reports about 2,400 relationship and lifecycle findings accumulated before this repository adopted its charter. charter/ now governs new work; whether to conform or retire the legacy corpus is an open decision.
+- Legacy local planning corpus (gitignored, local-only): RETIRED by EXEC-PM ruling on 2026-11-01, superseded by charter/. Nothing deleted; a retirement note sits inside the corpus. Its roughly 2,400 pre-charter audit findings are history, not debt; nothing live was carried forward (its three still-active slices had all landed).
+- Strict-check warnings (charter e27e00a): no cost rows yet for the 13 accepted slices (record real counts or typed unmeasured rows, never fabricated).
 - Registry lock follow-up (QA F2, low): the lock wait is synchronous, so a program that injects ODIN's registry store into the MCP server can block its event loop for up to the 10 s budget. The default MCP binary injects no store (its append tool fails closed), so this affects embedders only; an asynchronous backoff or a shorter interactive budget is a later slice.
 Common engineering standard v0.2 (linked from AGENTS.md): gaps recorded as obligations, each a future bounded slice:
 - CS-1 (§1) Private paths: research notes, receipts and briefs live under a team directory, not `AGENT_PRIVATE_ROOT/<repo>/{evidence,handoffs,...}`; odin-say defaults its proof log to the XDG state directory. Move to the standard root with an override.
@@ -35,7 +37,7 @@ Common engineering standard v0.2 (linked from AGENTS.md): gaps recorded as oblig
 - CS-4 (§5) GitHub Actions pinned to immutable references: CLOSED by ci-action-pins.
 - CS-5 (§6) Each verification run uses its own build output directory: now required in every QA and DEV brief; not yet enforced by a check.
 - CS-6 (§6) No repository-wide lease for heavy suites; contention shows up as timeouts.
-- CS-7 (§7) `charter check` in CI: BLOCKED, typed reason "charter tool is private; owner decision pending" (a public repository's CI cannot fetch the pinned tool without a credential, and release assets inherit the private visibility). Local `charter check` runs at the current pin.
+- CS-7 (§7) `charter check` in CI: BLOCKED, typed limitation "charter tool is private; owner decision pending" (a public repository's CI cannot fetch the pinned tool without a credential, and release assets inherit the private visibility). Ruling (EXEC-PM, 2026-11-01): keep the limitation and run `charter check --strict` locally before every merge (rule at the top of this file). Making the charter repository public is on the owner's list.
 - CS-8 (§7) Plans and work contracts: the local planning corpus uses its own slice format, not the shared v5 work-contract schema; record the schema pin and list validation as open until a packaged validator release exists.
 - CS-9 (§4) Two state surfaces exist: charter/STATE.md (designated here) and a hook-generated local planning status file; the latter must point to STATE.md rather than compete.
 - charter check --strict refuses DONE/_template.md at the earlier pin (upstream defect).
@@ -55,7 +57,6 @@ Next three bounded items (in order):
 Open owner decisions:
 - Ratify charter/INTENT.md.
 - How a public repository obtains the charter tool for CI (CS-7): make the charter repository public, host binaries elsewhere, or a per-repository read token (with EXEC-PM).
-- Conform or retire the legacy local planning corpus (about 2,400 audit findings; charter/ governs new work).
 Where everything is (branches, lanes, receipts):
 - Open lanes: none. Unmerged branch with a named owner: fix/registry-cli-store-20261020 (PM-ODIN; archived at 2997fc9; prerequisite above).
 - Landed and archived (tag `archive/<branch>`, verified on origin): chore/charter-adoption, fix/advisories-2026-10-31, docs/common-standard-adoption, feat/delivery-verdicts, fix/registry-lock-budget, chore/public-roots-charter, feat/odin-say, feat/odin-say-mid-turn, feat/odin-say-proof-integrity, chore/ci-action-pins, chore/public-roots-crates, feat/say-validator-roundtrip, docs/state-refresh-1, feat/capability-seams-20261019, fix/security-review-20261019, integrate/sync-mcp-pins, and fix/sync-mcp-pins with this landing.

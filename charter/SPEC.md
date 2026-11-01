@@ -31,7 +31,7 @@ Every command exits 0 on success, 1 on a typed refusal (the refusal text names t
 - `charter gate <slice> --dispatch [--brief <file>]` — pins the DONE hash, brief sha and base commit; contract must pass.
 - `charter gate <slice> --accept [--receipt <file>]` — refuses DONE drift and receipt citation mismatch; records `state: accepted`.
 - `charter freeze <slice>` — records the tree manifest.
-- `charter receipt <file> [--verify-tree <dir>] [--allow-same-family <decision>]` — validates a `reveng.qa-receipt/1` receipt; accepted verdicts require no critical/high defect, every proof reopened and marked, frozen-bytes citation, and a verifier model family different from the author's.
+- `charter receipt <file> [--verify-tree <dir>] [--allow-same-family <decision>]` — validates a `charter.receipt/1` receipt (a pre-rename legacy receipt id is still accepted as an alias); accepted verdicts require no critical/high defect, every proof reopened and marked, frozen-bytes citation, and a verifier model family different from the author's.
 - `charter loops audit` — trips vs bounds, with the ledger's totals.
 - `charter cost add|show` — the cost ledger.
 - `charter brief <role> [slice]` — a role contract with the charter embedded.
