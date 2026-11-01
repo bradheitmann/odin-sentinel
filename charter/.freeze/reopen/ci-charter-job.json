@@ -1,0 +1,39 @@
+{
+  "done_sha256": "b31baa71b2347523f63fd4a8336e070c58239e88335d3190f13700fba55d1e6a",
+  "entries": [
+    {
+      "evidence_sha256": "8411ffc6b16bf335a030fc273279a8b45b129a666db9fd875f7dfc32c437d9fb",
+      "proof": "1",
+      "recorded_utc": "2026-11-01T06:41:35Z",
+      "run_id": "OD-QA-ci-charter-job-9af0628"
+    },
+    {
+      "evidence_sha256": "8411ffc6b16bf335a030fc273279a8b45b129a666db9fd875f7dfc32c437d9fb",
+      "proof": "2",
+      "recorded_utc": "2026-11-01T06:41:35Z",
+      "run_id": "OD-QA-ci-charter-job-9af0628"
+    },
+    {
+      "evidence_sha256": "8411ffc6b16bf335a030fc273279a8b45b129a666db9fd875f7dfc32c437d9fb",
+      "proof": "3",
+      "recorded_utc": "2026-11-01T06:41:35Z",
+      "run_id": "OD-QA-ci-charter-job-9af0628"
+    },
+    {
+      "evidence_sha256": "8411ffc6b16bf335a030fc273279a8b45b129a666db9fd875f7dfc32c437d9fb",
+      "proof": "4",
+      "recorded_utc": "2026-11-01T06:41:35Z",
+      "run_id": "OD-QA-ci-charter-job-9af0628"
+    },
+    {
+      "evidence_sha256": "8411ffc6b16bf335a030fc273279a8b45b129a666db9fd875f7dfc32c437d9fb",
+      "proof": "5",
+      "recorded_utc": "2026-11-01T06:41:35Z",
+      "run_id": "OD-QA-ci-charter-job-9af0628"
+    }
+  ],
+  "head": "9af062893cfdc07fae8c57540b1a80134e00d810",
+  "manifest_sha256": "c9070d4e5da408f13daba059b44d78b20f4a0c1569239229b5b99784c56d6e0a",
+  "schema_version": "charter.reopen/1",
+  "slice": "ci-charter-job"
+}
