@@ -254,8 +254,8 @@
     },
     {
       "path": "src/protocol/lease/store.ts",
-      "bytes": 21496,
-      "sha256": "1c8246cbc939b8d675c24b7d58d9279c84aeb813d257bb15bcb55992a51e025f"
+      "bytes": 21815,
+      "sha256": "a232c86cbfa89406efab20cd10f4c2d5890f6be32f7b0e8e30ee62fdf7b11588"
     },
     {
       "path": "src/protocol/repository.ts",

@@ -134,6 +134,8 @@ export function readLease(dir: string, slot: string): LeaseResult<{ record: Leas
   if (!SLOT_PATTERN.test(slot)) {
     return refusal("invalid_slot", INVALID_SLOT_DETAIL);
   }
+  const notAllowed = ensureSlotAllowed(dir, slot);
+  if (notAllowed) return notAllowed;
   const path = leasePath(dir, slot);
   if (!existsSync(path)) {
     return { ok: true, record: emptyRecord(slot) };
@@ -428,6 +430,10 @@ export function acquireAnyLease(
             acquired: true,
             took_over: record.holder !== null
           });
+        }
+        if (record.holder === holder) {
+          // Same holder won the race for this slot: idempotent success, its CURRENT token.
+          return { ok: true, granted: true, record, acquired: false, took_over: false };
         }
         return { ok: true, granted: false, holder: record.holder, expires_at: record.expires_at };
       });

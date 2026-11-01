@@ -12,6 +12,7 @@ import {
   DEFAULT_CLOCK_SKEW_MS,
   fenceAction,
   leaseStatus,
+  readLease,
   releaseLease,
   renewLease,
   type LeaseOptions
@@ -292,6 +293,8 @@ describe("slot allow-list (slots.allow)", () => {
     expect(checkLease(dir, "probe", "runner-b", 1, options(time))).toMatchObject({ ok: false, code: "slot_not_allowed" });
     expect(leaseStatus(dir, "probe", options(time))).toMatchObject({ ok: false, code: "slot_not_allowed" });
     expect(fenceAction(dir, "probe", 1)).toMatchObject({ ok: false, code: "slot_not_allowed" });
+    // The exported read primitive is guarded too (QA F2).
+    expect(readLease(dir, "probe")).toMatchObject({ ok: false, code: "slot_not_allowed" });
     // Nothing was written for the unlisted slot.
     expect(existsSync(join(dir, "probe.lease.json"))).toBe(false);
   });
@@ -314,7 +317,8 @@ describe("slot allow-list (slots.allow)", () => {
     for (const attempt of [
       acquireLease(dir, "suite-1", "runner-a", 60),
       acquireAnyLease(dir, ["suite-1"], "runner-a", 60),
-      leaseStatus(dir, "suite-1")
+      leaseStatus(dir, "suite-1"),
+      readLease(dir, "suite-1")
     ]) {
       expect(attempt).toMatchObject({ ok: false, code: "slots_allow_invalid" });
     }

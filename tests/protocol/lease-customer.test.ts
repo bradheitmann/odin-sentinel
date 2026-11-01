@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -127,4 +127,41 @@ describe("customer two-slot pattern through the real CLI", () => {
     expect(existsSync(join(leaseDir, "suite-9.lease.json"))).toBe(false);
     expect(readdirSync(leaseDir).sort()).toEqual(["slots.allow"]);
   }, 120_000);
+});
+
+// ---------------------------------------------------------------------------
+// QA F1 repair: one holder id must not end up on two slots. Two CONCURRENT
+// `--slots` calls from the SAME holder with the SAME order settle on the same
+// slot (the second sees the first's lease and returns it idempotently). The
+// opposite-order case is a documented caller rule, not something this design can
+// close without locking several slots at once.
+// ---------------------------------------------------------------------------
+
+describe("same holder, concurrent same-order acquires (QA F1)", () => {
+  it("never ends on two slots across 20 trials, and both calls report the same slot", async () => {
+    const trials = 20;
+    for (let trial = 0; trial < trials; trial += 1) {
+      const dir = join(makeTmpDir(`odin-lease-dup-${trial}-`), "leases");
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, "slots.allow"), "suite-1\nsuite-2\n", "utf8");
+
+      const [first, second] = await Promise.all([
+        lease("acquire", "--dir", dir, "--slots", "suite-1,suite-2", "--holder", "dup-agent", "--ttl", "60"),
+        lease("acquire", "--dir", dir, "--slots", "suite-1,suite-2", "--holder", "dup-agent", "--ttl", "60")
+      ]);
+
+      expect(first.code, `trial ${trial}: first call`).toBe(0);
+      expect(second.code, `trial ${trial}: second call`).toBe(0);
+      expect(first.json.slot, `trial ${trial}: both calls settle on one slot`).toBe(second.json.slot);
+
+      // The holder ends up on exactly one slot, read straight from the records.
+      const heldSlots = ["suite-1", "suite-2"].filter((slot) => {
+        const path = join(dir, `${slot}.lease.json`);
+        if (!existsSync(path)) return false;
+        const record = JSON.parse(readFileSync(path, "utf8")) as { holder: string | null };
+        return record.holder === "dup-agent";
+      });
+      expect(heldSlots, `trial ${trial}: holder occupies one slot`).toHaveLength(1);
+    }
+  }, 300_000);
 });

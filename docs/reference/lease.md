@@ -65,6 +65,13 @@ expiry.
 The decision is race-free under concurrent callers: no slot is granted twice and no caller
 holds two slots from one call. `--slot` and `--slots` together are refused (`invalid_args`).
 
+One caller rule follows from this. A holder id is an identity, not a mutex: a single holder
+must not run concurrent acquires, and retries from one holder must use the SAME slot order.
+Two concurrent calls from one holder with the same order settle on the same slot (the second
+sees the first's lease and returns it, idempotently); with opposite orders they can each take
+a different slot, which this design cannot prevent without locking several slots at once —
+so do not run them.
+
 ## Adopter notes
 
 - **Slot ids cannot contain colons.** A timestamp is fine as a slot id only in the form
