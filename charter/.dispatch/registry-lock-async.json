@@ -1,0 +1,7 @@
+{
+  "base_commit": "9907f5e07eb95feff21d5ecae3a58237465e910d",
+  "brief_sha256": null,
+  "done_sha256": "b050c3ac1c96aabfa7704282ba71e482c633d3f11ec48e8e5c56998339fd6551",
+  "schema_version": "charter.dispatch/1",
+  "slice": "registry-lock-async"
+}
