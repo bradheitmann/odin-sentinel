@@ -76,6 +76,7 @@ export const requiredPackageFiles = [
   "docs/reference/client-compatibility.md",
   "docs/reference/cost-and-privacy.md",
   "docs/reference/distribution.md",
+  "docs/reference/lease.md",
   "docs/reference/public-surface-audit.md",
   "docs/lattice/odin-lattice-design.md",
   "docs/adapters/cmux-adapter.md",

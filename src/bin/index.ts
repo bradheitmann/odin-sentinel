@@ -133,6 +133,7 @@ export async function runLeaseCli(argv: string[], io: LeaseCliIo = {}): Promise<
   let values: {
     dir?: string;
     slot?: string;
+    slots?: string;
     holder?: string;
     ttl?: string;
     token?: string;
@@ -144,6 +145,7 @@ export async function runLeaseCli(argv: string[], io: LeaseCliIo = {}): Promise<
       options: {
         dir: { type: "string" },
         slot: { type: "string" },
+        slots: { type: "string" },
         holder: { type: "string" },
         ttl: { type: "string" },
         token: { type: "string" }
@@ -159,6 +161,14 @@ export async function runLeaseCli(argv: string[], io: LeaseCliIo = {}): Promise<
   }
 
   const operation = positionals[0];
+  if (values.slot !== undefined && values.slots !== undefined) {
+    out(JSON.stringify({ ok: false, code: "invalid_args", detail: "--slot and --slots are mutually exclusive; use one of them" }, null, 2));
+    return 1;
+  }
+  if (operation !== undefined && operation !== "acquire" && values.slots !== undefined) {
+    out(JSON.stringify({ ok: false, code: "invalid_args", detail: "--slots is only valid for acquire; use --slot for this operation" }, null, 2));
+    return 1;
+  }
   if (operation === undefined) {
     out(JSON.stringify({ ok: false, code: "invalid_args", detail: "operation is required: acquire|renew|release|check|status" }, null, 2));
     return 1;
@@ -167,8 +177,14 @@ export async function runLeaseCli(argv: string[], io: LeaseCliIo = {}): Promise<
     out(JSON.stringify({ ok: false, code: "invalid_args", detail: "--dir <dir> is required (there is no default lease directory)" }, null, 2));
     return 1;
   }
-  if (values.slot === undefined || values.slot.trim() === "") {
-    out(JSON.stringify({ ok: false, code: "invalid_args", detail: "--slot <id> is required" }, null, 2));
+  const hasSlot = values.slot !== undefined && values.slot.trim() !== "";
+  const hasSlots = values.slots !== undefined && values.slots.trim() !== "";
+  if (operation !== "acquire" && !hasSlot) {
+    out(JSON.stringify({ ok: false, code: "invalid_args", detail: `--slot <id> is required for ${operation}` }, null, 2));
+    return 1;
+  }
+  if (operation === "acquire" && !hasSlot && !hasSlots) {
+    out(JSON.stringify({ ok: false, code: "invalid_args", detail: "--slot <id>, or --slots a,b for any-of acquire, is required" }, null, 2));
     return 1;
   }
 
@@ -184,7 +200,7 @@ export async function runLeaseCli(argv: string[], io: LeaseCliIo = {}): Promise<
   }
 
   const dir = values.dir;
-  const slot = values.slot;
+  const slot = values.slot ?? "";
   const holder = values.holder;
 
   function requireHolder(): string | null {
@@ -211,7 +227,19 @@ export async function runLeaseCli(argv: string[], io: LeaseCliIo = {}): Promise<
       case "acquire": {
         const who = requireHolder();
         if (who === null) return 1;
-        result = lease.acquireLease(dir, slot, who, ttl ?? lease.DEFAULT_LEASE_TTL_SECONDS);
+        if (values.slots !== undefined) {
+          const requested = values.slots
+            .split(",")
+            .map((entry) => entry.trim())
+            .filter((entry) => entry !== "");
+          if (requested.length === 0) {
+            out(JSON.stringify({ ok: false, code: "invalid_args", detail: "--slots needs at least one slot id, comma-separated" }, null, 2));
+            return 1;
+          }
+          result = lease.acquireAnyLease(dir, requested, who, ttl ?? lease.DEFAULT_LEASE_TTL_SECONDS);
+        } else {
+          result = lease.acquireLease(dir, slot, who, ttl ?? lease.DEFAULT_LEASE_TTL_SECONDS);
+        }
         break;
       }
       case "renew": {
