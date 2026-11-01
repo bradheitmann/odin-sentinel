@@ -1,0 +1,39 @@
+{
+  "done_sha256": "10278c16fbc735c06f96dba6dee7b874cc37d8e57af9dc2f175e101e4ba6a23b",
+  "entries": [
+    {
+      "evidence_sha256": "e1abb7738c559fb1a5106afd99b976f6d63cb8c69e5a1e2cc5e951485c60e782",
+      "proof": "1",
+      "recorded_utc": "2026-11-01T06:21:08Z",
+      "run_id": "OD-QA-slot-lease-ef2d799"
+    },
+    {
+      "evidence_sha256": "e1abb7738c559fb1a5106afd99b976f6d63cb8c69e5a1e2cc5e951485c60e782",
+      "proof": "2",
+      "recorded_utc": "2026-11-01T06:21:08Z",
+      "run_id": "OD-QA-slot-lease-ef2d799"
+    },
+    {
+      "evidence_sha256": "e1abb7738c559fb1a5106afd99b976f6d63cb8c69e5a1e2cc5e951485c60e782",
+      "proof": "3",
+      "recorded_utc": "2026-11-01T06:21:08Z",
+      "run_id": "OD-QA-slot-lease-ef2d799"
+    },
+    {
+      "evidence_sha256": "e1abb7738c559fb1a5106afd99b976f6d63cb8c69e5a1e2cc5e951485c60e782",
+      "proof": "4",
+      "recorded_utc": "2026-11-01T06:21:08Z",
+      "run_id": "OD-QA-slot-lease-ef2d799"
+    },
+    {
+      "evidence_sha256": "e1abb7738c559fb1a5106afd99b976f6d63cb8c69e5a1e2cc5e951485c60e782",
+      "proof": "5",
+      "recorded_utc": "2026-11-01T06:21:08Z",
+      "run_id": "OD-QA-slot-lease-ef2d799"
+    }
+  ],
+  "head": "ef2d799646addb825ae064f4e909e06abe694baa",
+  "manifest_sha256": "5273c5f77a42d2968063cad32c403f8faef1e5d3fb0050039f8ece7b80194bb0",
+  "schema_version": "charter.reopen/1",
+  "slice": "slot-lease"
+}
