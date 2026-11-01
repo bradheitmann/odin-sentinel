@@ -1,10 +1,10 @@
 import { execFile } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   acquireLease,
   checkLease,
@@ -24,7 +24,7 @@ import {
 const execFileAsync = promisify(execFile);
 const repoRoot = fileURLToPath(new URL("../..", import.meta.url));
 const tmpRoots: string[] = [];
-const CHILD_PATH = join(tmpdir(), `odin-lease-race-child-${process.pid}.mjs`);
+const CHILD_PATH = join(tmpdir(), `odin-lease-race-child-${process.pid}.ts`);
 
 function makeTmpDir(prefix = "odin-lease-"): string {
   const dir = mkdtempSync(join(tmpdir(), prefix));
@@ -54,28 +54,28 @@ function options(time: { now: () => number }): LeaseOptions {
   return { now: time.now, skewMs: DEFAULT_CLOCK_SKEW_MS };
 }
 
-// The race children run the compiled lease module (built once below), so a round costs one
-// short node start rather than a TypeScript transform per process.
-const DIST_LEASE_MODULE = join(repoRoot, "dist", "src", "protocol", "lease", "index.js");
+// The race children run the TypeScript source through tsx (the same way the lease CLI test
+// runs the CLI). This file must NOT build: `pnpm run build` starts with `clean`, which deletes
+// dist/ while other test files (registry-cli-store) are spawning from it in parallel, and that
+// is exactly the CI failure this repair removes.
+const LEASE_SOURCE_MODULE = join(repoRoot, "src", "protocol", "lease", "index.ts");
 
-beforeAll(async () => {
-  await execFileAsync("pnpm", ["run", "build"], { cwd: repoRoot, timeout: 240_000 });
-  if (!existsSync(DIST_LEASE_MODULE)) {
-    throw new Error(`compiled lease module missing after build: ${DIST_LEASE_MODULE}`);
-  }
+function writeChildScript(): void {
   const childSource = `
-import { acquireLease } from ${JSON.stringify(DIST_LEASE_MODULE)};
+import { acquireLease } from ${JSON.stringify(LEASE_SOURCE_MODULE)};
 const [dir, slot, holder] = process.argv.slice(2);
 const result = acquireLease(dir, slot, holder, 60);
 process.stdout.write(JSON.stringify(result));
 `;
-  const { writeFileSync } = await import("node:fs");
   writeFileSync(CHILD_PATH, childSource, "utf8");
-}, 300_000);
+}
 
 async function raceRound(dir: string, slot: string, holders: string[]): Promise<Array<Record<string, unknown>>> {
   const runs = holders.map((holder) =>
-    execFileAsync(process.execPath, [CHILD_PATH, dir, slot, holder], { timeout: 30_000 })
+    execFileAsync(process.execPath, ["--import", "tsx", CHILD_PATH, dir, slot, holder], {
+      timeout: 60_000,
+      cwd: repoRoot
+    })
   );
   const settled = await Promise.all(runs);
   return settled.map((outcome) => JSON.parse(outcome.stdout) as Record<string, unknown>);
@@ -83,6 +83,7 @@ async function raceRound(dir: string, slot: string, holders: string[]): Promise<
 
 describe("one holder per slot under process contention", () => {
   it("4 racing processes over 20 rounds always yield exactly one holder and one token", async () => {
+    writeChildScript();
     const dir = makeTmpDir("odin-lease-race-");
     const holders = ["runner-a", "runner-b", "runner-c", "runner-d"];
     const rounds = 20;
