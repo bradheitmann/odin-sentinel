@@ -103,3 +103,38 @@ jobs:
 
       - name: Test
         run: cargo test --locked
+
+  # Charter (fleet pattern C, A/EXEC-PM ruling 2026-11-01). Non-required while
+  # bradheitmann/charter is private: it prints a typed "not run" line instead of
+  # failing. The day the repo becomes reachable it installs the pinned commit and
+  # enforces `check --strict` with no edit here. Local hooks and the pre-push
+  # `check --strict` enforce Charter meanwhile. Keep this job OUT of the required
+  # checks until the owner's decision lands.
+  charter:
+    name: charter (non-required until the charter repo is public)
+    runs-on: ubuntu-latest
+    env:
+      CHARTER_REV: e27e00aae1178d81f480119d08a80ba968281b7f
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          fetch-depth: 0  # strict checks that STATE's recorded HEAD exists
+      - name: probe the charter repo
+        id: probe
+        run: |
+          if GIT_TERMINAL_PROMPT=0 git -C "$RUNNER_TEMP" ls-remote --exit-code https://github.com/bradheitmann/charter HEAD >/dev/null 2>&1; then
+            echo "reachable=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "reachable=false" >> "$GITHUB_OUTPUT"
+            echo "charter not run: repo private (owner decision pending)"
+          fi
+      - if: steps.probe.outputs.reachable == 'true'
+        uses: dtolnay/rust-toolchain@360a4e93673de6630fac2478bc9e35244b01a759  # 1.88.0
+        with:
+          toolchain: 1.88.0
+      - if: steps.probe.outputs.reachable == 'true'
+        name: charter check --strict at the pinned commit
+        run: |
+          cargo +1.88.0 install --locked --git https://github.com/bradheitmann/charter --rev "$CHARTER_REV" charter
+          charter --version | grep -F "($CHARTER_REV)"
+          charter check --strict

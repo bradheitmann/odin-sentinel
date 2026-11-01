@@ -57,30 +57,11 @@ function collectUseSites(files: Record<string, string>): { sites: UseSite[]; fin
   return { sites, findings };
 }
 
-/** Same action, two shas: the second occurrence is reported against the first. */
-function disagreementFindings(sites: UseSite[]): Finding[] {
-  const firstByAction = new Map<string, UseSite>();
-  const findings: Finding[] = [];
-  for (const site of sites) {
-    const first = firstByAction.get(site.action);
-    if (first === undefined) {
-      firstByAction.set(site.action, site);
-      continue;
-    }
-    if (first.ref === site.ref) continue;
-    findings.push({
-      file: site.file,
-      line: site.line,
-      ref: site.ref,
-      reason: `${site.action} is pinned to ${site.ref} here but to ${first.ref} at ${first.file}:${first.line}`
-    });
-  }
-  return findings;
-}
-
 export function checkWorkflows(files: Record<string, string>): Finding[] {
-  const { sites, findings } = collectUseSites(files);
-  return [...findings, ...disagreementFindings(sites)];
+  // One rule: every non-local `uses:` is a full 40-hex commit sha. The SAME action may be
+  // pinned to different immutable shas in different workflows (the charter job runs a v4
+  // checkout while the rest run v6); a tag or branch anywhere is still a finding.
+  return collectUseSites(files).findings;
 }
 
 function realWorkflows(): Record<string, string> {
@@ -116,11 +97,16 @@ describe("CI action pins", () => {
     expect(checkWorkflows(realWorkflows())).toEqual([]);
   });
 
-  it("reuses one sha per action across workflows", () => {
+  it("accepts more than one immutable sha for the same action", () => {
     const refs = refsFor(realWorkflows());
-    for (const [action, shas] of refs) {
-      expect(shas.size, `${action} is pinned to ${[...shas].join(", ")}`).toBe(1);
+    // actions/checkout appears with a v6 pin and the charter job's v4 pin; both are 40-hex
+    // commits, so both are acceptable.
+    const checkout = refs.get("actions/checkout");
+    expect(checkout).toBeDefined();
+    for (const sha of checkout ?? []) {
+      expect(sha).toMatch(/^[0-9a-f]{40}$/);
     }
+    expect((checkout ?? new Set<string>()).size).toBeGreaterThanOrEqual(2);
   });
 
   it("reports a tag ref with its file and line", () => {
@@ -149,16 +135,15 @@ describe("CI action pins", () => {
     expect(checkWorkflows({ "ci.yml": "steps:\n  - uses: ./.github/actions/verify\n" })).toEqual([]);
   });
 
-  it("reports the same action pinned to two different shas", () => {
-    const shaA = "a".repeat(40);
-    const shaB = "b".repeat(40);
+  it("still reports a tag on one of two shas for the same action", () => {
+    const sha = "a".repeat(40);
     const findings = checkWorkflows({
-      "ci.yml": `steps:\n  - uses: actions/checkout@${shaA}\n`,
-      "release.yml": `steps:\n  - uses: actions/checkout@${shaB}\n`
+      "ci.yml": `steps:\n  - uses: actions/checkout@${sha}\n`,
+      "release.yml": "steps:\n  - uses: actions/checkout@v4\n"
     });
     expect(findings).toHaveLength(1);
     expect(findings[0].file).toBe("release.yml");
     expect(findings[0].line).toBe(2);
-    expect(findings[0].reason).toContain("ci.yml:2");
+    expect(findings[0].reason).toContain("actions/checkout@v4");
   });
 });
