@@ -1,0 +1,7 @@
+{
+  "base_commit": "0ce1abfdd76c4409ec6da7cf0a1e7db21399d798",
+  "brief_sha256": null,
+  "done_sha256": "10278c16fbc735c06f96dba6dee7b874cc37d8e57af9dc2f175e101e4ba6a23b",
+  "schema_version": "charter.dispatch/1",
+  "slice": "slot-lease"
+}
