@@ -75,6 +75,12 @@ const BUNDLED_DOC = new Set([
   "plugins/odin-scp/" + "sk" + "ills/odin-scp/scripts/sync-installations.sh"
 ]);
 
+// A value that is a plain dotted identifier path with no digits is member-access code,
+// not a literal secret (typed reason: EXEC-PM ruling 2026-11-01, false positive on
+// property-access code). Every other value the rule matched before still matches; the
+// exemption requires the WHOLE value run to be such a path (a path followed by more
+// value characters, a digit, or a non-identifier character is still flagged).
+export const SECRET_UNQUOTED_ASSIGNMENT_RULE = /(api[_-]?key|secret|token|password)\s*[:=]\s*(?![A-Za-z_$]+(?:\.[A-Za-z_$]+)+(?![A-Za-z0-9._~+/=-]))[A-Za-z0-9._~+/=-]{16,}/i;
 const forbidden = [
   { name: "macOS home path", pattern: new RegExp(`/${"Users"}/[A-Za-z0-9._-]+/`) },
   { name: "Linux home path", pattern: /\/home\/[A-Za-z0-9._-]+\// },
@@ -90,7 +96,7 @@ const forbidden = [
     )
   },
   { name: "secret-looking quoted assignment", pattern: /(api[_-]?key|secret|token|password)\s*[:=]\s*["'][^"']+["']/i },
-  { name: "secret-looking unquoted assignment", pattern: /(api[_-]?key|secret|token|password)\s*[:=]\s*[A-Za-z0-9._~+/=-]{16,}/i },
+  { name: "secret-looking unquoted assignment", pattern: SECRET_UNQUOTED_ASSIGNMENT_RULE },
   { name: "bearer token literal", pattern: /\bBearer\s+[A-Za-z0-9._~+/=-]{20,}/i },
   { name: "URI credential literal", pattern: /[a-z][a-z0-9+.-]*:\/\/[^/\s:@]+:[^/\s:@]+@/i }
 ];
