@@ -1,7 +1,10 @@
 {
+  "accepted_unix_s": 1793603728,
+  "accepted_utc": "2026-11-02T07:15:28Z",
   "base_commit": "3ab514996d55d1a2d208a3d34b45da1b455ef243",
   "brief_sha256": null,
   "done_sha256": "be44f5e54b0310ba7c088f5868959dad93faf94f5a390f3da736367f33b485d9",
   "schema_version": "charter.dispatch/1",
-  "slice": "contributing-landing"
+  "slice": "contributing-landing",
+  "state": "accepted"
 }

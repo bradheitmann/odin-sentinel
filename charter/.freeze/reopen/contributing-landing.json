@@ -1,0 +1,33 @@
+{
+  "done_sha256": "be44f5e54b0310ba7c088f5868959dad93faf94f5a390f3da736367f33b485d9",
+  "entries": [
+    {
+      "evidence_sha256": "b46362b044d7bc0cddf454de28e1d1e7964d85c27014a43d90c0ab9e4675b182",
+      "proof": "1",
+      "recorded_utc": "2026-11-02T07:15:28Z",
+      "run_id": "OD-QA-contributing-landing-68e9a15"
+    },
+    {
+      "evidence_sha256": "b46362b044d7bc0cddf454de28e1d1e7964d85c27014a43d90c0ab9e4675b182",
+      "proof": "2",
+      "recorded_utc": "2026-11-02T07:15:28Z",
+      "run_id": "OD-QA-contributing-landing-68e9a15"
+    },
+    {
+      "evidence_sha256": "b46362b044d7bc0cddf454de28e1d1e7964d85c27014a43d90c0ab9e4675b182",
+      "proof": "3",
+      "recorded_utc": "2026-11-02T07:15:28Z",
+      "run_id": "OD-QA-contributing-landing-68e9a15"
+    },
+    {
+      "evidence_sha256": "b46362b044d7bc0cddf454de28e1d1e7964d85c27014a43d90c0ab9e4675b182",
+      "proof": "4",
+      "recorded_utc": "2026-11-02T07:15:28Z",
+      "run_id": "OD-QA-contributing-landing-68e9a15"
+    }
+  ],
+  "head": "68e9a15898a90c5a5a3e339f137e867fbe0939eb",
+  "manifest_sha256": "ad6012909592f332443931e2df2dcdabee47c895a0609e76454bd35e39a86d1f",
+  "schema_version": "charter.reopen/1",
+  "slice": "contributing-landing"
+}
