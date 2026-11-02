@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 
 const PUBLIC_ROOTS = [
   "README.md",
+  "CONTRIBUTING.md",
   "AGENTS.md",
   "CLAUDE.md",
   "LICENSE",
