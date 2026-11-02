@@ -134,16 +134,21 @@ no allow-list entry.
 - the receipt schema, the frozen head and a verifier family different from the author
   (`charter receipt`);
 - the public-surface audit and the package check, both in the CI `validate` job;
-- the charter contract itself, checked by `charter check --strict` when the command is run
-  (nothing runs it for you, and CI does not run it).
+- the charter contract, through the installed git hooks: **pre-commit** runs the
+  repository's own pre-commit hook first and then `charter check`, and **pre-push** runs
+  `charter check --strict` (plus `gate --accept` for slices that carry a receipt).
 
 **Discipline, not enforced:**
 
 - PR CI green on the exact head before `--accept` (the accept step does not read CI state);
 - the author never accepts their own work (no tool records who ran accept);
 - no private names in commit messages (no hook scans them);
-- `charter check --strict` is run by hand before every commit and merge, because charter's git
-  hooks are not installed in this repository;
+- installing the hooks in a fresh clone, because a clone starts without them: use the pinned
+  charter binary, `charter hooks install --force`, which keeps the repository's own hook as
+  `<hook>.charter-backup` and runs it first, so the repository's checks are chained ahead of
+  charter's rather than replaced;
+- running `charter check --strict` by hand before you merge, so a problem is found before the
+  hook (or CI) refuses it;
 - `main` has no required status checks and no branch protection, so nothing blocks a merge with
   red CI — the merge rule above is a promise, not a gate.
 
@@ -151,11 +156,12 @@ Run the checks you own:
 
 ```
 charter check --strict
+charter hooks install --force
 charter/slice-zero.sh
 ```
 
-`slice-zero.sh` is the smallest live end-to-end check; run it when a change touches the protocol
-server or its tools.
+The hooks run `charter check` on commit and `charter check --strict` on push; `slice-zero.sh` is
+the smallest live end-to-end check, for changes that touch the protocol server or its tools.
 
 ## Reporting
 
