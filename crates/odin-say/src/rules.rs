@@ -24,6 +24,24 @@ pub enum MidTurn {
     Refuse,
 }
 
+/// One provider-cap marker: every fragment must appear inside one output block.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct CapMarker {
+    pub id: String,
+    pub all: Vec<String>,
+}
+
+/// Provider-cap detection data: the markers, the turn-output markers that make a cap stale,
+/// and the header that carries the reset instant.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct CapRules {
+    pub markers: Vec<CapMarker>,
+    /// A later line that starts with one of these is turn output after the cap: stale cap.
+    pub output_markers: Vec<String>,
+    /// Header whose epoch-millisecond value is reported as reset_at.
+    pub reset_header: String,
+}
+
 /// Per-harness identity and mid-turn policy.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct HarnessRules {
@@ -53,6 +71,8 @@ pub struct PaneRules {
     pub dismissible_overlay: String,
     /// Per-harness identity and mid-turn policy (BTreeMap keeps detection order stable).
     pub harnesses: BTreeMap<String, HarnessRules>,
+    /// Provider-cap detection (SEAT_CAPPED).
+    pub capped: CapRules,
     /// How many trailing non-empty lines count as live status (scrollback is not).
     pub live_tail_non_empty_lines: usize,
 }
@@ -79,6 +99,20 @@ impl PaneRules {
         }
         if rules.harnesses.is_empty() {
             anyhow::bail!("pane rules field harnesses must not be empty");
+        }
+        if rules.capped.markers.is_empty() {
+            anyhow::bail!("pane rules field capped.markers must not be empty");
+        }
+        for marker in &rules.capped.markers {
+            if marker.id.trim().is_empty() || marker.all.is_empty() {
+                anyhow::bail!("every capped marker needs an id and at least one fragment");
+            }
+        }
+        if rules.capped.output_markers.is_empty() {
+            anyhow::bail!("pane rules field capped.output_markers must not be empty");
+        }
+        if rules.capped.reset_header.trim().is_empty() {
+            anyhow::bail!("pane rules field capped.reset_header must not be empty");
         }
         for (name, harness) in &rules.harnesses {
             if harness.detect.is_empty() {

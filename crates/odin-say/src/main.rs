@@ -178,10 +178,17 @@ fn run() -> Result<i32> {
             let rules = rules_for(&config.pane_rules_path)?;
             let cmux = RealCmux::new(&config.cmux_binary);
             let screen = say::tail14(&cmux.read_screen(&say::surface_locator(&surface)));
-            println!(
-                "status: {surface} {}",
-                say::classify(&screen, &rules).as_str()
-            );
+            let state = say::classify(&screen, &rules);
+            let mut line = format!("status: {surface} {}", state.as_str());
+            if state == say::PaneState::Capped {
+                if let Some(hit) = say::capped(&screen, &rules) {
+                    line.push_str(&format!(" marker={}", hit.marker));
+                    if let Some(reset_at) = hit.reset_at {
+                        line.push_str(&format!(" reset_at={reset_at}"));
+                    }
+                }
+            }
+            println!("{line}");
             Ok(0)
         }
     }

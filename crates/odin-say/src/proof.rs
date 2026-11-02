@@ -46,6 +46,10 @@ pub struct ProofEntry {
     pub harness_source: String,
     /// A queue-harness send whose read-back showed the text in the queue region.
     pub queued: bool,
+    /// The provider reset instant a capped seat showed (ISO-8601 UTC), when known.
+    pub reset_at: Option<String>,
+    /// The cap marker that matched, when the seat was capped.
+    pub cap_marker: Option<String>,
 }
 
 impl ProofEntry {
@@ -77,6 +81,8 @@ impl ProofEntry {
             harness: outcome.harness.harness.clone(),
             harness_source: outcome.harness.source.as_str().into(),
             queued: outcome.queued,
+            reset_at: outcome.reset_at.clone(),
+            cap_marker: outcome.cap_marker.clone(),
         }
     }
 }
@@ -130,6 +136,8 @@ mod tests {
             polls: 1,
             waited_ms: 0,
             queued: false,
+            reset_at: None,
+            cap_marker: None,
             harness: crate::identity::HarnessIdentity::unknown(),
         }
     }

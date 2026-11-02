@@ -1,0 +1,39 @@
+{
+  "done_sha256": "57c3516ed62e106b7a81b63288e677db442f0f312338f0494b207e7d966faa9e",
+  "entries": [
+    {
+      "evidence_sha256": "0971e508ea6b93af2e74d3d70375d00dedc15f1decd3f9e6349c2d8c044d29bd",
+      "proof": "1",
+      "recorded_utc": "2026-11-02T18:16:39Z",
+      "run_id": "OD-QA-odin-say-seat-capped-e7bbbed"
+    },
+    {
+      "evidence_sha256": "0971e508ea6b93af2e74d3d70375d00dedc15f1decd3f9e6349c2d8c044d29bd",
+      "proof": "2",
+      "recorded_utc": "2026-11-02T18:16:39Z",
+      "run_id": "OD-QA-odin-say-seat-capped-e7bbbed"
+    },
+    {
+      "evidence_sha256": "0971e508ea6b93af2e74d3d70375d00dedc15f1decd3f9e6349c2d8c044d29bd",
+      "proof": "3",
+      "recorded_utc": "2026-11-02T18:16:39Z",
+      "run_id": "OD-QA-odin-say-seat-capped-e7bbbed"
+    },
+    {
+      "evidence_sha256": "0971e508ea6b93af2e74d3d70375d00dedc15f1decd3f9e6349c2d8c044d29bd",
+      "proof": "4",
+      "recorded_utc": "2026-11-02T18:16:39Z",
+      "run_id": "OD-QA-odin-say-seat-capped-e7bbbed"
+    },
+    {
+      "evidence_sha256": "0971e508ea6b93af2e74d3d70375d00dedc15f1decd3f9e6349c2d8c044d29bd",
+      "proof": "5",
+      "recorded_utc": "2026-11-02T18:16:39Z",
+      "run_id": "OD-QA-odin-say-seat-capped-e7bbbed"
+    }
+  ],
+  "head": "e7bbbed0f7530c78de6df10112d25be4b87c413d",
+  "manifest_sha256": "4297280d646279d00d165e5f703e3e8b15e2543057d1c6854f4d5bb208e41609",
+  "schema_version": "charter.reopen/1",
+  "slice": "odin-say-seat-capped"
+}

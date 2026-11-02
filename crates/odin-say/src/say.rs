@@ -26,6 +26,8 @@ pub const EXIT_SEND_FAILED: i32 = 5;
 pub const EXIT_STUCK_AFTER_ENTERS: i32 = 6;
 /// A queue-harness send whose read-back never showed the text in the queue region.
 pub const EXIT_QUEUE_UNPROVEN: i32 = 7;
+/// The seat is capped by its provider: nothing was typed, nothing was waited for.
+pub const EXIT_SEAT_CAPPED: i32 = 10;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -35,6 +37,7 @@ pub enum DeliveryState {
     InputBarOnly,
     PaneBlockedOnPermission,
     PaneStillThinking,
+    SeatCapped,
 }
 
 impl DeliveryState {
@@ -45,6 +48,7 @@ impl DeliveryState {
             Self::InputBarOnly => "INPUT_BAR_ONLY",
             Self::PaneBlockedOnPermission => "PANE_BLOCKED_ON_PERMISSION",
             Self::PaneStillThinking => "PANE_STILL_THINKING",
+            Self::SeatCapped => "SEAT_CAPPED",
         }
     }
 
@@ -59,6 +63,7 @@ impl DeliveryState {
 pub enum PaneState {
     Blocked,
     Busy,
+    Capped,
     StaleInput,
     Idle,
 }
@@ -68,6 +73,7 @@ impl PaneState {
         match self {
             Self::Blocked => "blocked",
             Self::Busy => "busy",
+            Self::Capped => "capped",
             Self::StaleInput => "stale_input",
             Self::Idle => "idle",
         }
@@ -86,6 +92,10 @@ pub struct Outcome {
     pub waited_ms: u64,
     /// The send went into a queue harness mid-turn and the read-back showed it queued.
     pub queued: bool,
+    /// The provider reset instant the capped pane showed (ISO-8601 UTC), when known.
+    pub reset_at: Option<String>,
+    /// The cap marker that matched, when the pane was capped.
+    pub cap_marker: Option<String>,
     /// The harness identity the mid-turn policy was selected from.
     pub harness: HarnessIdentity,
 }
@@ -216,12 +226,88 @@ pub fn stale_input(screen: &str) -> bool {
     starts_with_text && !bar.contains("Ask Codex") && !bar.contains("Press up to edit")
 }
 
-/// Classify in the order the sender acts: blocked, busy, stale input, idle.
+/// One provider-cap hit: the marker id that matched and the reset instant, when the pane
+/// showed the reset header.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CapHit {
+    pub marker: String,
+    pub reset_at: Option<String>,
+}
+
+/// A contiguous run of non-empty lines: one output block (a wrapped cap message is one block).
+fn blocks(lines: &[&str]) -> Vec<(usize, String)> {
+    let mut out: Vec<(usize, String)> = Vec::new();
+    let mut current: Option<(usize, Vec<&str>)> = None;
+    for (index, line) in lines.iter().enumerate() {
+        if line.trim().is_empty() {
+            if let Some((start, collected)) = current.take() {
+                out.push((start, collected.join("\n")));
+            }
+            continue;
+        }
+        match current.as_mut() {
+            Some((_, collected)) => collected.push(line),
+            None => current = Some((index, vec![line])),
+        }
+    }
+    if let Some((start, collected)) = current {
+        out.push((start, collected.join("\n")));
+    }
+    out
+}
+
+/// The reset instant the pane shows in its cap payload, if any. The header value is epoch
+/// milliseconds; it is reported as ISO-8601 UTC and never guessed.
+fn cap_reset_at(screen: &str, rules: &PaneRules) -> Option<String> {
+    let key = format!("\"{}\":\"", rules.capped.reset_header);
+    let start = screen.find(&key)? + key.len();
+    let rest = &screen[start..];
+    let end = rest.find('"')?;
+    let millis: u64 = rest[..end].trim().parse().ok()?;
+    Some(crate::timeutil::format_utc(millis / 1000))
+}
+
+/// A capped seat: the newest output block carries a cap marker and no later turn output follows
+/// it (a cap line followed by a later response is stale). Nothing is typed into such a pane.
+pub fn capped(screen: &str, rules: &PaneRules) -> Option<CapHit> {
+    let lines: Vec<&str> = screen.lines().collect();
+    let last_output = lines.iter().rposition(|line| {
+        let trimmed = line.trim_start();
+        rules
+            .capped
+            .output_markers
+            .iter()
+            .any(|marker| trimmed.starts_with(marker.as_str()))
+    });
+    let mut hit: Option<(usize, String)> = None;
+    for (start, text) in blocks(&lines) {
+        if let Some(marker) = rules
+            .capped
+            .markers
+            .iter()
+            .find(|marker| marker.all.iter().all(|fragment| text.contains(fragment)))
+        {
+            hit = Some((start, marker.id.clone()));
+        }
+    }
+    let (start, marker) = hit?;
+    if last_output.is_some_and(|output| output > start) {
+        return None;
+    }
+    Some(CapHit {
+        marker,
+        reset_at: cap_reset_at(screen, rules),
+    })
+}
+
+/// Classify in the order the sender acts: blocked, busy, capped, stale input, idle.
 pub fn classify(screen: &str, rules: &PaneRules) -> PaneState {
     if blocked(screen, rules) {
         PaneState::Blocked
     } else if busy(screen, rules) {
         PaneState::Busy
+    } else if capped(screen, rules).is_some() {
+        PaneState::Capped
     } else if stale_input(screen) {
         PaneState::StaleInput
     } else {
@@ -309,6 +395,8 @@ fn refuse(
         polls,
         waited_ms,
         queued: false,
+        reset_at: None,
+        cap_marker: None,
         harness: HarnessIdentity::unknown(),
     }
 }
@@ -322,6 +410,8 @@ fn delivered(state: DeliveryState, note: &'static str, polls: u32, waited_ms: u6
         polls,
         waited_ms,
         queued: false,
+        reset_at: None,
+        cap_marker: None,
         harness: HarnessIdentity::unknown(),
     }
 }
@@ -337,6 +427,8 @@ fn queued(note: &'static str, polls: u32) -> Outcome {
         polls,
         waited_ms: 0,
         queued: true,
+        reset_at: None,
+        cap_marker: None,
         harness: HarnessIdentity::unknown(),
     }
 }
@@ -456,6 +548,20 @@ pub fn deliver(
                     }
                 }
             }
+        }
+
+        if let Some(hit) = capped(&screen, rules) {
+            let mut outcome = refuse(
+                DeliveryState::SeatCapped,
+                false,
+                "seat-capped",
+                EXIT_SEAT_CAPPED,
+                polls,
+                waited_ms,
+            );
+            outcome.cap_marker = Some(hit.marker);
+            outcome.reset_at = hit.reset_at;
+            return outcome;
         }
 
         if stale_input(&screen) {

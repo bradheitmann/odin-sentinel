@@ -68,3 +68,24 @@ with `/workspace/repo`, and no user, host or team name is retained. The queue-ev
 in the rules table (`Steering:`, `Option+Up to edit all queued messages`) are read from what
 that second capture actually displays; they were not guessed. The provisional stand-ins used
 while the captures were being obtained (`*_PROVISIONAL.txt`) are not committed.
+
+## Slice 3 additions (seat cap)
+
+The `capped` block in `pane-rules.json` (markers, turn-output markers, the reset header) is new
+here; it was not in the slice 1 source.
+
+Three screen fixtures are REAL captures of agent seats stopped by a provider's free-tier daily
+cap, taken 2026-11-02 from panes whose cap errors sat in the newest output block:
+
+| Fixture | What it shows |
+| --- | --- |
+| `tests/fixtures/screens/seat_capped_reset.txt` | a capped seat whose error payload includes `X-RateLimit-Reset` (epoch ms) |
+| `tests/fixtures/screens/seat_capped_box.txt` | a capped seat in a box-drawing harness, footer mode label "thinking" while capped |
+| `tests/fixtures/screens/seat_capped_footer_thinking.txt` | the same harness shape, cap error above a footer that labels itself "thinking" |
+
+Sanitization only: repository paths, seat names, surface ids and message text were replaced with
+placeholders (`/workspace/repo`, `EXEC PM`, `Earlier message to this seat (redacted).`); every cap
+line, including its JSON payload, the reset value and the footer chrome, is verbatim. Two further
+fixtures are CONSTRUCTED from the first capture and labelled as such in the tests:
+`seat_capped_stale.txt` (a later turn response appended after the cap, so it is a stale cap) and
+`seat_capped_busy.txt` (a live spinner status line added, so the pane is busy and refuses).

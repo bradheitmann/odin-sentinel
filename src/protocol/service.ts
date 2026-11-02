@@ -859,7 +859,8 @@ export const CMUX_DELIVERY_STATES = [
   "DELIVERED_NO_ACK",
   "INPUT_BAR_ONLY",
   "PANE_BLOCKED_ON_PERMISSION",
-  "PANE_STILL_THINKING"
+  "PANE_STILL_THINKING",
+  "SEAT_CAPPED"
 ] as const;
 
 /**
@@ -897,7 +898,8 @@ const CMUX_RECORD_KINDS = ["delivery", "send_refusal"] as const;
 const CMUX_SEND_REFUSAL_STATES = [
   "PANE_STILL_THINKING",
   "PANE_BLOCKED_ON_PERMISSION",
-  "INPUT_BAR_ONLY"
+  "INPUT_BAR_ONLY",
+  "SEAT_CAPPED"
 ] as const;
 
 const CMUX_DELIVERY_PROOF_FIELDS = [
@@ -1060,6 +1062,9 @@ function deliveryVerdictFor(result: ValidationResult, proof: Record<string, unkn
   if (!result.valid) return "not_proven";
   if (proof.dry_run === true) return "not_proven";
   const state = typeof proof.observed_processing_state === "string" ? proof.observed_processing_state : undefined;
+  // A capped seat is a refusal whatever the record kind: nothing was typed, so nothing was
+  // delivered (the sender exits 10 and writes one send_refusal record).
+  if (state === "SEAT_CAPPED") return "not_delivered";
   if (state === "DELIVERED_ACKED") return "delivered";
   if (state !== undefined && (CMUX_DELIVERY_STATES as readonly string[]).includes(state)) return "delivered_no_ack";
   return "not_proven";

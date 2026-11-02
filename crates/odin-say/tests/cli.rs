@@ -237,3 +237,27 @@ fn a_lost_record_exits_nine_and_prints_the_record_json() {
         "the locked log holds no record"
     );
 }
+
+#[test]
+fn say_refuses_a_capped_seat_with_exit_ten_and_one_record() {
+    let rig = Rig::new(&["seat_capped_reset"]);
+    let out = rig
+        .command()
+        .args(["say", "7", "run the gate"])
+        .output()
+        .expect("run");
+    let (stdout, stderr) = text(&out);
+    assert_eq!(out.status.code(), Some(10), "{stderr}");
+    assert_eq!(stdout.trim(), "say: 7 SEAT_CAPPED (seat-capped)");
+
+    // Nothing typed: the fake pane saw read-screen only.
+    assert!(rig.calls().iter().all(|c| c[0] == "read-screen"));
+
+    let proof = proof_lines(&rig.proof());
+    assert_eq!(proof.len(), 1);
+    assert_eq!(proof[0]["record_kind"], "send_refusal");
+    assert_eq!(proof[0]["submitted"], false);
+    assert_eq!(proof[0]["observed_processing_state"], "SEAT_CAPPED");
+    assert_eq!(proof[0]["reset_at"], "2026-11-03T00:00:00Z");
+    assert_eq!(proof[0]["cap_marker"], "free_models_per_day");
+}
