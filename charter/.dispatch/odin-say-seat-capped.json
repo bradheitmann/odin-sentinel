@@ -1,7 +1,10 @@
 {
+  "accepted_unix_s": 1793643399,
+  "accepted_utc": "2026-11-02T18:16:39Z",
   "base_commit": "95ee94a21f368c294b1f8a7b375bee914c2ce585",
   "brief_sha256": null,
   "done_sha256": "57c3516ed62e106b7a81b63288e677db442f0f312338f0494b207e7d966faa9e",
   "schema_version": "charter.dispatch/1",
-  "slice": "odin-say-seat-capped"
+  "slice": "odin-say-seat-capped",
+  "state": "accepted"
 }
