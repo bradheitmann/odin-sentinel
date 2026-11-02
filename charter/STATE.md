@@ -1,7 +1,7 @@
-# State — odin-sentinel — 2026-11-02T18:20Z, written by PM-ODIN (Claude Opus 5.5)
-HEAD: main 95ee94a (charter-pin-7b12eea, PR #30) + this change (feat/odin-say-seat-capped: SEAT_CAPPED delivery state). Charter tool pin: 7b12eeaf8c4d734386a863dc01c06da6c7ac4cb8, installed for this repository at `$HOME/.local/share/charter/bin/7b12eeaf8c4d734386a863dc01c06da6c7ac4cb8/bin/charter`; the CI charter job's CHARTER_REV names the identical pin.
+# State — odin-sentinel — 2026-11-02T23:55Z, written by PM-ODIN (Claude Opus 5.5)
+HEAD: main ab16b56 (odin-say-seat-capped, PR #31) + this change (chore/charter-pin-b9323cd: fleet pin b9323cd1, the SEAM-SYNC charter ↔ odin remediation). Charter tool pin: b9323cd119f2ef2fe83db21b8ed8f844215e8852, installed for this repository at `$HOME/.local/share/charter/bin/b9323cd119f2ef2fe83db21b8ed8f844215e8852/bin/charter`; the CI charter job's CHARTER_REV names the identical pin.
 Rule (EXEC-PM, 2026-11-01): run `charter check --strict` locally, at the pin above, before every merge to main, and record its result in the PR. It stays in force while the CI charter job can only print its "not run" line (CS-7). The pre-push hook now runs it too, but a merge on GitHub bypasses local hooks.
-Charter git hooks: INSTALLED (2026-11-02, pin 7b12eeaf, `charter hooks install --force`).
+Charter git hooks: INSTALLED (2026-11-02, first at pin 7b12eeaf, then re-installed at pin b9323cd1 with `charter hooks install --force`; b9323cd1 follows `git rev-parse --git-path hooks` and also lists config-defined gates, here lang-guard on pre-commit).
 - The repository's own pre-commit hook (a planning-gate shim, not tracked in git) is kept as `.git/hooks/pre-commit.charter-backup` (sha256 b4569210…) and runs FIRST. If it fails, the commit stops.
 - Then pre-commit runs `charter check`, and pre-push runs `charter check --strict` followed by `gate --accept` for any slice whose receipt sits under qa/.
 - Hooks are machine-local: a fresh clone has none until `charter hooks install --force` is run with the pinned binary, and the planning-gate shim must be restored by hand first (follow-up F1 below).
@@ -112,7 +112,12 @@ Common engineering standard v0.2 (linked from AGENTS.md): gaps recorded as oblig
   - the slot-id character set (`[A-Za-z0-9][A-Za-z0-9._-]*`, store.ts:76);
   - the on-disk record layout (`<slot>.lease.json`, odin.lease.v1 fields; a consumer deleted record files by hand).
   Small slice: state the regex in the doc, and either document the record layout or add a supported inspect/clear command, both pinned with tests.
-- Charter fleet pin b9323cd1 (PM-CHARTER, 2026-11-02): the SPEC is unchanged, so `init --refresh-spec` is a no-op. It adds hooks-path-1 (hooks follow `git rev-parse --git-path hooks`), true-millisecond cost rows, and receipt-path docs. The binary is installed for this repository. Adopt it at the next real CI change: re-run `hooks install --force` with it, set CHARTER_REV, and update the pin line at the top.
+- SEAM-SYNC (owner, 2026-11-02). odin's seam table is in the consumer repository's team reports (STATE-OF-PROJECT/SEAM-ODIN.md), and its pairwise rows are signed in PAIRS.md.
+  - Remediation odin owed: the charter pin. Closed by this change (charter-pin-b9323cd).
+  - Deferred, with both shapes written down because they cannot be done now:
+    - Mister Clean retirement record: needs release 7.1.0. Agreed steps are in Coordination below.
+    - Board-CLI parsing for the future idle-seat watcher: needs PlanGraph's board-cli/v1 schema. The E3 helpers are frozen, so this is latent.
+  - Other repos own the remaining mismatches. In the consumer repository's sender: the SEAT_CAPPED detection window and its Rust ops sender.
 - Pre-push auto-accept (QA info): the pre-push hook runs `gate --accept` for any slice whose receipt sits under qa/<slice>-receipt.json. That is inert today, because odin keeps receipts outside this public repository. Never commit a receipt under qa/ unless that slice is meant to be accepted on push.
 - Pre-existing test flake (QA-verified on main c3240fd): tests/scripts/sync-installations.test.ts passes its 60 tests, then its afterAll scratch-tree removal can time out at 10 s under load, failing the full suite. Follow-up slice: give the hook a budget or make the removal cheaper. New evidence, 2026-11-02: a `sync-installations.sh --dry-run` launched during the sync-mcp-pins QA (2026-10-31 20:54) was still running 28 hours later, orphaned. Its `sed` child was blocked reading a pipe that never closed. PM stopped it. So the script can hang in dry-run, and the test's teardown timeout may be that hang, not a slow removal. Start the follow-up by reproducing it.
 - slot-lease F1 (info, QA): the DONE wording "held by the same holder" does not say it also covers an expired lease nobody else took (refreshed without a new token); the behaviour is the safe one. State the split in the next lease DONE list.
@@ -124,7 +129,7 @@ Common engineering standard v0.2 (linked from AGENTS.md): gaps recorded as oblig
 - charter check --strict refuses DONE/_template.md at the earlier pin (upstream defect).
 Exact last-green command(s):
 - charter/slice-zero.sh
-- charter check --strict (charter 7b12eeaf)
+- charter check --strict (charter b9323cd1)
 - pnpm run audit:deps
 - pnpm run audit:public
 - pnpm run typecheck

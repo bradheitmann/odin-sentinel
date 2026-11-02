@@ -113,7 +113,7 @@ jobs:
     name: charter (non-required while the charter source is unreachable)
     runs-on: ubuntu-latest
     env:
-      CHARTER_REV: 7b12eeaf8c4d734386a863dc01c06da6c7ac4cb8
+      CHARTER_REV: b9323cd119f2ef2fe83db21b8ed8f844215e8852
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6
         with:
