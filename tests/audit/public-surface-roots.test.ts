@@ -144,3 +144,22 @@ describe("crates/ is public audit surface", () => {
     expect(checked).toBeGreaterThanOrEqual(125 + cratesFiles().length);
   });
 });
+
+// SLICE contributing-landing. The root documents are public surface too: a contributor
+// procedure that tells people where not to put home paths must itself be audited.
+
+describe("root documents are public audit surface", () => {
+  it("audits CONTRIBUTING.md and reports a planted home path in it", () => {
+    expect(isPublicAuditFile("CONTRIBUTING.md")).toBe(true);
+    const planted = join("/", "Users", "somebuilder", "notes");
+    const findings = auditPublicSurface({
+      "CONTRIBUTING.md": `Write it under ${planted} before publishing.`
+    });
+    expect(findings).toEqual(["CONTRIBUTING.md: macOS home path"]);
+  });
+
+  it("finds nothing in the real CONTRIBUTING.md", () => {
+    const text = readFileSync(join(repoRoot, "CONTRIBUTING.md"), "utf8");
+    expect(auditPublicSurface({ "CONTRIBUTING.md": text })).toEqual([]);
+  });
+});

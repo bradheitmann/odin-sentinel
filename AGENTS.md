@@ -64,6 +64,7 @@ This repository adopts the common engineering standard v0.2
 Where the standard and `charter/` disagree, the charter governs until the owner
 records a decision. Open gaps against the standard are listed as obligations in
 `charter/STATE.md`, which is this repository's single current-state surface.
+The landing procedure for a change (done list, independent QA, CI, freeze/accept, merge, worktree cleanup) and the test, public-surface and packaging rules are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Completion Report
 
