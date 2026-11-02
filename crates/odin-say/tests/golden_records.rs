@@ -138,6 +138,13 @@ fn golden_corpus() -> String {
                 &options(5, 180),
             ))
         },
+        // 11. Exit 10: the seat is capped by its provider; refused before typing, with the
+        //     provider reset instant taken from the captured header.
+        line(&deliver_against(
+            &[screen!("seat_capped_reset")],
+            "run the gate",
+            &options(5, 180),
+        )),
     ];
     let mut text = records.join("\n");
     text.push('\n');
@@ -181,7 +188,7 @@ fn every_golden_record_parses_back_with_its_outcome_shape() {
         .collect();
     assert_eq!(
         records.len(),
-        10,
+        11,
         "one record per recordable sender outcome"
     );
 
@@ -209,6 +216,7 @@ fn every_golden_record_parses_back_with_its_outcome_shape() {
             ("send_refusal", "INPUT_BAR_ONLY", false, false),
             ("send_refusal", "INPUT_BAR_ONLY", false, false),
             ("delivery", "INPUT_BAR_ONLY", true, false),
+            ("send_refusal", "SEAT_CAPPED", false, false),
         ]
     );
     // Every record carries the six delivery-proof fields with the right types.

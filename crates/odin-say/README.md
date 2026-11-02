@@ -20,11 +20,18 @@ harnesses submit on every embedded newline.
 
 ## What it does
 
-1. Read the pane and classify it from the pane rules: blocked, busy, stale input, idle.
-2. **Blocked** (permission prompt, non-dismissible overlay): refuse at once with
+1. Read the pane and classify it from the pane rules: blocked, busy, capped, stale input, idle.
+2. **Capped** (the seat hit its provider's limit): the newest output block above the input bar and
+   footer chrome carries a cap marker (`free-models-per-day`, `Rate limit exceeded` with `429`, a
+   daily free-tier `limit_source`, or `Retry failed after N attempts: 429`) and no later turn output
+   follows it. A cap line followed by a later response is stale and does not count, and a working
+   pane is busy, not capped. Refuse at once with `SEAT_CAPPED`, exit 10: nothing is typed, the cap
+   is never waited out, and the proof record carries `reset_at` (ISO UTC, from the screen's
+   `X-RateLimit-Reset` epoch-millisecond header, else null) and the matched `cap_marker`.
+3. **Blocked** (permission prompt, non-dismissible overlay): refuse at once with
    `PANE_BLOCKED_ON_PERMISSION`; nothing is typed. A dismissible overlay gets one Escape and
    the pane is re-read.
-3. **Busy**: the per-harness mid-turn policy decides (see below). For a `refuse` harness,
+4. **Busy**: the per-harness mid-turn policy decides (see below). For a `refuse` harness,
    wait, re-reading every `--poll-secs` (default 5) under a `--wait-secs` (default 180)
    wall-clock budget; send as soon as the pane is idle. Only a pane still busy when the
    budget is spent is refused (`PANE_STILL_THINKING`), recording the polls made and the
@@ -33,12 +40,12 @@ harnesses submit on every embedded newline.
    back shows the text in that harness's queue/steer region (`PANE_STILL_THINKING`,
    `submitted: true`, `queued: true`); otherwise it records `INPUT_BAR_ONLY` with
    `submitted: true` and exits non-zero, without a second Enter.
-4. **Stale input**: an idle pane whose input bar holds text gets that text submitted first.
-5. Send the flattened line, wait, send exactly one Enter, read back. If the input bar still
+5. **Stale input**: an idle pane whose input bar holds text gets that text submitted first.
+6. Send the flattened line, wait, send exactly one Enter, read back. If the input bar still
    shows the message, re-Enter ONCE.
-6. Classify the result: `DELIVERED_ACKED` (echo/response observed), `DELIVERED_NO_ACK`
+7. Classify the result: `DELIVERED_ACKED` (echo/response observed), `DELIVERED_NO_ACK`
    (processing or prompt cleared), or `INPUT_BAR_ONLY` (still stranded).
-7. Append a JSONL proof record.
+8. Append a JSONL proof record.
 
 Busy detection counts only LIVE lines: a busy word marks a pane busy only on a line that also
 carries a spinner glyph or a harness status marker, or on one of the last three non-empty
@@ -78,6 +85,7 @@ or `unknown`).
 | 5 | the send itself failed (`INPUT_BAR_ONLY`) |
 | 6 | the message stayed in the input bar after two Enters (`INPUT_BAR_ONLY`) |
 | 7 | a queue-harness send whose read-back never showed the text queued (`INPUT_BAR_ONLY`) |
+| 10 | the seat is capped by its provider (`SEAT_CAPPED`) — nothing typed, nothing waited for |
 | 8 | the proof log could not be proven writable (`PROOF_LOG_UNWRITABLE`) — nothing was read or sent |
 | 9 | the send happened but its record could not be written (`PROOF_RECORD_LOST`) — record JSON on stderr |
 

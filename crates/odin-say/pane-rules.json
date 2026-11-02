@@ -1,7 +1,12 @@
 {
   "schema": "odin-say/pane-rules/1",
   "description": "Pane-state rules for the odin-say sender, as data. Ingested from a field team's pane-rules export (2026-10-31) and reduced to the literal rules this sender applies; every literal and incident below comes from that file. Screens are the last 14 lines of a pane read.",
-  "evaluation_order": ["blocked", "busy", "stale_input", "idle"],
+  "evaluation_order": [
+    "blocked",
+    "busy",
+    "stale_input",
+    "idle"
+  ],
   "dismissible_overlay": "enter insert · esc close",
   "spinner_glyphs": "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏",
   "status_markers": [
@@ -26,7 +31,9 @@
     "Gallivant",
     "Waiting for background terminal"
   ],
-  "busy_exclusions": ["Thinking level"],
+  "busy_exclusions": [
+    "Thinking level"
+  ],
   "busy_region_note": "A busy word only marks a pane busy on a LIVE line: one that also carries a spinner glyph or a status marker, or one of the last 3 non-empty lines. Leftover scrollback text (for example an old 'Thinking:' line above an idle prompt) never makes a pane busy; that false refusal was a field defect (1,485 of 2,451 proof lines in one team's log).",
   "live_tail_non_empty_lines": 3,
   "blocked": [
@@ -39,26 +46,81 @@
     "needs permission",
     "Permission required"
   ],
-  "blocked_exclusions": ["bypass permissions"],
+  "blocked_exclusions": [
+    "bypass permissions"
+  ],
+  "capped": {
+    "note": "A seat is capped when its newest output block (above the input bar and footer chrome) carries a provider cap marker and no later turn output follows it. A cap line followed by a later response is stale and does not count. Nothing is typed into a capped seat; it is reported and refused.",
+    "markers": [
+      {
+        "id": "free_models_per_day",
+        "all": [
+          "free-models-per-day"
+        ]
+      },
+      {
+        "id": "rate_limit_429",
+        "all": [
+          "Rate limit exceeded",
+          "429"
+        ]
+      },
+      {
+        "id": "free_tier_daily_limit",
+        "all": [
+          "limit_source",
+          "daily"
+        ]
+      },
+      {
+        "id": "retry_429",
+        "all": [
+          "Retry failed after",
+          "attempts",
+          "429"
+        ]
+      }
+    ],
+    "output_markers": [
+      "⏺",
+      "•"
+    ],
+    "reset_header": "X-RateLimit-Reset"
+  },
   "harness_note": "Per-harness identity and mid-turn policy. Detection markers are literal footer/chrome strings; the first harness (in table order) whose markers appear on the pane tail is the pane's harness. mid_turn controls what a busy pane means: queue = the harness buffers text typed mid-turn and delivers it as a queued steer, so send immediately and require queue_evidence on the read-back; refuse = the harness may not buffer, so keep the bounded wait and refuse if it is still busy. Only pi ships as queue, on captured evidence; every other harness refuses until its own capture proves buffering.",
   "harnesses": {
     "pi": {
-      "detect": ["(auto)", "↑"],
+      "detect": [
+        "(auto)",
+        "↑"
+      ],
       "mid_turn": "queue",
-      "queue_evidence": ["Steering:", "Option+Up to edit all queued messages"]
+      "queue_evidence": [
+        "Steering:",
+        "Option+Up to edit all queued messages"
+      ]
     },
     "claude-code": {
-      "detect": ["bypass permissions on", "↓ to manage", "accept edits on"],
+      "detect": [
+        "bypass permissions on",
+        "↓ to manage",
+        "accept edits on"
+      ],
       "mid_turn": "refuse",
       "queue_evidence": []
     },
     "codex": {
-      "detect": ["Ask Codex to do anything", "Codex"],
+      "detect": [
+        "Ask Codex to do anything",
+        "Codex"
+      ],
       "mid_turn": "refuse",
       "queue_evidence": []
     },
     "opencode": {
-      "detect": ["ctrl+p commands"],
+      "detect": [
+        "ctrl+p commands"
+      ],
       "mid_turn": "refuse",
       "queue_evidence": []
     }

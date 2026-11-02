@@ -1,0 +1,58 @@
+
+ Earlier message to this seat (redacted).
+ Earlier message to this seat (redacted).
+
+
+ Error: 429: {"message":"Rate limit exceeded: free-models-per-day-high-balance.
+ ","code":429,"metadata":{"headers":{"X-RateLimit-Limit":"1000","X-RateLimit-Remaining":"0","X-RateLimit-Reset":"1793664000000"},"limit_source":"openrouter_free_tier_daily","remedy_hint":"Wait for the daily reset (see X-RateLimit-Reset), or
+ purchase credits to raise your free-model daily limit.","provider_name":null}}
+
+ Error: 429: {"message":"Rate limit exceeded: free-models-per-day-high-balance.
+ ","code":429,"metadata":{"headers":{"X-RateLimit-Limit":"1000","X-RateLimit-Remaining":"0","X-RateLimit-Reset":"1793664000000"},"limit_source":"openrouter_free_tier_daily","remedy_hint":"Wait for the daily reset (see X-RateLimit-Reset), or
+ purchase credits to raise your free-model daily limit.","provider_name":null}}
+
+ Error: 429: {"message":"Rate limit exceeded: free-models-per-day-high-balance.
+ ","code":429,"metadata":{"headers":{"X-RateLimit-Limit":"1000","X-RateLimit-Remaining":"0","X-RateLimit-Reset":"1793664000000"},"limit_source":"openrouter_free_tier_daily","remedy_hint":"Wait for the daily reset (see X-RateLimit-Reset), or
+ purchase credits to raise your free-model daily limit.","provider_name":null}}
+
+ Error: 429: {"message":"Rate limit exceeded: free-models-per-day-high-balance.
+ ","code":429,"metadata":{"headers":{"X-RateLimit-Limit":"1000","X-RateLimit-Remaining":"0","X-RateLimit-Reset":"1793664000000"},"limit_source":"openrouter_free_tier_daily","remedy_hint":"Wait for the daily reset (see X-RateLimit-Reset), or
+ purchase credits to raise your free-model daily limit.","provider_name":null}}
+
+ Error: Retry failed after 3 attempts: 429: {"message":"Rate limit exceeded: free-models-per-day-high-balance.
+ ","code":429,"metadata":{"headers":{"X-RateLimit-Limit":"1000","X-RateLimit-Remaining":"0","X-RateLimit-Reset":"1793664000000"},"limit_source":"openrouter_free_tier_daily","remedy_hint":"Wait for the daily reset (see X-RateLimit-Reset), or
+ purchase credits to raise your free-model daily limit.","provider_name":null}}
+
+
+ Earlier message to this seat (redacted).
+ Earlier message to this seat (redacted).
+
+
+ Error: 429: {"message":"Rate limit exceeded: free-models-per-day-high-balance.
+ ","code":429,"metadata":{"headers":{"X-RateLimit-Limit":"1000","X-RateLimit-Remaining":"0","X-RateLimit-Reset":"1793664000000"},"limit_source":"openrouter_free_tier_daily","remedy_hint":"Wait for the daily reset (see X-RateLimit-Reset), or
+ purchase credits to raise your free-model daily limit.","provider_name":null}}
+
+ Error: 429: {"message":"Rate limit exceeded: free-models-per-day-high-balance.
+ ","code":429,"metadata":{"headers":{"X-RateLimit-Limit":"1000","X-RateLimit-Remaining":"0","X-RateLimit-Reset":"1793664000000"},"limit_source":"openrouter_free_tier_daily","remedy_hint":"Wait for the daily reset (see X-RateLimit-Reset), or
+ purchase credits to raise your free-model daily limit.","provider_name":null}}
+
+ Error: 429: {"message":"Rate limit exceeded: free-models-per-day-high-balance.
+ ","code":429,"metadata":{"headers":{"X-RateLimit-Limit":"1000","X-RateLimit-Remaining":"0","X-RateLimit-Reset":"1793664000000"},"limit_source":"openrouter_free_tier_daily","remedy_hint":"Wait for the daily reset (see X-RateLimit-Reset), or
+ purchase credits to raise your free-model daily limit.","provider_name":null}}
+
+ Error: 429: {"message":"Rate limit exceeded: free-models-per-day-high-balance.
+ ","code":429,"metadata":{"headers":{"X-RateLimit-Limit":"1000","X-RateLimit-Remaining":"0","X-RateLimit-Reset":"1793664000000"},"limit_source":"openrouter_free_tier_daily","remedy_hint":"Wait for the daily reset (see X-RateLimit-Reset), or
+ purchase credits to raise your free-model daily limit.","provider_name":null}}
+
+ Error: Retry failed after 3 attempts: 429: {"message":"Rate limit exceeded: free-models-per-day-high-balance.
+ ","code":429,"metadata":{"headers":{"X-RateLimit-Limit":"1000","X-RateLimit-Remaining":"0","X-RateLimit-Reset":"1793664000000"},"limit_source":"openrouter_free_tier_daily","remedy_hint":"Wait for the daily reset (see X-RateLimit-Reset), or
+ purchase credits to raise your free-model daily limit.","provider_name":null}}
+
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+⏺ Resumed after the queue refilled: the queued task completed.
+
+
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+Earlier message to this seat (redacted).
+↑0 ↓0 R0M 0.0%/1.0M (auto)

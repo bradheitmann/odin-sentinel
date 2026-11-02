@@ -1,0 +1,55 @@
+   Earlier message to this seat (redacted).
+  ┃                                                                                                                                                                                                                                                      Earlier message to this seat (redacted).
+  ┃  Earlier message to this seat (redacted).
+  ┃  Earlier message to this seat (redacted).
+  ┃  Earlier message to this seat (redacted).
+  ┃                                                                                                                                                                                                              Earlier message to this seat (redacted).
+  ┃  Earlier message to this seat (redacted).
+  ┃                                                                                                                                                                                                              Earlier message to this seat (redacted).
+  ┃  Earlier message to this seat (redacted).
+  ┃                                                                                                                                                                                                              Earlier message to this seat (redacted).
+                                                                                                                                                                                                                 • Earlier message to this seat (redacted).
+     ┃ Earlier message to this seat (redacted).
+                                                                                                                                                                                                                 • Earlier message to this seat (redacted).
+     ┃ Earlier message to this seat (redacted).
+     ┃ Earlier message to this seat (redacted).
+     ┃ Earlier message to this seat (redacted).
+     ┃                                                                                                                                                                                                                                                   Earlier message to this seat (redacted).
+     ┃ Earlier message to this seat (redacted).
+     ┃ Earlier message to this seat (redacted).
+     ┃ Earlier message to this seat (redacted).
+     ┃                                                                                                                                                                                                                                                   Earlier message to this seat (redacted).
+     ┃ Earlier message to this seat (redacted).
+     ┃ Earlier message to this seat (redacted).
+     ┃                                                                                                                                                                                                                                                   Earlier message to this seat (redacted).
+     ┃ Earlier message to this seat (redacted).
+     ┃                                                                                                                                                                                                                                                   Earlier message to this seat (redacted).
+     ┃ Earlier message to this seat (redacted).
+     ┃                                                                                                                                                                                                                                                   Earlier message to this seat (redacted).
+     ┃ Earlier message to this seat (redacted).
+
+     Earlier message to this seat (redacted).
+     Earlier message to this seat (redacted).
+
+  ┃                                                                                                                                                                                                                                                      Earlier message to this seat (redacted).
+  ┃  Earlier message to this seat (redacted).
+  ┃   Earlier message to this seat (redacted).
+  ┃                                                                                                                                                                                                                                                      Earlier message to this seat (redacted).
+  ┃  Earlier message to this seat (redacted).
+  ┃                                                                                                                                                                                                                                                      Earlier message to this seat (redacted).
+  ┃                                                                                                                                                                                                                                                      Earlier message to this seat (redacted).
+  ┃  Earlier message to this seat (redacted).
+  ┃  Earlier message to this seat (redacted).
+  ┃                                                                                                                                                                                                                                                      Earlier message to this seat (redacted).
+
+     Error: Rate limit exceeded: free-models-per-day-high-balance.
+
+     Build · <model> (free) · 0m 00s
+
+  ┃                                                                                                                                                                                                                                                      Earlier message to this seat (redacted).
+  ┃                                                                                                                                                                                                                                                      Earlier message to this seat (redacted).
+  ┃                                                                                                                                                                                                                                                      Earlier message to this seat (redacted).
+  ┃  Build auto · <model> (free) OpenRouter · thinking
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+  /workspace/repo  12.0K (12%)  ctrl+p commands
+

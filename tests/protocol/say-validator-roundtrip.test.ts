@@ -55,7 +55,8 @@ const CORPUS_SHAPES: string[] = [
   "send_refusal|INPUT_BAR_ONLY|false|stale-text-stuck|unknown",
   "send_refusal|INPUT_BAR_ONLY|false|send-failed|codex",
   "send_refusal|INPUT_BAR_ONLY|false|send-failed|pi",
-  "delivery|INPUT_BAR_ONLY|true|after-2-enters|codex"
+  "delivery|INPUT_BAR_ONLY|true|after-2-enters|codex",
+  "send_refusal|SEAT_CAPPED|false|seat-capped|pi"
 ];
 
 type Verdict = { valid: boolean; delivery: "delivered" | "delivered_no_ack" | "not_delivered" | "not_proven" };
@@ -70,7 +71,8 @@ const EXPECTED_VERDICTS: Verdict[] = [
   { valid: true, delivery: "not_delivered" },
   { valid: true, delivery: "not_delivered" },
   { valid: true, delivery: "not_delivered" },
-  { valid: false, delivery: "not_proven" }
+  { valid: false, delivery: "not_proven" },
+  { valid: true, delivery: "not_delivered" }
 ];
 
 // Mapping onto PlanGraph delivery facts (no PlanGraph code is imported). The vocabulary
@@ -96,12 +98,15 @@ const PLANGRAPH_OUTCOMES: FactOutcome[] = [
   "no_fact",
   "no_fact",
   "no_fact",
+  "no_fact",
   "no_fact"
 ];
 
 function factFor(record: ProofRecord): FactOutcome {
   // Ruling: the bar still holding the text is evidence the harness did NOT take it in.
   if (record.observed_processing_state === "INPUT_BAR_ONLY") return "no_fact";
+  // A capped seat never received the text: no delivery fact, whatever the record kind.
+  if (record.observed_processing_state === "SEAT_CAPPED") return "no_fact";
   if (record.record_kind === "send_refusal") return "no_fact";
   if (!record.submitted) return "no_fact";
   return record.observed_processing_state === "DELIVERED_ACKED" ? "recipient_observed" : "transport_accepted";
@@ -148,6 +153,7 @@ describe("odin-say records and ODIN's validator agree", () => {
         "queued",
         "send-failed",
         "send-failed",
+        "seat-capped",
         "stale-text-stuck"
       ].sort()
     );
