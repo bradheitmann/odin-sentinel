@@ -5,9 +5,13 @@ import { describe, expect, it } from "vitest";
 
 // CI action pinning (standard gap CS-4). The common engineering standard requires
 // GitHub Actions and other CI inputs to be pinned to immutable references, so a
-// workflow cannot run code that changed after review. Every `uses:` must name a
-// full 40-character commit sha; local `./` actions are allowed, and an action
-// pinned in more than one workflow must use the same sha everywhere.
+// workflow cannot run code that changed after review. Two rules:
+//   1. every `uses:` names a full 40-character commit sha (local `./` actions are
+//      allowed);
+//   2. an action pinned in more than one workflow uses the SAME sha everywhere —
+//      one immutable reference per action, so a tag comment can never hide two
+//      different revisions. The charter job pins checkout at the same v6 sha the
+//      other jobs use, which is why this rule holds again.
 
 const WORKFLOW_DIR = fileURLToPath(new URL("../../.github/workflows", import.meta.url));
 
@@ -57,11 +61,32 @@ function collectUseSites(files: Record<string, string>): { sites: UseSite[]; fin
   return { sites, findings };
 }
 
+/** Same action, two shas: the second occurrence is reported against the first. */
+function disagreementFindings(sites: UseSite[]): Finding[] {
+  const firstByAction = new Map<string, UseSite>();
+  const findings: Finding[] = [];
+  for (const site of sites) {
+    const first = firstByAction.get(site.action);
+    if (first === undefined) {
+      firstByAction.set(site.action, site);
+      continue;
+    }
+    if (first.ref === site.ref) continue;
+    findings.push({
+      file: site.file,
+      line: site.line,
+      ref: site.ref,
+      reason: `${site.action} is pinned to ${site.ref} here but to ${first.ref} at ${first.file}:${first.line}`
+    });
+  }
+  return findings;
+}
+
 export function checkWorkflows(files: Record<string, string>): Finding[] {
-  // One rule: every non-local `uses:` is a full 40-hex commit sha. The SAME action may be
-  // pinned to different immutable shas in different workflows (the charter job runs a v4
-  // checkout while the rest run v6); a tag or branch anywhere is still a finding.
-  return collectUseSites(files).findings;
+  // Two rules: every non-local `uses:` is a full 40-hex commit sha, and one action uses one
+  // sha across every workflow.
+  const { sites, findings } = collectUseSites(files);
+  return [...findings, ...disagreementFindings(sites)];
 }
 
 function realWorkflows(): Record<string, string> {
@@ -97,16 +122,24 @@ describe("CI action pins", () => {
     expect(checkWorkflows(realWorkflows())).toEqual([]);
   });
 
-  it("accepts more than one immutable sha for the same action", () => {
+  it("reuses one sha per action across workflows", () => {
     const refs = refsFor(realWorkflows());
-    // actions/checkout appears with a v6 pin and the charter job's v4 pin; both are 40-hex
-    // commits, so both are acceptable.
-    const checkout = refs.get("actions/checkout");
-    expect(checkout).toBeDefined();
-    for (const sha of checkout ?? []) {
-      expect(sha).toMatch(/^[0-9a-f]{40}$/);
+    for (const [action, shas] of refs) {
+      expect(shas.size, `${action} is pinned to ${[...shas].join(", ")}`).toBe(1);
     }
-    expect((checkout ?? new Set<string>()).size).toBeGreaterThanOrEqual(2);
+  });
+
+  it("reports the same action pinned to two different shas", () => {
+    const shaA = "a".repeat(40);
+    const shaB = "b".repeat(40);
+    const findings = checkWorkflows({
+      "ci.yml": `steps:\n  - uses: actions/checkout@${shaA}\n`,
+      "release.yml": `steps:\n  - uses: actions/checkout@${shaB}\n`
+    });
+    expect(findings).toHaveLength(1);
+    expect(findings[0].file).toBe("release.yml");
+    expect(findings[0].line).toBe(2);
+    expect(findings[0].reason).toContain("ci.yml:2");
   });
 
   it("reports a tag ref with its file and line", () => {
