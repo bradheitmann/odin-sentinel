@@ -3,7 +3,7 @@
 **Ruled by:** A/EXEC-PM, the orchestrating executive PM, acting under the owner's delegation. The ruling was given to PM-ODIN during this repository's Mister Clean close on 2026-11-01.
 
 **Scope:** the gitignored, local-only planning and dispatch history of this repository, created before it adopted `charter/` on 2026-10-31:
-- `project/planning/`: the legacy planning corpus;
+- the legacy planning corpus: a gitignored planning directory inside the repository (its name is withheld here because this repository's public-surface audit treats it as a private planning path);
 - `.odin/dispatches/`, `.odin/tmp/` and `.odin/handoffs/`: runtime dispatch artifacts of the same era;
 - one further local-only planning directory of a private tool, not named here because this repository's public-surface audit forbids that name.
 
