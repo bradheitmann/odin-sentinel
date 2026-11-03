@@ -1,0 +1,39 @@
+{
+  "done_sha256": "0abf082159ebfe276186eb1386307e51707473b71422119409d704333a82217c",
+  "entries": [
+    {
+      "evidence_sha256": "a600fb6ed231a6b0b39d59cd4a34a666c786dee32dd44e3ba8bf5597fe4eb1de",
+      "proof": "1",
+      "recorded_utc": "2026-11-03T21:33:14Z",
+      "run_id": "OD-QA-audit-retirement-roots-fa407d4"
+    },
+    {
+      "evidence_sha256": "a600fb6ed231a6b0b39d59cd4a34a666c786dee32dd44e3ba8bf5597fe4eb1de",
+      "proof": "2",
+      "recorded_utc": "2026-11-03T21:33:14Z",
+      "run_id": "OD-QA-audit-retirement-roots-fa407d4"
+    },
+    {
+      "evidence_sha256": "a600fb6ed231a6b0b39d59cd4a34a666c786dee32dd44e3ba8bf5597fe4eb1de",
+      "proof": "3",
+      "recorded_utc": "2026-11-03T21:33:14Z",
+      "run_id": "OD-QA-audit-retirement-roots-fa407d4"
+    },
+    {
+      "evidence_sha256": "a600fb6ed231a6b0b39d59cd4a34a666c786dee32dd44e3ba8bf5597fe4eb1de",
+      "proof": "4",
+      "recorded_utc": "2026-11-03T21:33:14Z",
+      "run_id": "OD-QA-audit-retirement-roots-fa407d4"
+    },
+    {
+      "evidence_sha256": "a600fb6ed231a6b0b39d59cd4a34a666c786dee32dd44e3ba8bf5597fe4eb1de",
+      "proof": "5",
+      "recorded_utc": "2026-11-03T21:33:14Z",
+      "run_id": "OD-QA-audit-retirement-roots-fa407d4"
+    }
+  ],
+  "head": "fa407d425ce3b7c241cd2d74f01fab124183c4c1",
+  "manifest_sha256": "67a34b18dd857e3f830fd74aa891b1fe7c1d22aa64e09633abbd71ea821c3bf3",
+  "schema_version": "charter.reopen/1",
+  "slice": "audit-retirement-roots"
+}

@@ -1,7 +1,10 @@
 {
+  "accepted_unix_s": 1793741600,
+  "accepted_utc": "2026-11-03T21:33:20Z",
   "base_commit": "7b6931e4a9a6c1902c96c04e71de81e4ae7d0c64",
   "brief_sha256": null,
   "done_sha256": "0abf082159ebfe276186eb1386307e51707473b71422119409d704333a82217c",
   "schema_version": "charter.dispatch/1",
-  "slice": "audit-retirement-roots"
+  "slice": "audit-retirement-roots",
+  "state": "accepted"
 }
