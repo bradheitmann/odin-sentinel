@@ -1,0 +1,20 @@
+{
+  "record_type": "mister-clean.retirement",
+  "schema_version": "1.0",
+  "slug": "legacy-planning",
+  "roots": [
+    "project/planning",
+    ".odin/dispatches",
+    ".odin/tmp",
+    ".odin/handoffs"
+  ],
+  "ruling": {
+    "author": "A/EXEC-PM",
+    "at": "2026-10-31T21:06:56-06:00",
+    "scope": "The gitignored, local-only planning and dispatch history created before charter/ was adopted on 2026-10-31 is retired and superseded by charter/. Nothing is deleted or conformed, and no live finding carries forward. The time given is when the ruling was first committed (b06afcc, merged in PR #18 as 421986c).",
+    "evidence": {
+      "path": "charter/owner-decisions/2026-11-01-retire-legacy-planning.md",
+      "sha256": "b66ca5f27ea3a4561f33823cf1b05c8c84a781d3b9ff4c1a4305dbe2797dafba"
+    }
+  }
+}
