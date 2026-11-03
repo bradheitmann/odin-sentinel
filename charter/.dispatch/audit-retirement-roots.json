@@ -1,0 +1,7 @@
+{
+  "base_commit": "3a6c306f4b0b3821eb1a3f332c41e5a2174ba7c7",
+  "brief_sha256": null,
+  "done_sha256": "b87bd1187f6304a86034c07718933dd3be3879d8670cb10e3aff72d3207579f1",
+  "schema_version": "charter.dispatch/1",
+  "slice": "audit-retirement-roots"
+}
