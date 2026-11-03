@@ -41,11 +41,15 @@ For each proof: what it guarantees, how to reopen it, and the mutant that must t
    - a `.md` there;
    - a malformed JSON file there.
    - Fail-without mutant: widen the exemption to every file under charter/retirements/. This test must go red.
+   - Reopen: the same test command.
 4. **before/after count.** Run `pnpm run audit:public` on the base and on the tip. Report the number of files checked and the findings, and show that the only difference the allowance can make is the record's roots entries. Measure with one planted fixture record in a scratch copy: refused before, passing after. Nothing else may change.
    - Reopen: the same command and scratch procedure, recorded in the DEV report.
+   - Fail-without mutant: n/a (measurement; proofs 1-3 carry the mutants).
 5. **no-regression.**
    - Commands: `pnpm run typecheck`; `pnpm vitest run tests/audit --testTimeout=30000`; `pnpm run audit:public`; `charter check --strict` (b9323cd1).
    - PR CI must be green before acceptance.
+   - Reopen: the same commands.
+   - Fail-without mutant: n/a (aggregate).
 
 ## Gates
 - pnpm run typecheck
