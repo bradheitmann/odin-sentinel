@@ -1,0 +1,7 @@
+{
+  "base_commit": "ce4b044e82cdba0dcac64e7441e5ea2b7d6e8d34",
+  "brief_sha256": null,
+  "done_sha256": "9671cf2fcfc2cc1320b74a01584a0f0a1d1d72f2bfbd77e4ad6764e33fb367ec",
+  "schema_version": "charter.dispatch/1",
+  "slice": "standard-repin"
+}
