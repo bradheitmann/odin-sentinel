@@ -1,0 +1,33 @@
+{
+  "done_sha256": "470afd2a0e419ca21ff9959cec0c6950f0a845fe455a1026ec5905ad916ee7b3",
+  "entries": [
+    {
+      "evidence_sha256": "a7b533d14c59a7cd4c54f01de485663c29bccd5c9453fae8082f7b1d1654edd7",
+      "proof": "1",
+      "recorded_utc": "2026-11-04T20:42:32Z",
+      "run_id": "OD-QA-attest-trust-record-8f47f5e"
+    },
+    {
+      "evidence_sha256": "a7b533d14c59a7cd4c54f01de485663c29bccd5c9453fae8082f7b1d1654edd7",
+      "proof": "2",
+      "recorded_utc": "2026-11-04T20:42:32Z",
+      "run_id": "OD-QA-attest-trust-record-8f47f5e"
+    },
+    {
+      "evidence_sha256": "a7b533d14c59a7cd4c54f01de485663c29bccd5c9453fae8082f7b1d1654edd7",
+      "proof": "3",
+      "recorded_utc": "2026-11-04T20:42:32Z",
+      "run_id": "OD-QA-attest-trust-record-8f47f5e"
+    },
+    {
+      "evidence_sha256": "a7b533d14c59a7cd4c54f01de485663c29bccd5c9453fae8082f7b1d1654edd7",
+      "proof": "4",
+      "recorded_utc": "2026-11-04T20:42:32Z",
+      "run_id": "OD-QA-attest-trust-record-8f47f5e"
+    }
+  ],
+  "head": "8f47f5e7baf1bec166f852fc7ac5f3dbac005fb4",
+  "manifest_sha256": "1f390ca87ed510ae433cb2534a14dd9ba8be965d4ca809349bb513f3656e92aa",
+  "schema_version": "charter.reopen/1",
+  "slice": "attest-trust-record"
+}
