@@ -32,8 +32,8 @@ For each proof: what it guarantees, how to reopen it, and its fail-without mutan
    - Reopen: `git -C <mister-clean clone> show 24a202c -- charter/owner-decisions/2026-11-04-semantic-attestation-trust.md`.
    - Fail-without mutant: show the same file at a commit before 24a202c; the approval section is absent.
 3. **no-secret.** Neither the record nor any other changed file contains a private key, a PEM block, a Doppler token or any secret-looking string, and no home path or private marker.
-   - Reopen: `pnpm run audit:public`, run bare so its own exit status is read; `git grep -n -E 'BEGIN (PRIVATE|PUBLIC) KEY|dp\.(st|pt|sa)\.'` on the head, expecting no match.
-   - Fail-without mutant: plant `-----BEGIN PRIVATE KEY-----` in a scratch copy; the grep matches.
+   - Reopen: `pnpm run audit:public`, run bare so its own exit status is read; a grep for PEM key header lines and Doppler service-token prefixes over only the files this slice changes (`git diff --name-only 09906bb`), expecting no match. tests/ keeps deliberately fake token fixtures, so a tree-wide grep is the wrong scope.
+   - Fail-without mutant: plant a PEM private-key header line in a scratch copy; the grep matches.
 4. **no-regression.** `charter check --strict` (b9323cd1) passes, and PR CI is green before acceptance.
    - Reopen: the same commands.
    - Fail-without mutant: n/a (aggregate).
