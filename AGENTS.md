@@ -59,8 +59,8 @@ ODIN uses a simple PM/DEV/QA pattern for visible multi-agent work.
 
 ## Engineering Standard
 
-This repository adopts the common engineering standard v0.2
-(https://github.com/bradheitmann/mister-clean/blob/5d99196/COMMON-STANDARD.md).
+This repository adopts the common engineering standard v0.2, owner-ratified on
+2026-11-04 (https://github.com/bradheitmann/mister-clean/blob/b87c397/COMMON-STANDARD.md).
 Where the standard and `charter/` disagree, the charter governs until the owner
 records a decision. Open gaps against the standard are listed as obligations in
 `charter/STATE.md`, which is this repository's single current-state surface.
