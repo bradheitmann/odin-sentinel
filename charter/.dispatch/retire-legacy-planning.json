@@ -1,7 +1,10 @@
 {
+  "accepted_unix_s": 1793762598,
+  "accepted_utc": "2026-11-04T03:23:18Z",
   "base_commit": "3a6c306f4b0b3821eb1a3f332c41e5a2174ba7c7",
   "brief_sha256": null,
   "done_sha256": "94748fd219896ee3e30fee6a69a8e5d21aaaf18d515c4964c8e4ff40ba4d93ca",
   "schema_version": "charter.dispatch/1",
-  "slice": "retire-legacy-planning"
+  "slice": "retire-legacy-planning",
+  "state": "accepted"
 }

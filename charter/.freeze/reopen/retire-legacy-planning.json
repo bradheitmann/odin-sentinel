@@ -1,0 +1,45 @@
+{
+  "done_sha256": "94748fd219896ee3e30fee6a69a8e5d21aaaf18d515c4964c8e4ff40ba4d93ca",
+  "entries": [
+    {
+      "evidence_sha256": "b23db740e524017f1944e3446a914392960c48ac9b1999b93c158a32db5687fe",
+      "proof": "1",
+      "recorded_utc": "2026-11-04T03:21:34Z",
+      "run_id": "OD-QA-retire-legacy-planning-81e3fec"
+    },
+    {
+      "evidence_sha256": "b23db740e524017f1944e3446a914392960c48ac9b1999b93c158a32db5687fe",
+      "proof": "2",
+      "recorded_utc": "2026-11-04T03:21:34Z",
+      "run_id": "OD-QA-retire-legacy-planning-81e3fec"
+    },
+    {
+      "evidence_sha256": "b23db740e524017f1944e3446a914392960c48ac9b1999b93c158a32db5687fe",
+      "proof": "3",
+      "recorded_utc": "2026-11-04T03:21:34Z",
+      "run_id": "OD-QA-retire-legacy-planning-81e3fec"
+    },
+    {
+      "evidence_sha256": "b23db740e524017f1944e3446a914392960c48ac9b1999b93c158a32db5687fe",
+      "proof": "4",
+      "recorded_utc": "2026-11-04T03:21:34Z",
+      "run_id": "OD-QA-retire-legacy-planning-81e3fec"
+    },
+    {
+      "evidence_sha256": "b23db740e524017f1944e3446a914392960c48ac9b1999b93c158a32db5687fe",
+      "proof": "5",
+      "recorded_utc": "2026-11-04T03:21:34Z",
+      "run_id": "OD-QA-retire-legacy-planning-81e3fec"
+    },
+    {
+      "evidence_sha256": "b23db740e524017f1944e3446a914392960c48ac9b1999b93c158a32db5687fe",
+      "proof": "6",
+      "recorded_utc": "2026-11-04T03:21:34Z",
+      "run_id": "OD-QA-retire-legacy-planning-81e3fec"
+    }
+  ],
+  "head": "81e3fec4f75bce6ae72fcb00e398f85d434f85b8",
+  "manifest_sha256": "93793d2b0fdc72290ff9cea38588ee2993b187692ecc091d46a63dce7b530c89",
+  "schema_version": "charter.reopen/1",
+  "slice": "retire-legacy-planning"
+}
