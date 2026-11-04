@@ -1,7 +1,7 @@
 {
-  "base_commit": "89fe6d4a52ba5eb70cf769ef470cfcb496aaf783",
+  "base_commit": "02df1bb03d78e3be3a221ba4939a1f37fe3f00b7",
   "brief_sha256": null,
-  "done_sha256": "e4f0ae569563efdc84f30cd5c75332325260cd4ca3e3da86f4e02378b5e181ff",
+  "done_sha256": "470afd2a0e419ca21ff9959cec0c6950f0a845fe455a1026ec5905ad916ee7b3",
   "schema_version": "charter.dispatch/1",
   "slice": "attest-trust-record"
 }
