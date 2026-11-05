@@ -54,7 +54,7 @@ For each proof: what it guarantees, how to reopen it, and its fail-without mutan
 2. **glob-semantics.** sync-installations.sh declares nullglob or failglob and handles an empty match. `node $MISTER_CLEAN_ROOT/bin/mister-clean.js audit semantic <fresh clone> --json` no longer lists SEM-ENVIRONMENT-C988A215311C, and no new environment candidate appears. shellcheck is clean, and tests/scripts/sync-installations.test.ts passes.
    - Reopen: the audit, shellcheck and the test file.
    - Fail-without mutant: remove the shopt line; the candidate reappears.
-3. **public-safety-zero.** `audit public-safety <fresh clone> --tracked --json` reports 0 findings. tests/audit/secret-rule.test.ts and tests/telemetry/redactor.test.ts pass, and the PII grep `git grep -I -i -E 'bradleyheitmann|okoacapital|leitfactory|bradheitmann@gmail|brad@'` finds nothing.
+3. **public-safety-zero.** `audit public-safety <fresh clone> --tracked --json` reports 0 findings. tests/audit/secret-rule.test.ts and tests/telemetry/redactor.test.ts pass, and the field run's owner-PII grep finds nothing. Its pattern names the owner's private identifiers, so it is kept outside this public repository, in the field-run brief, and is never quoted here.
    - Reopen: the audit, the two suites and the grep.
    - Fail-without mutant: break the detector in a scratch copy (make the secret rule or the email redaction never match); both suites go RED on the runtime samples.
 4. **version-0.9.1.** Every public version surface reads 0.9.1, the release-sync tests pass, the 0.9.1 changelog entry exists, and the packed tarball answers an MCP initialize with serverInfo 0.9.1.
