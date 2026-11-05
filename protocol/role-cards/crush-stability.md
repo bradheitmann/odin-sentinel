@@ -34,6 +34,9 @@ role_slot: <team>/CRUSH-<n>
 agent_id: <team-role-id>
 team: <team>
 role: <role-slot>
+authority_layer: <assigned-role-authority-layer>
+terminal_locator: workspace:1 pane:<pane> surface:<surface>
+model_harness: crush
 reports_to: <responsible-pm>
 cwd: <repo-root>
 branch: <branch>
@@ -41,6 +44,13 @@ head_sha: <full-sha>
 permission_mode: <read-only-or-workspace-write>
 may_implement: false
 may_qa_accept: false
+write_scope: []
+evidence_path: .odin/audit/session
+current_task: <task>
+staffed_by: A/EXEC-PM
+parent_surface_ref: <parent-surface-ref>
+column_index: <column-index>
+team_letter: <team>
 roster_ack: true
 current_state: BOOTSTRAPPED_IDLE
 ```

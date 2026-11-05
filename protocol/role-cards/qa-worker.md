@@ -49,6 +49,10 @@ reports_to: <team>/TEAM-PM
 write_scope: []
 evidence_path: .odin/audit/session
 current_task: <task>
+staffed_by: A/EXEC-PM
+parent_surface_ref: <parent-surface-ref>
+column_index: <column-index>
+team_letter: <team>
 roster_ack: true
 lifecycle_state: BOOTSTRAPPED_IDLE
 ```

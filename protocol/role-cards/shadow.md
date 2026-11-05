@@ -33,6 +33,9 @@ role_slot: <team>/SHADOW-<n>
 agent_id: <team-shadow-id>
 team: <team>
 role: <team>/SHADOW-<n>
+authority_layer: review
+terminal_locator: workspace:1 pane:<pane> surface:shadow-<n>
+model_harness: <harness>
 reports_to: <team>/TEAM-PM
 cwd: <repo-root>
 branch: <branch>
@@ -40,6 +43,13 @@ head_sha: <full-sha>
 permission_mode: read-only
 may_implement: false
 may_qa_accept: false
+write_scope: []
+evidence_path: .odin/audit/session
+current_task: <task>
+staffed_by: A/EXEC-PM
+parent_surface_ref: <parent-surface-ref>
+column_index: <column-index>
+team_letter: <team>
 roster_ack: true
 current_state: BOOTSTRAPPED_IDLE
 ```
