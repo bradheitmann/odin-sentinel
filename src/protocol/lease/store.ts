@@ -117,15 +117,26 @@ function emptyRecord(slot: string): LeaseRecord {
 function isRecord(value: unknown, slot: string): value is LeaseRecord {
   if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
   const record = value as Partial<LeaseRecord>;
+  if (
+    !(
+      record.schema_version === LEASE_SCHEMA_VERSION &&
+      record.slot === slot &&
+      typeof record.token === "number" &&
+      Number.isInteger(record.token) &&
+      record.token >= 0
+    )
+  ) {
+    return false;
+  }
+  // A free slot has holder and both timestamps null; a held slot has all three set, with a
+  // parseable expiry. A half-set or unparseable record is corrupt, never "held forever" or
+  // "already expired".
+  if (record.holder === null && record.acquired_at === null && record.expires_at === null) return true;
   return (
-    record.schema_version === LEASE_SCHEMA_VERSION &&
-    record.slot === slot &&
-    typeof record.token === "number" &&
-    Number.isInteger(record.token) &&
-    record.token >= 0 &&
-    (record.holder === null || typeof record.holder === "string") &&
-    (record.acquired_at === null || typeof record.acquired_at === "string") &&
-    (record.expires_at === null || typeof record.expires_at === "string")
+    typeof record.holder === "string" &&
+    typeof record.acquired_at === "string" &&
+    typeof record.expires_at === "string" &&
+    Number.isFinite(Date.parse(record.expires_at))
   );
 }
 
@@ -264,9 +275,7 @@ function withSlotLock<T>(
   try {
     const current = readLease(dir, slot);
     if (!current.ok) return current;
-    const result = body(current.record);
-    if (!result.ok) return result;
-    return result;
+    return body(current.record);
   } finally {
     rmdirSync(lockDir);
   }

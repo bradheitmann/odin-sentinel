@@ -9,7 +9,18 @@ import { createServer } from "../mcp/server.js";
 
 /**
  * odin-sentinel CLI. With no subcommand this is the MCP server over stdio
- * (unchanged). Subcommands:
+ * (unchanged):
+ *
+ *   odin-sentinel [--capabilities <a,b,...>]
+ *
+ * --capabilities limits the MCP server to the named capability groups
+ * (src/mcp/capabilities.ts). Subcommands:
+ *
+ *   lease <acquire|renew|release|check|status> --dir <dir> --slot <id>
+ *         [--slots <a,b>] [--holder <id>] [--ttl <seconds>] [--token <n>]
+ *
+ * Slot leases with expiry and fencing tokens; see runLeaseCli below and
+ * docs/reference/lease.md.
  *
  *   compact-registry --scope <scope> [--base <dir>] [--now <iso>]
  *                      [--ttl-days <n>] [--dry-run]
@@ -193,7 +204,9 @@ export async function runLeaseCli(argv: string[], io: LeaseCliIo = {}): Promise<
     out(JSON.stringify({ ok: false, code: "invalid_ttl", detail: `--ttl must be a positive number of seconds; rejected: ${JSON.stringify(values.ttl)}` }, null, 2));
     return 1;
   }
-  const token = values.token === undefined ? undefined : Number(values.token);
+  // An empty or whitespace --token must not become 0 through Number("") and pass as the
+  // real initial fencing token.
+  const token = values.token === undefined ? undefined : values.token.trim() === "" ? Number.NaN : Number(values.token);
   if (token !== undefined && (!Number.isInteger(token) || token < 0)) {
     out(JSON.stringify({ ok: false, code: "stale_token", detail: `--token must be a non-negative integer; rejected: ${JSON.stringify(values.token)}` }, null, 2));
     return 1;
