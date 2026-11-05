@@ -1,0 +1,7 @@
+{
+  "base_commit": "4745bb276ff7c5f528c483521fc265f20ec25359",
+  "brief_sha256": null,
+  "done_sha256": "21c28e773385ad4e6109f7e8bfb2bac7bd1f1ca86d8933792262cf5e95d1c605",
+  "schema_version": "charter.dispatch/1",
+  "slice": "close-remediation-1"
+}
