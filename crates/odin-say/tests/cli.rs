@@ -301,3 +301,56 @@ fn say_refuses_a_capped_seat_with_exit_ten_and_one_record() {
     assert_eq!(proof[0]["reset_at"], "2026-11-03T00:00:00Z");
     assert_eq!(proof[0]["cap_marker"], "free_models_per_day");
 }
+
+// F-02: a `read-screen` that exits non-zero is never an idle pane, and a failed read never
+// becomes a delivery. The proof record says so, and nothing is typed.
+
+#[test]
+fn a_failed_read_makes_status_exit_non_zero_instead_of_printing_idle() {
+    let rig = Rig::new(&["codex_idle"]);
+    let out = rig
+        .command()
+        .env("FAKE_CMUX_FAIL_READ", "1")
+        .args(["status", "7"])
+        .output()
+        .expect("run");
+    assert_ne!(out.status.code(), Some(0), "{}", text(&out).1);
+    let printed = text(&out).0;
+    assert!(
+        !printed.contains("idle"),
+        "a failed read must not read as idle: {printed}"
+    );
+    assert!(
+        text(&out).1.contains("read-screen failed"),
+        "{}",
+        text(&out).1
+    );
+}
+
+#[test]
+fn a_failed_read_refuses_with_no_send_and_records_the_failure() {
+    let rig = Rig::new(&["codex_idle", "codex_acked_after_send"]);
+    let out = rig
+        .command()
+        .env("FAKE_CMUX_FAIL_READ", "1")
+        .args(["say", "7", "hello"])
+        .output()
+        .expect("run");
+    assert_eq!(out.status.code(), Some(11), "{}", text(&out).1);
+    assert!(
+        text(&out).0.contains("PANE_READ_FAILED"),
+        "{}",
+        text(&out).0
+    );
+    assert!(
+        rig.calls().iter().all(|c| c[0] == "read-screen"),
+        "nothing may be typed into a pane that cannot be read: {:?}",
+        rig.calls()
+    );
+    let proof = proof_lines(&rig.proof());
+    assert_eq!(proof.len(), 1);
+    assert_eq!(proof[0]["record_kind"], "send_refusal");
+    assert_eq!(proof[0]["submitted"], false);
+    assert_eq!(proof[0]["observed_processing_state"], "PANE_READ_FAILED");
+    assert_eq!(proof[0]["note"], "read-failed");
+}
