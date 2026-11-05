@@ -413,10 +413,15 @@ describe("release sync audit helpers", () => {
   });
 
   it("audits public files while ignoring private local operator spaces", () => {
+    // synthetic sample built at runtime so tracked bytes carry no detector-shaped literal; value is not real
+    const homePathBody = `notes kept at ${["", "Users", "example", "notes", ""].join("/")} only`;
+    // The control proves the body is detector-shaped: on a public path it must be flagged,
+    // so the ignore assertion below can fail when the exclusion is removed.
+    expect(publicSurface.auditPublicSurface({ "README.md": homePathBody })).toEqual(["README.md: macOS home path"]);
     const findings = publicSurface.auditPublicSurface({
       "README.md": "safe public text",
-      "project/planning/private.md": "private notes should be ignored here",
-      ".edge-agentic/local/evidence/log.txt": "private evidence should be ignored here"
+      "project/planning/private.md": homePathBody,
+      ".edge-agentic/local/evidence/log.txt": homePathBody
     });
     expect(findings).toEqual([]);
   });
