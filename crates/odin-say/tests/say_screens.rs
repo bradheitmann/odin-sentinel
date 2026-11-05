@@ -342,3 +342,44 @@ fn only_delivered_states_exit_zero() {
         "PANE_BLOCKED_ON_PERMISSION"
     );
 }
+
+// F-01: the blocked check must run again after every re-read, not only on the first read.
+// A pane that turns into a permission prompt after the dismissible-overlay Escape, or during
+// the busy wait, must be refused before anything is typed.
+
+#[test]
+fn a_permission_prompt_after_the_overlay_escape_is_refused_before_any_text() {
+    let cmux = StubCmux::new(&[
+        screen!("opencode_overlay"),
+        screen!("permission_prompt"),
+        screen!("permission_prompt"),
+    ]);
+    let (out, _clock) = run(&cmux, "do not type this");
+    assert_eq!(out.state, DeliveryState::PaneBlockedOnPermission);
+    assert_eq!((out.submitted, out.exit), (false, 2));
+    assert!(
+        cmux.texts().is_empty(),
+        "no text may be sent to a blocked pane"
+    );
+    assert_eq!(
+        cmux.keys(),
+        vec!["Escape"],
+        "only the overlay Escape is sent"
+    );
+}
+
+#[test]
+fn a_permission_prompt_appearing_during_the_busy_wait_is_refused_before_any_text() {
+    let cmux = StubCmux::new(&[screen!("claude_busy"), screen!("permission_prompt")]);
+    let (out, _clock) = run(&cmux, "do not type this");
+    assert_eq!(out.state, DeliveryState::PaneBlockedOnPermission);
+    assert_eq!((out.submitted, out.exit), (false, 2));
+    assert!(
+        cmux.texts().is_empty(),
+        "no text may be sent to a blocked pane"
+    );
+    assert!(
+        cmux.keys().is_empty(),
+        "no key may be sent to a blocked pane"
+    );
+}

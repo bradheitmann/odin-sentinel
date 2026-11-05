@@ -465,6 +465,10 @@ pub fn deliver(
         rules,
     );
 
+    // Re-classified after EVERY re-read below: a pane can turn into a permission prompt after
+    // the overlay Escape or during the busy wait, and nothing may be typed into it then.
+    let blocked_here = |screen: &str| blocked(screen, rules);
+
     let outcome = (|| {
         if blocked(&screen, rules) {
             if screen.contains(rules.dismissible_overlay.as_str()) {
@@ -473,6 +477,18 @@ pub fn deliver(
                 clock.sleep(Duration::from_secs(1));
                 screen = tail14(&cmux.read_screen(surface));
                 polls += 1;
+                // The pane behind the overlay can BE a permission prompt. Every re-read is
+                // classified again before anything is typed into it.
+                if blocked_here(&screen) {
+                    return refuse(
+                        DeliveryState::PaneBlockedOnPermission,
+                        false,
+                        "pre-send",
+                        EXIT_BLOCKED,
+                        polls,
+                        waited_ms,
+                    );
+                }
             } else {
                 return refuse(
                     DeliveryState::PaneBlockedOnPermission,
@@ -521,6 +537,8 @@ pub fn deliver(
                 }
                 MidTurn::Refuse => {
                     // Bounded wait: poll until the pane is idle or the wall-clock budget is spent.
+                    // Every poll re-reads the pane, so every poll also re-checks `blocked`: a
+                    // permission prompt that appears mid-wait is never typed into.
                     loop {
                         let busy_at = first_busy_at.unwrap_or(0);
                         let waited = clock.elapsed_ms() - busy_at;
@@ -531,6 +549,17 @@ pub fn deliver(
                         clock.sleep(Duration::from_millis(step));
                         screen = tail14(&cmux.read_screen(surface));
                         polls += 1;
+                        if blocked_here(&screen) {
+                            waited_ms = clock.elapsed_ms() - first_busy_at.unwrap_or(0);
+                            return refuse(
+                                DeliveryState::PaneBlockedOnPermission,
+                                false,
+                                "pre-send",
+                                EXIT_BLOCKED,
+                                polls,
+                                waited_ms,
+                            );
+                        }
                         if !busy(&screen, rules) {
                             break;
                         }
@@ -568,6 +597,17 @@ pub fn deliver(
             cmux.send_key(surface, "Enter");
             clock.sleep(Duration::from_secs(3));
             screen = tail14(&cmux.read_screen(surface));
+            // Clearing stale text can uncover a prompt; classify this re-read too.
+            if blocked(&screen, rules) {
+                return refuse(
+                    DeliveryState::PaneBlockedOnPermission,
+                    false,
+                    "pre-send",
+                    EXIT_BLOCKED,
+                    polls,
+                    waited_ms,
+                );
+            }
             if stale_input(&screen) {
                 return refuse(
                     DeliveryState::InputBarOnly,
