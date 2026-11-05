@@ -31,7 +31,7 @@ the direct install paths below.
 
 - **Skill content**: the full SCP governance contract (boot receipts, role topology, delegation, CMUX delivery proof, heartbeat cadence, adversarial QA, finish audit) plus the referenced prompt, harness target, boot receipt, and team bootstrap runbook files.
 - **MCP tools**: 48 `odin.*` tools including `compute_surface_layout`, `get_role_profile`, `get_role_card`, `get_onboarding_plan`, `validate_boot_receipt`, `compile_session_report`, `get_bootstrap_skill`, and `get_mission_frontrun_pack`. The governance-registry compatibility surface (the `odin_append_event` / `odin_query_events` tools plus one `odin://registry/{scope}/events` resource template) is ACTIVE BY DEFAULT as of 0.6.0; `ODIN_GOVDISP_REGISTRY_MCP=0` opts out.
-- **MCP resources**: 18 protocol documents addressable via `odin://protocol/*` URIs.
+- **MCP resources**: 27 protocol documents addressable via `odin://protocol/*` URIs.
 
 ## Use without Claude Code
 

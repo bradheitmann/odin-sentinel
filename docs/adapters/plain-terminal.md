@@ -4,7 +4,7 @@
 
 A plain terminal (SSH tty, serial console, bare shell, or any environment
 without a multiplexer) is the **lowest-capability substrate** for the
-Supervised Completion Protocol (SCP). Only SEND is available.
+Sentinel Coordination Protocol (SCP). Only SEND is available.
 
 There is no feedback channel. The agent cannot confirm delivery. The PM cannot
 observe screen content. Polling is impossible. Governance obligations that

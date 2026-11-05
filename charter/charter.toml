@@ -2,7 +2,7 @@
 charter_version = "1"
 spec_version = "1"
 project = "odin-sentinel"
-owner = "Brad Heitmann (owner and operator)"
+owner = "the owner"
 # The tiniest end-to-end live run that must be green before anything scales.
 [slice_zero]
 description = "Build ODIN Sentinel, start the real stdio MCP server, and have odin.validate_cmux_delivery_proof accept a sent-and-acknowledged delivery and refuse a busy-pane refusal"

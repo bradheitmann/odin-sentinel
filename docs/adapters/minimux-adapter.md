@@ -3,7 +3,7 @@
 ## Overview
 
 minimux is a **headless Zig daemon** and the **highest-capability headless
-substrate** for the Supervised Completion Protocol (SCP). It exposes all seven
+substrate** for the Sentinel Coordination Protocol (SCP). It exposes all seven
 capability flags through a JSON-RPC API, making it the only current substrate
 that reaches **tier 4**.
 
