@@ -2448,12 +2448,16 @@ export function getMissionFrontrunPack(
   const data = loadProtocolData(repository);
   const writeScopeStr = input.write_scope.length > 0 ? input.write_scope.join(", ") : "[]";
 
+  // One pass over the template with a function replacer: caller strings are inserted
+  // literally (no `$&` / `$\`` expansion) and are never scanned again for placeholders.
+  const tokens: Record<string, string> = {
+    WRITE_SCOPE: writeScopeStr,
+    TASK_ID: input.task_id,
+    REPO_PATH: input.repo_path,
+    MISSION_NAME: input.mission_name
+  };
   function substitute(template: string): string {
-    return template
-      .replace(/\{\{WRITE_SCOPE\}\}/g, writeScopeStr)
-      .replace(/\{\{TASK_ID\}\}/g, input.task_id)
-      .replace(/\{\{REPO_PATH\}\}/g, input.repo_path)
-      .replace(/\{\{MISSION_NAME\}\}/g, input.mission_name);
+    return template.replace(/\{\{(WRITE_SCOPE|TASK_ID|REPO_PATH|MISSION_NAME)\}\}/g, (_match, name: string) => tokens[name] ?? "");
   }
 
   return {

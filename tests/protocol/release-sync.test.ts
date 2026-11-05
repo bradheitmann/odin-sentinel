@@ -438,3 +438,20 @@ describe("release sync audit helpers", () => {
     ]);
   });
 });
+
+describe("pack content scan never drops an unreadable listed file (quality-fix-1 F-33)", () => {
+  const missing = "docs/qf-missing-pack-file.md";
+
+  it("readPackFileTexts reports a listed but unreadable text file as PACK_FILE_UNREADABLE", () => {
+    const result = verifyPack.readPackFileTexts(["README.md", missing, "assets/logo.png"]);
+    expect(Object.keys(result.texts)).toEqual(["README.md"]);
+    expect(result.findings).toEqual([`PACK_FILE_UNREADABLE: ${missing}`]);
+  });
+
+  it("runVerifyPack fails with the named finding when it reads the pack from disk", () => {
+    expect(() => runWith({
+      pack: { files: [...requiredPaths, { path: missing }], filename: "odin-sentinel-0.6.0.tgz" },
+      packFileTextByPath: undefined
+    })).toThrow(`PACK_FILE_UNREADABLE: ${missing}`);
+  });
+});
