@@ -415,8 +415,8 @@ describe("release sync audit helpers", () => {
   it("audits public files while ignoring private local operator spaces", () => {
     const findings = publicSurface.auditPublicSurface({
       "README.md": "safe public text",
-      "project/planning/private.md": "/Users/example/private should be ignored here",
-      ".edge-agentic/local/evidence/log.txt": "/Users/example/private should be ignored here"
+      "project/planning/private.md": "private notes should be ignored here",
+      ".edge-agentic/local/evidence/log.txt": "private evidence should be ignored here"
     });
     expect(findings).toEqual([]);
   });

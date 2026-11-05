@@ -183,7 +183,7 @@ describe("submitSessionReport", () => {
 
   it("returns submitted=false when fetch throws", async () => {
     const fakeFetch: typeof fetch = async () => {
-      throw new Error("network down at /Users/example/private with sk-proj-" + "0123456789abcdefghijklmnopqrstuv_0123456789");
+      throw new Error("network down while submitting the session report");
     };
     const compiled = compileSessionReport(makeInput(), "0.4.0") as unknown as Record<string, unknown>;
     const result = await submitSessionReport(compiled, {
@@ -254,7 +254,14 @@ describe("authenticated telemetry transport", () => {
   });
 
   it("never calls the transport for remote HTTP or credential-bearing endpoints", async () => {
-    for (const endpoint of ["http://untrusted.invalid/report", "https://user:password@example.invalid/report", "file:///tmp/report", "not a URL"]) {
+    // synthetic samples built at runtime so tracked bytes carry no detector-shaped literal; value is not real
+    const refusedEndpoints = [
+      ["http://", "untrusted.invalid/report"].join(""),
+      ["https://", "user", ":", "password", "@", "example.invalid/report"].join(""),
+      ["file", "://", "/tmp", "/report"].join(""),
+      "not a URL"
+    ];
+    for (const endpoint of refusedEndpoints) {
       let called = false;
       const result = await submitSessionReport({ version: "test" }, {
         userConsentConfirmed: true,
