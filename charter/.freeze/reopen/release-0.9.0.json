@@ -1,0 +1,45 @@
+{
+  "done_sha256": "8194f0a798f3c2c771b36a6eeeed65aa790248285c5290d7701be7bf8c7ad8f0",
+  "entries": [
+    {
+      "evidence_sha256": "7ba988b0948b0a5b91e55cc1064cef9edaa9762e31ea6f89803547f4a42bde62",
+      "proof": "1",
+      "recorded_utc": "2026-11-05T09:40:26Z",
+      "run_id": "OD-QA-release-0.9.0-2e7a847"
+    },
+    {
+      "evidence_sha256": "7ba988b0948b0a5b91e55cc1064cef9edaa9762e31ea6f89803547f4a42bde62",
+      "proof": "2",
+      "recorded_utc": "2026-11-05T09:40:26Z",
+      "run_id": "OD-QA-release-0.9.0-2e7a847"
+    },
+    {
+      "evidence_sha256": "7ba988b0948b0a5b91e55cc1064cef9edaa9762e31ea6f89803547f4a42bde62",
+      "proof": "3",
+      "recorded_utc": "2026-11-05T09:40:26Z",
+      "run_id": "OD-QA-release-0.9.0-2e7a847"
+    },
+    {
+      "evidence_sha256": "7ba988b0948b0a5b91e55cc1064cef9edaa9762e31ea6f89803547f4a42bde62",
+      "proof": "4",
+      "recorded_utc": "2026-11-05T09:40:26Z",
+      "run_id": "OD-QA-release-0.9.0-2e7a847"
+    },
+    {
+      "evidence_sha256": "7ba988b0948b0a5b91e55cc1064cef9edaa9762e31ea6f89803547f4a42bde62",
+      "proof": "5",
+      "recorded_utc": "2026-11-05T09:40:26Z",
+      "run_id": "OD-QA-release-0.9.0-2e7a847"
+    },
+    {
+      "evidence_sha256": "7ba988b0948b0a5b91e55cc1064cef9edaa9762e31ea6f89803547f4a42bde62",
+      "proof": "6",
+      "recorded_utc": "2026-11-05T09:40:26Z",
+      "run_id": "OD-QA-release-0.9.0-2e7a847"
+    }
+  ],
+  "head": "2e7a8472c666d4e827116422135b231bbc8167f8",
+  "manifest_sha256": "68ae6fe2a209ed0bba63d61ed64201d36dc4a76df017d2c1e5ae3f65cb52657f",
+  "schema_version": "charter.reopen/1",
+  "slice": "release-0.9.0"
+}
