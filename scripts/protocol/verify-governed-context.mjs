@@ -71,7 +71,7 @@ function resolveEntryPath(base, p) {
 // Zero-secret guard: flag values that look like tokens/keys/secrets. Mirrors the redaction
 // patterns used by the protocol validators so a proof can never smuggle a credential through.
 const SECRET_PATTERNS = [
-  /(sk|pk|ghp|gho|ghu|github_pat|xox[baprs])-?[A-Za-z0-9_=-]{8,}/i,
+  /(?<![A-Za-z0-9])(sk|pk|ghp|gho|ghu|github_pat|xox[baprs])-?[A-Za-z0-9_=-]{8,}/i,
   /[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD)[A-Z0-9_]*=[^\s"']+/i,
   /Bearer\s+[A-Za-z0-9._=-]{8,}/i
 ];
