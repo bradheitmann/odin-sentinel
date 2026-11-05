@@ -1,6 +1,6 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, realpathSync } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = resolve(SCRIPT_DIR, "..", "..");
@@ -657,6 +657,19 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
   if (!result.ok) throw new Error(`Dependency audit gate failed:\n${result.errors.join("\n")}`);
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+// Run main() only when this file is the invoked entry point. Real paths are compared, as
+// src/bin/index.ts does, so a symlinked invocation still runs main() instead of exiting 0.
+function isMain(metaUrl) {
+  const invoked = process.argv[1];
+  if (!invoked) return false;
+  try {
+    return realpathSync(invoked) === realpathSync(fileURLToPath(metaUrl));
+  } catch {
+    return false;
+  }
+}
+
+
+if (isMain(import.meta.url)) {
   await main();
 }

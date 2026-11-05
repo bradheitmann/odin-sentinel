@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 export const MINIMUM_COMPATIBLE_CHILD_MCP_VERSION = "0.4.5";
 
@@ -865,6 +865,19 @@ export function main() {
   console.log(`Release sync PASS: public version ${result.version}; minimum compatible child MCP ${result.minimumCompatibleChildMcpVersion}`);
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+// Run main() only when this file is the invoked entry point. Real paths are compared, as
+// src/bin/index.ts does, so a symlinked invocation still runs main() instead of exiting 0.
+function isMain(metaUrl) {
+  const invoked = process.argv[1];
+  if (!invoked) return false;
+  try {
+    return realpathSync(invoked) === realpathSync(fileURLToPath(metaUrl));
+  } catch {
+    return false;
+  }
+}
+
+
+if (isMain(import.meta.url)) {
   main();
 }

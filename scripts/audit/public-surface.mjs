@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 const PUBLIC_ROOTS = [
   "README.md",
@@ -263,6 +263,19 @@ export function main() {
   console.log(`Public surface audit PASS: ${publicFiles.length} files checked`);
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+// Run main() only when this file is the invoked entry point. Real paths are compared, as
+// src/bin/index.ts does, so a symlinked invocation still runs main() instead of exiting 0.
+function isMain(metaUrl) {
+  const invoked = process.argv[1];
+  if (!invoked) return false;
+  try {
+    return realpathSync(invoked) === realpathSync(fileURLToPath(metaUrl));
+  } catch {
+    return false;
+  }
+}
+
+
+if (isMain(import.meta.url)) {
   main();
 }

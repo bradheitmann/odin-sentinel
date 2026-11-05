@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 export const GOVDISP_BASELINE_SCHEMA = "govdisp.baseline-manifest.v1";
 export const GOVDISP_BASELINE_ROOTS = ["protocol", "src/protocol", "src/mcp"];
@@ -64,6 +64,19 @@ export function main() {
   console.log(`Wrote ${result.outPath}`);
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+// Run main() only when this file is the invoked entry point. Real paths are compared, as
+// src/bin/index.ts does, so a symlinked invocation still runs main() instead of exiting 0.
+function isMain(metaUrl) {
+  const invoked = process.argv[1];
+  if (!invoked) return false;
+  try {
+    return realpathSync(invoked) === realpathSync(fileURLToPath(metaUrl));
+  } catch {
+    return false;
+  }
+}
+
+
+if (isMain(import.meta.url)) {
   main();
 }
