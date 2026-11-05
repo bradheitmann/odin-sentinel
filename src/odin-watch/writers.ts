@@ -1,6 +1,7 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { WakeState } from "../protocol/schemas.js";
+import { writeFileNoFollow } from "../utils/no-follow.js";
 import {
   GOVDISP_REGISTRY_AUTHORITY_FLAG_ENV_VAR,
   appendGovdispEvent,
@@ -106,23 +107,20 @@ export function writeWakeFiles(
 ): void {
   mkdirSync(flagDir, { recursive: true });
 
+  // Every write refuses a symbolic link planted at the target path (it throws, and the
+  // poll loop reports the error) instead of truncating whatever the link points at.
+
   // Flag file: exactly one byte ASCII character "0" or "1", no newline
   const flagPath = join(flagDir, `${label}.flag`);
-  writeFileSync(flagPath, String(state.wake) as "0" | "1", {
-    encoding: "utf8",
-  });
+  writeFileNoFollow(flagPath, String(state.wake));
 
   // Reason file: one reason code per line
   const reasonPath = join(flagDir, `${label}.reason`);
-  writeFileSync(reasonPath, state.reason_codes.join("\n"), {
-    encoding: "utf8",
-  });
+  writeFileNoFollow(reasonPath, state.reason_codes.join("\n"));
 
   // State JSON file
   const statePath = join(flagDir, `${label}.state.json`);
-  writeFileSync(statePath, JSON.stringify(state, null, 2), {
-    encoding: "utf8",
-  });
+  writeFileNoFollow(statePath, JSON.stringify(state, null, 2));
 
   // Flag-gated governance emission (default ON as of 0.6.0 — Amendment 46; an
   // explicit non-truthy opt-out disables): one FINDING_OPENED event via the
