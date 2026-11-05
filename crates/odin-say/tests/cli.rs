@@ -1,22 +1,62 @@
 //! The real `odin-say` binary against a fake pane-multiplexer executable
-//! (`examples/fake_cmux.rs`): argument shapes, exit codes, and the proof record.
+//! (`tests/support/fake_cmux.rs`, compiled here at runtime): argument shapes, exit codes, and the
+//! proof record.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
+use std::sync::OnceLock;
 
 const BIN: &str = env!("CARGO_BIN_EXE_odin-say");
 const SEP: char = '\u{1f}';
 
+/// TEST-ONLY support: the fake pane multiplexer is built here with `rustc`, once per test binary,
+/// into the integration-test temp dir. It is deliberately not a cargo target (neither an example
+/// nor a bin), so every target selection resolves it the same way — `cargo test --locked` and
+/// `cargo test --all-targets --locked` from a fresh clone — and `cargo package` / `cargo install`
+/// can never ship or install it.
 fn fake_cmux() -> PathBuf {
-    let exe = std::env::current_exe().expect("current_exe");
-    let debug_dir = exe.parent().and_then(Path::parent).expect("target dir");
-    let fake = debug_dir.join("examples/fake_cmux");
-    assert!(
-        fake.exists(),
-        "{} is missing: run the whole suite with `cargo test` so examples are built",
-        fake.display()
-    );
-    fake
+    static BUILT: OnceLock<PathBuf> = OnceLock::new();
+    BUILT
+        .get_or_init(|| {
+            let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/support/fake_cmux.rs");
+            let out = Path::new(env!("CARGO_TARGET_TMPDIR"))
+                .join(format!("fake_cmux{}", std::env::consts::EXE_SUFFIX));
+            if stale(&out, &src) {
+                let rustc = std::env::var("RUSTC").unwrap_or_else(|_| "rustc".to_owned());
+                let status = Command::new(rustc)
+                    .arg("--edition=2021")
+                    .arg("--crate-name")
+                    .arg("fake_cmux")
+                    .arg("-o")
+                    .arg(&out)
+                    .arg(&src)
+                    .status()
+                    .expect("run rustc for the fake pane binary");
+                assert!(
+                    status.success(),
+                    "rustc failed to build the fake pane binary from {}",
+                    src.display()
+                );
+            }
+            assert!(
+                out.exists(),
+                "{} is missing after the rustc build for {}",
+                out.display(),
+                src.display()
+            );
+            out
+        })
+        .clone()
+}
+
+fn stale(out: &Path, src: &Path) -> bool {
+    match (std::fs::metadata(out), std::fs::metadata(src)) {
+        (Ok(out), Ok(src)) => match (out.modified(), src.modified()) {
+            (Ok(out), Ok(src)) => out < src,
+            _ => true,
+        },
+        _ => true,
+    }
 }
 
 fn fixtures() -> PathBuf {

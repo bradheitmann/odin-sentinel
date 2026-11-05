@@ -60,13 +60,26 @@ never seen the repository; follow it in order.
    Then rewrite `charter/STATE.md` and commit it together with these records, in the same
    commit.
 
-6. **Merge pinned to the verified head.** Merge the commit CI verified, not a later tip:
+6. **Merge locally, pinned to the verified head.** Merge the commit CI verified, not a later tip, and merge it
+   on your own machine. Never use `gh pr merge`, the web merge button or the GitHub REST merge API: those
+   paths stamp the merge revision with the account's personal email, and the published history must carry
+   only no-reply identities. On a clean `main`:
 
    ```
-   gh pr merge <number> --merge --match-head-commit <full sha>
+   git switch main
+   git pull --ff-only origin main
+   git merge --no-ff <branch>
    ```
 
-   Use the full commit sha, not a short one and not the branch name.
+   Before you push, check the identity of every revision you are about to publish:
+
+   ```
+   git log --format='%ae %ce' origin/main..HEAD
+   ```
+
+   That output must show only no-reply addresses. If it does not, fix the identity on the commits you own
+   (never rewrite published history) before pushing through the gate. Use the full commit sha when you
+   confirm what CI verified, not a short one and not the branch name.
 
 7. **Tag and clean up.** Push an archive tag for the landed branch, and verify it points at the
    merged commit:

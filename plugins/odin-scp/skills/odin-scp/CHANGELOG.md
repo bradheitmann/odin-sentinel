@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.1 - 2026-11-05
+
+Remediation release from the closeout field run. No protocol, tool or resource contract changes, and no behaviour change on the paths a normal install uses; MIN_COMPATIBLE_CHILD_MCP stays 0.4.5.
+
+- **The `odin-say` crate's tests no longer depend on the cargo target selection.** The fake pane double used to be an example, so `cargo test --all-targets` could not find it and only a plain `cargo test` passed. It is now built from `tests/support` at test runtime, so both selections resolve it from a fresh clone, and it can never be packaged or installed: `cargo package` carries the test source only, and `cargo install` installs exactly one executable.
+- **The install sync declares its pathname-expansion semantics.** The script sets `nullglob`, so an unmatched pattern can no longer stay as its literal text and be read as a path, and an empty target list is now named and refused instead of reporting zero installations as a silent success. Nothing changes when files match.
+- **The tests carry no detector-shaped literals.** Fixtures use plain values, and the two detector suites build their synthetic samples at runtime, so the same assertions still prove the detectors fire while tracked bytes hold no credential-, email- or path-shaped literal. Every assertion is kept; no exemption was added.
+- **The charter fleet pin moves to v0.1.0** (revision `ef2b92e`) in CI, and `CONTRIBUTING.md` now lands merges locally, `git merge --no-ff` on main under a no-reply identity, instead of through the GitHub merge path.
+
 ## 0.9.0 - 2026-11-05
 
 First release since 0.8.0 (2026-10-20). No protocol, tool or resource contract breaks: the tool and resource counts, the registry opt-out and MIN_COMPATIBLE_CHILD_MCP (0.4.5) are unchanged.

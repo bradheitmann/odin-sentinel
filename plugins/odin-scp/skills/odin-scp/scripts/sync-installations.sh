@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Pathname expansion semantics are declared here, once, for the whole script.
+# No loop in this script iterates an unquoted glob: every list is a quoted array
+# ("${TARGETS[@]}", "${ADAPTERS[@]}", "${MCP_CONFIGS[@]}") and directory enumeration goes through
+# `find`/`diff`, so nothing here can expand a pattern to zero or to its own literal text. The
+# declaration still matters for the one thing a glob CAN do silently: an unmatched pattern would
+# otherwise stay as its literal text and be read as a path. With nullglob an empty match expands
+# to nothing, and the empty case is then handled explicitly below and in the summary, never as a
+# silent success. bash 3.2 (the macOS /bin/bash) has nullglob.
+shopt -s nullglob
+
 # Master resolution is STRUCTURAL: this script lives inside the skill directory
 # it propagates, so the default master is that directory itself — resolved from
 # the script's own location, never from a machine-local path that can silently
@@ -236,6 +246,14 @@ fi
 
 if (( unexpanded_home_lines > 0 )); then
   echo "nothing was written; write the line(s) above as ~/... or as an absolute path" >&2
+  exit 1
+fi
+
+# An empty list is a legitimate value of a targets file, but it is never a silent
+# success: with nothing to sync and nothing to verify, the run would otherwise
+# report zero installations and exit 0, which reads exactly like a healthy fleet.
+if (( ${#TARGETS[@]} == 0 && ${#ADAPTERS[@]} == 0 )); then
+  echo "empty target list: no native target and no adapter to sync or verify (check SCP_SKILL_TARGETS_FILE and SCP_ADAPTER_TARGETS_FILE)" >&2
   exit 1
 fi
 

@@ -148,7 +148,7 @@ policy rows. The sender hard-codes none of that vocabulary or policy.
 ```
 cargo fmt --check
 cargo clippy --locked --all-targets -- -D warnings
-cargo test --locked        # run the whole suite so examples/fake_cmux is built
+cargo test --locked        # the fake pane double is built from tests/support at runtime
 ```
 
 Toolchain: 1.88.0 (`rust-toolchain.toml`), `Cargo.lock` committed.

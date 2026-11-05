@@ -1,4 +1,4 @@
-# Capability adoption (0.9.0)
+# Capability adoption (0.9.1)
 
 The default server deployment preserves all 48 tools, all 27 static resources and the registry resource template. Existing `govdispRegistry.enabled` / `ODIN_GOVDISP_REGISTRY_MCP` opt-out behavior remains unchanged.
 

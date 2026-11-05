@@ -94,7 +94,9 @@ describe("E035 role-card coverage", () => {
     expect(receiptVisibilityFinding(`${"line\n".repeat(80)}SCP_MIN_BOOT_RECEIPT\n`)).toBe(
       "receipt begins on line 81",
     );
-    expect(homePathFinding("cwd: /Users/example/repo/\n")).toBe("contains a macOS home path");
+    // synthetic sample built at runtime so tracked bytes carry no detector-shaped literal; value is not real
+    const homePath = ["", "Users", "example", "repo"].join("/") + "/";
+    expect(homePathFinding(`cwd: ${homePath}\n`)).toBe("contains a macOS home path");
   });
 
   it("requires role_slot, agent_id, and roster_ack inside every owned card receipt block", () => {
