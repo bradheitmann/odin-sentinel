@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.9.0 - 2026-11-05
+
+First release since 0.8.0 (2026-10-20). No protocol, tool or resource contract breaks: the tool and resource counts, the registry opt-out and MIN_COMPATIBLE_CHILD_MCP (0.4.5) are unchanged.
+
+- **Security: the two high advisories that failed the release check on every branch are cleared.** `zod` moves to 4.6.7 and `body-parser` is overridden to `^2.4.0` with a dated exception record, so `audit:deps` reports nothing unaccepted at high or above (#6).
+- **Typed delivery verdicts.** `odin.validate_cmux_delivery_proof` accepts an optional `record_kind`: absent or `delivery` keeps every existing verdict byte for byte, and `send_refusal` is a typed non-delivery record, so a pre-send refusal (a busy pane) validates as `not_delivered` instead of `invalid`. Every result carries an additive `delivery` field derived from its final verdict (`delivered`, `delivered_no_ack`, `not_delivered`, `not_proven`); an invalid result is always `not_proven` (#9).
+- **The event registry tools work on the default server.** The CLI binds the shipped filesystem store at startup, so `odin_append_event` and `odin_query_events` no longer fail closed on an unconfigured server; a zero-argument `createServer()` still fails closed, and the append tool names where it writes and how to override it (#21).
+- **Registry lock: a budget with backoff, then asynchronous.** A contending writer gets capped exponential backoff with jitter under a 10 s budget instead of roughly 0.5 s, with fail-closed behaviour, the `lock_unavailable` code and the `events.lock` field unchanged (#10); the wait then moves to async timers, so a contended lock can no longer block the MCP server's event loop (#20).
+- **The lease CLI, for recurring jobs run by more than one runner.** `odin-sentinel lease <acquire|renew|release|check|status>` prints one JSON object per call: each slot has one holder, an expiry with a skew allowance, and a fencing token that only increases, and every read-modify-write goes through the existing registry lock (#24). Slots can be restricted to an allow-list, `acquire --slots a,b` grants the first free slot (or the one this holder already holds) and is refused with `all_slots_held` listing each holder and expiry, and `docs/reference/lease.md` documents the field case (#28).
+- **The install sync re-pins harness MCP registrations.** The sync script reads the master's release and rewrites only the version text of an older `x.y.z` pin in the harness config files it knows, leaving inode, mode, symlinks and every other byte intact. A pin that is newer, a prerelease or not a release number is reported as `UNMANAGED` and never rewritten; `--dry-run` and `--verify-only` write nothing; stale, unmanaged or refused pins make the run exit non-zero in every mode (#2).
+- **The narrowed secret scan.** The "secret-looking unquoted assignment" rule exempts a value only when the whole value is a dotted identifier path with no digit (property-access code). Everything that matched before still matches, and both copies of the rule stay byte-identical (#27).
+- **`CONTRIBUTING.md`** documents the landing procedure, so the commit, gate and CI expectations are written down for contributors (#29).
+- **The public audit covers more of the public surface.** `charter/` (#12) and `crates/` (#16) are audited like `docs/` and `protocol/`, every GitHub Action is pinned to a full commit sha (#13), and the private-path rule gains one JSON-aware allowance, limited to the top-level `roots` of a retirement record, so a retirement record can name the directory it retires while every other file, field and rule still fails (#33).
+- **The common engineering standard v0.2** is adopted and its gaps recorded (#8), and the standard is re-pinned to its owner-ratified revision (#35).
+- **Repository tooling.** The Rust sender sidecar, its typed proof records, mid-turn delivery policy, proof integrity and the provider-capped seat state ship in the repository for team delivery proof (#7, #14, #15, #17, #31). It is not part of the npm package and changes no MCP surface.
+- **Project governance and records.** Charter pins, measured cost rows, STATE refreshes, close rulings and the fleet charter CI job (#11, #18, #19, #22, #23, #25, #26, #30, #32, #34, #36).
+
 ## 0.8.0 - 2026-10-19
 
 - Full MCP deployment remains the default, with strict optional protocol, governance and telemetry capability selection. Disabled groups have no registered handlers; existing registry authority flags and telemetry consent/authentication remain intact.
