@@ -37,6 +37,12 @@ never seen the repository; follow it in order.
 5. **Freeze, validate the receipt, accept, record cost, and check.** With independent QA passed
    and CI green on the tip:
 
+   "CI green" in this file means every job except the charter job passes. The charter job is
+   not required. While the charter source is unreachable from hosted runners, it fails as
+   "charter NOT CHECKED": that red says no charter check ran there, and it does not block. The
+   local `charter check --strict` run by the pre-push hook is the enforcing check. A charter
+   job that fails for any other reason is a real red.
+
    ```
    charter freeze <slice>
    charter reopen <slice> --proof all --run-id <qa-run-id> --evidence <QA report file>

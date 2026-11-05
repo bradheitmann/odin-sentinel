@@ -104,16 +104,19 @@ jobs:
       - name: Test
         run: cargo test --locked
 
-  # Charter check (pattern C, template v2). Non-required while the charter
-  # source is unreachable from this runner: it then prints a typed "charter not
-  # run" line and passes. When the source is reachable it installs the pinned
-  # commit and enforces `check --strict` with no edit here. Local hooks and the
-  # pre-push `check --strict` enforce Charter meanwhile.
+  # Charter check (pattern C, template v3). Non-required, so a red charter job
+  # never blocks a merge; honest, so it never reports success for a check it did
+  # not run. While the charter source is unreachable from this runner the probe
+  # FAILS the job as "charter NOT CHECKED" (an error annotation and a NOT CHECKED
+  # step summary), because v2's green on that path checked nothing. When the
+  # source is reachable it installs the pinned commit and enforces
+  # `check --strict` with no edit here. Local hooks and the pre-push
+  # `check --strict` enforce Charter meanwhile.
   charter:
-    name: charter (non-required while the charter source is unreachable)
+    name: charter (non-required; fails as NOT CHECKED while the charter source is unreachable)
     runs-on: ubuntu-latest
     env:
-      CHARTER_REV: b9323cd119f2ef2fe83db21b8ed8f844215e8852
+      CHARTER_REV: cf05eb5c9a1f1768d7aed8edee087e992bd9ad16
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6
         with:
@@ -125,7 +128,9 @@ jobs:
             echo "reachable=true" >> "$GITHUB_OUTPUT"
           else
             echo "reachable=false" >> "$GITHUB_OUTPUT"
-            echo "charter not run: charter source unreachable from this runner"
+            echo "::error title=charter NOT CHECKED::charter source unreachable from this runner; nothing was checked"
+            echo "charter NOT CHECKED: the charter source is unreachable from this runner, so no charter check ran. This job is non-required: it is red to say the check did not happen, not to block a merge." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
           fi
       - if: steps.probe.outputs.reachable == 'true'
         uses: dtolnay/rust-toolchain@360a4e93673de6630fac2478bc9e35244b01a759  # 1.88.0
