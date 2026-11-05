@@ -494,7 +494,7 @@ describe("execFileNoThrow", () => {
 });
 
 // ---------------------------------------------------------------------------
-// CmuxBackend — empty text on failure (mocked execFileNoThrow)
+// CmuxBackend — capture failure throws (mocked execFileNoThrow)
 // ---------------------------------------------------------------------------
 
 describe("CmuxBackend", () => {
@@ -522,7 +522,9 @@ describe("CmuxBackend", () => {
     return mod.CmuxBackend;
   }
 
-  it("returns empty text when the cmux command fails", async () => {
+  // quality-fix-1 F-27: a failed capture throws (the poll loop reports it) instead of
+  // returning an empty snapshot that is hashed, archived, and classified as real.
+  it("throws when the cmux command fails, and archives nothing", async () => {
     dir = mkdtempSync(join(tmpdir(), "odin-watch-cmux-"));
     const CmuxBackend = await loadBackendWith({
       status: 1,
@@ -530,13 +532,8 @@ describe("CmuxBackend", () => {
       stderr: "cmux: command not found",
     });
     const backend = new CmuxBackend(dir);
-    const snapshot = await backend.capture("pane-1");
-    expect(snapshot.text).toBe("");
-    expect(snapshot.hash).toBe(
-      createHash("sha256").update("").digest("hex")
-    );
-    expect(snapshot.substrate).toBe("cmux");
-    expect(snapshot.pane_id).toBe("pane-1");
+    await expect(backend.capture("pane-1")).rejects.toThrow(/cmux capture of pane-1 failed \(exit 1\)/);
+    expect(readdirSync(dir)).toEqual([]);
   });
 
   it("returns stdout text and archives it on success", async () => {

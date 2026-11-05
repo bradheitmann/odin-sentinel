@@ -30,7 +30,7 @@ function baseInput(overrides: Partial<ClassifierInput> = {}): ClassifierInput {
 }
 
 // ---------------------------------------------------------------------------
-// TmuxBackend — empty text on failure (mocked execFileNoThrow)
+// TmuxBackend — capture failure throws (mocked execFileNoThrow)
 // ---------------------------------------------------------------------------
 
 describe("TmuxBackend", () => {
@@ -58,7 +58,9 @@ describe("TmuxBackend", () => {
     return mod.TmuxBackend;
   }
 
-  it("failure path: non-zero exit produces empty text and sha256-of-empty", async () => {
+  // quality-fix-1 F-27: a failed capture throws (the poll loop reports it) instead of
+  // returning an empty snapshot that is hashed, archived, and classified as real.
+  it("failure path: non-zero exit throws and archives nothing", async () => {
     dir = mkdtempSync(join(tmpdir(), "odin-watch-tmux-"));
     const TmuxBackend = await loadBackendWith({
       status: 1,
@@ -66,13 +68,8 @@ describe("TmuxBackend", () => {
       stderr: "tmux: command not found",
     });
     const backend = new TmuxBackend(dir);
-    const snapshot = await backend.capture("pane-1");
-    expect(snapshot.text).toBe("");
-    expect(snapshot.hash).toBe(
-      createHash("sha256").update("").digest("hex")
-    );
-    expect(snapshot.substrate).toBe("tmux");
-    expect(snapshot.pane_id).toBe("pane-1");
+    await expect(backend.capture("pane-1")).rejects.toThrow(/tmux capture of pane-1 failed \(exit 1\)/);
+    expect(readdirSync(dir)).toEqual([]);
   });
 
   it("success path: returns stdout text and archives it", async () => {
@@ -96,7 +93,7 @@ describe("TmuxBackend", () => {
     expect(content).toBe("tmux pane contents");
   });
 
-  it("tmux not installed: ENOENT produces empty text (no throw)", async () => {
+  it("tmux not installed: ENOENT throws a capture failure naming the cause", async () => {
     dir = mkdtempSync(join(tmpdir(), "odin-watch-tmux-"));
     const TmuxBackend = await loadBackendWith({
       status: 1,
@@ -104,11 +101,7 @@ describe("TmuxBackend", () => {
       stderr: "spawn tmux ENOENT",
     });
     const backend = new TmuxBackend(dir);
-    const snapshot = await backend.capture("my-pane");
-    expect(snapshot.text).toBe("");
-    expect(snapshot.hash).toBe(
-      createHash("sha256").update("").digest("hex")
-    );
+    await expect(backend.capture("my-pane")).rejects.toThrow(/spawn tmux ENOENT/);
   });
 });
 

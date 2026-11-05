@@ -3,7 +3,6 @@ import { join } from "node:path";
 import type { WakeState } from "../protocol/schemas.js";
 import { writeFileNoFollow } from "../utils/no-follow.js";
 import {
-  GOVDISP_REGISTRY_AUTHORITY_FLAG_ENV_VAR,
   appendGovdispEvent,
   isGovdispRegistryAuthorityEnabled,
   type GovdispRegistryStoreLike
@@ -28,17 +27,11 @@ import {
  */
 
 /**
- * The compatibility flag gating FINDING_OPENED emission. This is the SAME
- * flag as the MCP registry compatibility surface (src/mcp/server.ts); the
- * read is unified in the protocol service layer (readGovdispRegistryMode,
- * src/protocol/service.ts) so every consumer shares one reader and the
- * odin-watch binary stays free of MCP-server imports.
- */
-export const GOVDISP_REGISTRY_WATCH_FLAG_ENV_VAR = GOVDISP_REGISTRY_AUTHORITY_FLAG_ENV_VAR;
-
-/**
- * Read the emission flag via the unified reader (Amendment 46): ACTIVE BY
- * DEFAULT as of 0.6.0 — unset or empty resolves ON; an explicit truthy value
+ * Read the emission flag via the unified reader (Amendment 46). This is the
+ * SAME flag as the MCP registry compatibility surface (src/mcp/server.ts);
+ * the read is unified in the protocol service layer so every consumer shares
+ * one reader and the odin-watch binary stays free of MCP-server imports.
+ * ACTIVE BY DEFAULT as of 0.6.0 — unset or empty resolves ON; an explicit truthy value
  * (1/true/yes/on, case- and whitespace-insensitive) resolves ON; any other
  * non-empty value (0/false/off/no/...) is the explicit opt-out and resolves
  * OFF, so a mistaken "0"/"false" fully disables the emission, never
