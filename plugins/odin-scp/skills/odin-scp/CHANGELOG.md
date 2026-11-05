@@ -15,7 +15,7 @@ First release since 0.8.0 (2026-10-20). No protocol, tool or resource contract b
 - **The public audit covers more of the public surface.** `charter/` (#12) and `crates/` (#16) are audited like `docs/` and `protocol/`, every GitHub Action is pinned to a full commit sha (#13), and the private-path rule gains one JSON-aware allowance, limited to the top-level `roots` of a retirement record, so a retirement record can name the directory it retires while every other file, field and rule still fails (#33).
 - **The common engineering standard v0.2** is adopted and its gaps recorded (#8), and the standard is re-pinned to its owner-ratified revision (#35).
 - **Repository tooling.** The Rust sender sidecar, its typed proof records, mid-turn delivery policy, proof integrity and the provider-capped seat state ship in the repository for team delivery proof (#7, #14, #15, #17, #31). It is not part of the npm package and changes no MCP surface.
-- **Project governance and records.** Charter pins, measured cost rows, STATE refreshes, close rulings and the fleet charter CI job (#11, #18, #19, #22, #23, #25, #26, #30, #32, #34, #36).
+- **Project governance and records.** Charter pins, measured cost rows, STATE refreshes, close rulings and the fleet charter CI job (#11, #18, #19, #22, #23, #25, #26, #30, #32, #34, #36, #37).
 
 ## 0.8.0 - 2026-10-19
 
