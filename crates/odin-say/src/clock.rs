@@ -26,12 +26,20 @@ impl RealClock {
         Self::with_scale(
             std::env::var("ODIN_SAY_TIME_SCALE")
                 .ok()
-                .and_then(|v| v.parse().ok())
+                .and_then(|v| v.trim().parse::<f64>().ok())
                 .unwrap_or(1.0),
         )
     }
 
+    /// A scale is used only when it is finite and non-negative. `Duration::mul_f64` panics on
+    /// anything else, and the first sleep comes AFTER the text is typed, so an `inf` or NaN
+    /// scale would send the line and write no proof record. An unusable value falls back to 1.0.
     pub fn with_scale(time_scale: f64) -> Self {
+        let time_scale = if time_scale.is_finite() && time_scale >= 0.0 {
+            time_scale
+        } else {
+            1.0
+        };
         Self {
             start: Instant::now(),
             time_scale,

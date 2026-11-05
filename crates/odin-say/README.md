@@ -10,7 +10,7 @@ text is submitted with Enter and processing is verified on the target by a read-
 ## Usage
 
 ```
-odin-say say <surface> <text...> [--poll-secs N] [--wait-secs N] [--proof FILE] [--sender-role ROLE] [--pane-rules FILE]
+odin-say say <surface> <text...> [--poll-secs N] [--wait-secs N] [--proof FILE] [--sender-role ROLE] [--pane-rules FILE] [--harness NAME]
 odin-say status <surface> [--pane-rules FILE]
 ```
 
@@ -103,7 +103,7 @@ record was not written is never exit 0.
 One JSON object per attempt, append-only:
 
 ```json
-{"record_kind":"delivery","timestamp":"2026-10-31T00:00:00Z","subcommand":"say","target_surface_locator":"surface:7","submitted":true,"verification_method":"read_screen","observed_processing_state":"DELIVERED_ACKED","sender_role":"EXEC PM","note":"echoed","polls":1,"waited_ms":0}
+{"record_kind":"delivery","timestamp":"2026-10-31T00:00:00Z","subcommand":"say","target_surface_locator":"surface:7","submitted":true,"verification_method":"read_screen","observed_processing_state":"DELIVERED_ACKED","sender_role":"EXEC PM","note":"echoed","polls":1,"waited_ms":0,"harness":"codex","harness_source":"detected","queued":false,"reset_at":null,"cap_marker":null}
 ```
 
 Records are written as one buffered `write_all` of the JSON line plus its newline on an

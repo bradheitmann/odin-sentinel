@@ -49,7 +49,7 @@ enum Command {
         #[arg(long)]
         harness: Option<String>,
     },
-    /// Classify a pane (blocked, busy, stale_input, idle) without sending anything.
+    /// Classify a pane (blocked, busy, capped, stale_input, idle) without sending anything.
     Status {
         surface: String,
         /// Pane-rules JSON file (default: the embedded rules).

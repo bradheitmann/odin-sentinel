@@ -46,10 +46,6 @@ pub struct RealCmux {
 }
 
 impl RealCmux {
-    pub fn from_env() -> Self {
-        Self::new(&std::env::var("ODIN_SAY_CMUX").unwrap_or_else(|_| "cmux".into()))
-    }
-
     pub fn new(binary: &str) -> Self {
         Self {
             binary: binary.into(),
