@@ -57,14 +57,17 @@ ODIN uses a simple PM/DEV/QA pattern for visible multi-agent work.
 - Do not ask the operator to paste secrets. Ask whether each harness is already
   provisioned through an account, environment, secret manager, or local config.
 
-## Engineering Standard
+## Engineering Standard (repository checkout only)
+
+This section applies to a checkout of the repository. The npm package does not ship
+`CONTRIBUTING.md` or `charter/`, so package consumers can skip it.
 
 This repository adopts the common engineering standard v0.2, owner-ratified on
 2026-11-04 (https://github.com/bradheitmann/mister-clean/blob/b87c397/COMMON-STANDARD.md).
 Where the standard and `charter/` disagree, the charter governs until the owner
 records a decision. Open gaps against the standard are listed as obligations in
 `charter/STATE.md`, which is this repository's single current-state surface.
-The landing procedure for a change (done list, independent QA, CI, freeze/accept, merge, worktree cleanup) and the test, public-surface and packaging rules are in [CONTRIBUTING.md](CONTRIBUTING.md).
+The landing procedure for a change (done list, independent QA, CI, freeze/accept, merge, worktree cleanup) and the test, public-surface and packaging rules are in [CONTRIBUTING.md](https://github.com/bradheitmann/odin-sentinel/blob/main/CONTRIBUTING.md).
 
 ## Completion Report
 

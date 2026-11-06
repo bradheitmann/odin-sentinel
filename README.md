@@ -33,6 +33,16 @@ For a starter team shape, read [docs/guides/recommended-starter-team.md](docs/gu
   assigned to roles, and monitored.
 - Native skill or prompt fallback: the instructions that teach an agent how to
   behave in this system.
+- SCP: Sentinel Coordination Protocol, the role, startup, receipt, delegation,
+  and closeout rules this package serves. It is not Secure Copy.
+- EXEC PM / TEAM PM: the executive project manager decides launch timing,
+  staffing, and readiness waivers; a team project manager only routes work
+  inside a team the EXEC PM has already launched.
+- ODIN role: a monitoring role (the "ODIN watchers" above) that tracks health,
+  scope, readiness, delivery, and drift, and can prod or escalate. It does not
+  implement, accept QA, or launch teams.
+- Child MCP version: the version of the ODIN Sentinel MCP server running in a
+  role's own session. The protocol names the oldest one it accepts (`0.4.5`).
 
 ## Minimum Governed-Team Checklist
 
@@ -210,6 +220,7 @@ not shipped product internals and are not required for public users.
 - `odin://protocol/authority-chain`
 - `odin://protocol/blocked-pod-rollover`
 - `odin://protocol/slice-health-sentinels`
+- `odin://protocol/pod-bringup`
 - `odin://protocol/receipts/team-manifest`
 - `odin://protocol/bootstrap-skill`
 - `odin://protocol/skill-references/boot-receipt-examples`

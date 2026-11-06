@@ -18,11 +18,14 @@ telemetry wording drift, and package contents that should not ship.
 
 The intended public package includes:
 
+- `.claude-plugin/`
 - `dist/`
 - `docs/`
+- `plugins/`
 - `protocol/`
 - `templates/`
 - `scripts/audit/`
+- `scripts/protocol/`
 - `AGENTS.md`
 - `CLAUDE.md`
 - `README.md`

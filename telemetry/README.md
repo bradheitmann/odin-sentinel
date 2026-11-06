@@ -40,17 +40,18 @@ npm install -g pnpm                    # if you don't already have pnpm
 pnpm install
 pnpm run db:create                     # prints a database_id for local/deploy config
 cp wrangler.toml wrangler.deploy.toml  # keep account-specific IDs out of git
-pnpm run db:migrate                    # applies schema.sql to remote D1
-pnpm exec wrangler secret put INGEST_TOKEN # provision a random secret of at least 32 characters
-pnpm run deploy                        # uploads the Worker
+# Edit wrangler.deploy.toml and put the printed database_id in it (gitignored file).
+pnpm exec wrangler d1 execute odin-sentinel-telemetry --remote --file schema.sql --config wrangler.deploy.toml  # applies schema.sql to remote D1
+pnpm exec wrangler secret put INGEST_TOKEN --config wrangler.deploy.toml # provision a random secret of at least 32 characters
+pnpm run deploy:configured             # uploads the Worker using wrangler.deploy.toml
 ```
 
-If you keep the checked-in `wrangler.toml` placeholder unchanged, put the real
-`database_id` in the gitignored `wrangler.deploy.toml` file and deploy with:
-
-```bash
-pnpm run deploy:configured
-```
+Use `deploy:configured` rather than `deploy`: `deploy` reads the checked-in
+`wrangler.toml`, which holds a placeholder `database_id`. The `db:migrate*`
+scripts also read `wrangler.toml` and have no `--config` variant, so either edit
+the real `database_id` into `wrangler.toml` in place (and do not commit that
+edit), or run the same `wrangler d1 execute ...` command by hand with
+`--config wrangler.deploy.toml`, as the schema step above does.
 
 The checked-in config sets `workers_dev = false` so deployments do not expose an
 account-identifying `*.workers.dev` endpoint by default. To collect telemetry
