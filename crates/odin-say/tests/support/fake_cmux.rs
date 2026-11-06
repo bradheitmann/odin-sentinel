@@ -1,7 +1,8 @@
 //! Test double for the pane multiplexer binary, driven by environment variables:
 //! `FAKE_CMUX_DIR` holds `screen.1`, `screen.2`, ... (the Nth read-screen prints screen.N,
 //! the last one repeats) and receives `log` (one line of arguments per call).
-//! `FAKE_CMUX_FAIL_SEND=1` makes `send` and `send-key` exit 1.
+//! `FAKE_CMUX_FAIL_SEND=1` makes `send` and `send-key` exit 1, and
+//! `FAKE_CMUX_FAIL_READ=1` makes `read-screen` exit 1.
 
 use std::io::Write;
 
@@ -27,6 +28,10 @@ fn main() {
             let mut pick = n;
             while pick > 1 && !dir.join(format!("screen.{pick}")).exists() {
                 pick -= 1;
+            }
+            // Test hook: a pane read that fails, as a non-zero `read-screen` does.
+            if std::env::var("FAKE_CMUX_FAIL_READ").is_ok_and(|v| v == "1") {
+                std::process::exit(1);
             }
             let text =
                 std::fs::read_to_string(dir.join(format!("screen.{pick}"))).unwrap_or_default();

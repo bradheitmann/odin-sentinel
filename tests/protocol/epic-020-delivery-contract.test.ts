@@ -237,6 +237,62 @@ describe("canonical governed send helper (cmux-send-governed.sh)", () => {
     expect(sendKeys(res)).toHaveLength(2);
   });
 
+  // --- Quality pass F-08..F-11 (cmux-send-governed.sh) ---
+
+  it("F-08: a value-taking flag given last exits 2 with a message naming the flag", () => {
+    for (const flag of ["--profile", "--workspace", "--verify-cmd"]) {
+      const res = spawnSync("sh", [helperPath, "--dry-run", "--workspace", "w", "--surface", "s", flag], {
+        encoding: "utf8"
+      });
+      expect(res.status, flag).toBe(2);
+      expect(res.stderr, flag).toContain(`${flag} requires a value`);
+    }
+  });
+
+  it("F-09: --harness with no seed names the harness instead of claiming no flag was given", () => {
+    const res = spawnSync(
+      "sh",
+      [helperPath, "--dry-run", "--workspace", "w", "--surface", "s", "--harness", "nonexistent", "hi"],
+      { encoding: "utf8" }
+    );
+    expect(res.status).toBe(2);
+    expect(res.stderr).toContain("no submit_profile found for harness 'nonexistent'");
+    expect(res.stderr).not.toContain("--profile or --harness is required");
+  });
+
+  it("F-10: no dead shellcheck suppression remains in the helper", () => {
+    const body = readFileSync(helperPath, "utf8");
+    expect(body).not.toContain("SC2086");
+  });
+
+  it("F-11: the --dry-run header sentence names the --verify exception", () => {
+    // The sentence that promises "no execution" must itself state the read-only exception,
+    // otherwise a caller reads --dry-run as "nothing runs" and misses the verify read.
+    const promiseLines = readFileSync(helperPath, "utf8")
+      .split("\n")
+      .filter((line) => line.startsWith("#") && /no execution/i.test(line));
+    expect(promiseLines.length, "no --dry-run header sentence found").toBeGreaterThan(0);
+    expect(promiseLines.join("\n")).toMatch(/--verify/i);
+  });
+
+  it("F-11: --dry-run --verify still performs its read-only read-screen (behaviour unchanged)", () => {
+    const binDir = mkdtempSync(join(tmpdir(), "odin-cmux-stub-"));
+    const log = join(binDir, "log");
+    const stub = join(binDir, "cmux");
+    writeFileSync(stub, `#!/bin/sh\nprintf '%s\\n' "$*" >> ${JSON.stringify(log)}\nprintf 'ready\\n'\n`);
+    chmodSync(stub, 0o755);
+    const res = spawnSync(
+      "sh",
+      [helperPath, "--dry-run", "--verify", "--workspace", "w", "--surface", "s", "--profile", "single_enter_verify", "hello"],
+      { encoding: "utf8", env: { ...process.env, PATH: `${binDir}${delimiter}${process.env.PATH ?? ""}` } }
+    );
+    expect(res.status).toBe(0);
+    const calls = readFileSync(log, "utf8").trim().split("\n").filter(Boolean);
+    expect(calls.some((line) => line.includes("read-screen"))).toBe(true);
+    // Dry-run still never SENDS.
+    expect(calls.some((line) => line.startsWith("send"))).toBe(false);
+  });
+
   it("D3: single_enter_verify with --verify does NOT re-Enter when the input bar no longer shows the head", () => {
     const res = dryRun([
       "--workspace", "6", "--surface", "108", "--profile", "single_enter_verify",

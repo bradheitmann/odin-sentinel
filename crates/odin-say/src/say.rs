@@ -28,6 +28,9 @@ pub const EXIT_STUCK_AFTER_ENTERS: i32 = 6;
 pub const EXIT_QUEUE_UNPROVEN: i32 = 7;
 /// The seat is capped by its provider: nothing was typed, nothing was waited for.
 pub const EXIT_SEAT_CAPPED: i32 = 10;
+/// The pane could not be read. Nothing is typed into a pane the sender cannot see, and a
+/// read-back that fails never turns a send into a delivery.
+pub const EXIT_READ_FAILED: i32 = 11;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -36,6 +39,7 @@ pub enum DeliveryState {
     DeliveredNoAck,
     InputBarOnly,
     PaneBlockedOnPermission,
+    PaneReadFailed,
     PaneStillThinking,
     SeatCapped,
 }
@@ -47,6 +51,7 @@ impl DeliveryState {
             Self::DeliveredNoAck => "DELIVERED_NO_ACK",
             Self::InputBarOnly => "INPUT_BAR_ONLY",
             Self::PaneBlockedOnPermission => "PANE_BLOCKED_ON_PERMISSION",
+            Self::PaneReadFailed => "PANE_READ_FAILED",
             Self::PaneStillThinking => "PANE_STILL_THINKING",
             Self::SeatCapped => "SEAT_CAPPED",
         }
@@ -456,7 +461,24 @@ pub fn deliver(
     // measured on the monotonic clock so screen-read time counts too (not just sleeps).
     let mut first_busy_at: Option<u64> = None;
     let mut waited_ms: u64 = 0;
-    let mut screen = tail14(&cmux.read_screen(surface));
+    let mut screen = match cmux.read_screen(surface) {
+        Ok(raw) => tail14(&raw),
+        Err(failure) => {
+            // A pane that cannot be read is not an empty, idle pane: refuse before anything
+            // is typed, and name the failure in the record note and on stderr.
+            eprintln!("odin-say: {failure}");
+            let mut out = refuse(
+                DeliveryState::PaneReadFailed,
+                false,
+                "read-failed",
+                EXIT_READ_FAILED,
+                0,
+                0,
+            );
+            out.harness = identify(selector.flag.as_deref(), selector.env.as_deref(), "", rules);
+            return out;
+        }
+    };
     // Identity is resolved against the pane itself when no flag or environment says.
     let identity = identify(
         selector.flag.as_deref(),
@@ -465,14 +487,43 @@ pub fn deliver(
         rules,
     );
 
+    // Re-classified after EVERY re-read below: a pane can turn into a permission prompt after
+    // the overlay Escape or during the busy wait, and nothing may be typed into it then.
+    let blocked_here = |screen: &str| blocked(screen, rules);
+
     let outcome = (|| {
         if blocked(&screen, rules) {
             if screen.contains(rules.dismissible_overlay.as_str()) {
                 // The overlay is dismissible: Escape, wait, re-read, proceed.
                 cmux.send_key(surface, "Escape");
                 clock.sleep(Duration::from_secs(1));
-                screen = tail14(&cmux.read_screen(surface));
+                match cmux.read_screen(surface) {
+                    Ok(raw) => screen = tail14(&raw),
+                    Err(failure) => {
+                        eprintln!("odin-say: {failure}");
+                        return refuse(
+                            DeliveryState::PaneReadFailed,
+                            false,
+                            "read-failed-after-escape",
+                            EXIT_READ_FAILED,
+                            polls,
+                            waited_ms,
+                        );
+                    }
+                }
                 polls += 1;
+                // The pane behind the overlay can BE a permission prompt. Every re-read is
+                // classified again before anything is typed into it.
+                if blocked_here(&screen) {
+                    return refuse(
+                        DeliveryState::PaneBlockedOnPermission,
+                        false,
+                        "pre-send",
+                        EXIT_BLOCKED,
+                        polls,
+                        waited_ms,
+                    );
+                }
             } else {
                 return refuse(
                     DeliveryState::PaneBlockedOnPermission,
@@ -505,7 +556,22 @@ pub fn deliver(
                     clock.sleep(Duration::from_millis(1500));
                     cmux.send_key(surface, "Enter");
                     clock.sleep(Duration::from_secs(3));
-                    let read_back = tail14(&cmux.read_screen(surface));
+                    let read_back = match cmux.read_screen(surface) {
+                        Ok(raw) => tail14(&raw),
+                        Err(failure) => {
+                            // Text was typed, so this is a submitted attempt whose verification
+                            // failed: it is never reported as a delivery.
+                            eprintln!("odin-say: {failure}");
+                            return refuse(
+                                DeliveryState::PaneReadFailed,
+                                true,
+                                "read-back-failed",
+                                EXIT_READ_FAILED,
+                                polls,
+                                waited_ms,
+                            );
+                        }
+                    };
                     if shows_queued(&read_back, &flat, rules, &identity.harness) {
                         return queued("queued", polls);
                     }
@@ -521,6 +587,8 @@ pub fn deliver(
                 }
                 MidTurn::Refuse => {
                     // Bounded wait: poll until the pane is idle or the wall-clock budget is spent.
+                    // Every poll re-reads the pane, so every poll also re-checks `blocked`: a
+                    // permission prompt that appears mid-wait is never typed into.
                     loop {
                         let busy_at = first_busy_at.unwrap_or(0);
                         let waited = clock.elapsed_ms() - busy_at;
@@ -529,8 +597,32 @@ pub fn deliver(
                         }
                         let step = poll_ms.min(budget_ms - waited);
                         clock.sleep(Duration::from_millis(step));
-                        screen = tail14(&cmux.read_screen(surface));
+                        match cmux.read_screen(surface) {
+                            Ok(raw) => screen = tail14(&raw),
+                            Err(failure) => {
+                                eprintln!("odin-say: {failure}");
+                                return refuse(
+                                    DeliveryState::PaneReadFailed,
+                                    false,
+                                    "read-failed-while-waiting",
+                                    EXIT_READ_FAILED,
+                                    polls,
+                                    waited_ms,
+                                );
+                            }
+                        }
                         polls += 1;
+                        if blocked_here(&screen) {
+                            waited_ms = clock.elapsed_ms() - first_busy_at.unwrap_or(0);
+                            return refuse(
+                                DeliveryState::PaneBlockedOnPermission,
+                                false,
+                                "pre-send",
+                                EXIT_BLOCKED,
+                                polls,
+                                waited_ms,
+                            );
+                        }
                         if !busy(&screen, rules) {
                             break;
                         }
@@ -567,7 +659,31 @@ pub fn deliver(
         if stale_input(&screen) {
             cmux.send_key(surface, "Enter");
             clock.sleep(Duration::from_secs(3));
-            screen = tail14(&cmux.read_screen(surface));
+            match cmux.read_screen(surface) {
+                Ok(raw) => screen = tail14(&raw),
+                Err(failure) => {
+                    eprintln!("odin-say: {failure}");
+                    return refuse(
+                        DeliveryState::PaneReadFailed,
+                        false,
+                        "read-failed-after-stale-enter",
+                        EXIT_READ_FAILED,
+                        polls,
+                        waited_ms,
+                    );
+                }
+            }
+            // Clearing stale text can uncover a prompt; classify this re-read too.
+            if blocked(&screen, rules) {
+                return refuse(
+                    DeliveryState::PaneBlockedOnPermission,
+                    false,
+                    "pre-send",
+                    EXIT_BLOCKED,
+                    polls,
+                    waited_ms,
+                );
+            }
             if stale_input(&screen) {
                 return refuse(
                     DeliveryState::InputBarOnly,
@@ -593,7 +709,20 @@ pub fn deliver(
         clock.sleep(Duration::from_millis(1500));
         cmux.send_key(surface, "Enter");
         clock.sleep(Duration::from_secs(3));
-        screen = tail14(&cmux.read_screen(surface));
+        match cmux.read_screen(surface) {
+            Ok(raw) => screen = tail14(&raw),
+            Err(failure) => {
+                eprintln!("odin-say: {failure}");
+                return refuse(
+                    DeliveryState::PaneReadFailed,
+                    true,
+                    "read-back-failed",
+                    EXIT_READ_FAILED,
+                    polls,
+                    waited_ms,
+                );
+            }
+        }
 
         let head: String = flat.chars().take(40).collect();
         let in_bar = |screen: &str| input_bar(screen).is_some_and(|b| b.contains(head.as_str()));
@@ -601,7 +730,20 @@ pub fn deliver(
             // single_enter_verify: re-Enter ONCE.
             cmux.send_key(surface, "Enter");
             clock.sleep(Duration::from_secs(3));
-            screen = tail14(&cmux.read_screen(surface));
+            match cmux.read_screen(surface) {
+                Ok(raw) => screen = tail14(&raw),
+                Err(failure) => {
+                    eprintln!("odin-say: {failure}");
+                    return refuse(
+                        DeliveryState::PaneReadFailed,
+                        true,
+                        "read-back-failed-after-second-enter",
+                        EXIT_READ_FAILED,
+                        polls,
+                        waited_ms,
+                    );
+                }
+            }
             if in_bar(&screen) && !answered(&screen, &head) {
                 return refuse(
                     DeliveryState::InputBarOnly,

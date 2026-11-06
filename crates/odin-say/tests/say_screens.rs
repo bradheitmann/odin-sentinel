@@ -342,3 +342,70 @@ fn only_delivered_states_exit_zero() {
         "PANE_BLOCKED_ON_PERMISSION"
     );
 }
+
+// F-01: the blocked check must run again after every re-read, not only on the first read.
+// A pane that turns into a permission prompt after the dismissible-overlay Escape, or during
+// the busy wait, must be refused before anything is typed.
+
+#[test]
+fn a_permission_prompt_after_the_overlay_escape_is_refused_before_any_text() {
+    let cmux = StubCmux::new(&[
+        screen!("opencode_overlay"),
+        screen!("permission_prompt"),
+        screen!("permission_prompt"),
+    ]);
+    let (out, _clock) = run(&cmux, "do not type this");
+    assert_eq!(out.state, DeliveryState::PaneBlockedOnPermission);
+    assert_eq!((out.submitted, out.exit), (false, 2));
+    assert!(
+        cmux.texts().is_empty(),
+        "no text may be sent to a blocked pane"
+    );
+    assert_eq!(
+        cmux.keys(),
+        vec!["Escape"],
+        "only the overlay Escape is sent"
+    );
+}
+
+#[test]
+fn a_permission_prompt_appearing_during_the_busy_wait_is_refused_before_any_text() {
+    let cmux = StubCmux::new(&[screen!("claude_busy"), screen!("permission_prompt")]);
+    let (out, _clock) = run(&cmux, "do not type this");
+    assert_eq!(out.state, DeliveryState::PaneBlockedOnPermission);
+    assert_eq!((out.submitted, out.exit), (false, 2));
+    assert!(
+        cmux.texts().is_empty(),
+        "no text may be sent to a blocked pane"
+    );
+    assert!(
+        cmux.keys().is_empty(),
+        "no key may be sent to a blocked pane"
+    );
+}
+
+// F-02: a read-back that fails after the text was typed is a submitted attempt whose
+// verification failed — never a delivery.
+#[test]
+fn a_failed_read_back_is_never_reported_as_delivered() {
+    let cmux = StubCmux::new(&[screen!("codex_idle")]).with_read_failure_from(2);
+    let (out, _clock) = run(&cmux, "hello");
+    assert_eq!(out.state, DeliveryState::PaneReadFailed);
+    assert_eq!(out.note, "read-back-failed");
+    assert_eq!((out.submitted, out.exit), (true, 11));
+    assert!(!out.state.delivered());
+    // The text was typed once, so this is a submitted attempt, not a pre-send refusal.
+    assert_eq!(cmux.texts(), vec!["hello".to_string()]);
+}
+
+#[test]
+fn a_failed_first_read_refuses_with_nothing_typed() {
+    let cmux = StubCmux::new(&[screen!("codex_idle")]).with_read_failure_from(1);
+    let (out, clock) = run(&cmux, "hello");
+    assert_eq!(out.state, DeliveryState::PaneReadFailed);
+    assert_eq!(out.note, "read-failed");
+    assert_eq!((out.submitted, out.exit), (false, 11));
+    assert!(cmux.texts().is_empty());
+    assert!(cmux.keys().is_empty());
+    assert!(clock.sleeps_ms().is_empty());
+}

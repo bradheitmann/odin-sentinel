@@ -104,6 +104,11 @@ function makeFleet(targetNames: string[] = ["alpha", "beta"], adapterNames: stri
 }
 
 function runScript(args: string[], env: Record<string, string>) {
+  return runScriptWithShell("bash", args, env);
+}
+
+/** Run the shipped script under an EXPLICIT shell binary (the macOS 3.2 regression). */
+function runScriptWithShell(shell: string, args: string[], env: Record<string, string>) {
   // Strip every ambient SCP_* variable first: the overrides passed in are the
   // ONLY fleet configuration a run may see, so no operator environment can
   // redirect a test at a real installation path.
@@ -111,11 +116,76 @@ function runScript(args: string[], env: Record<string, string>) {
     Object.entries(process.env).filter(([key]) => !key.startsWith("SCP_"))
   ) as Record<string, string>;
 
-  return spawnSync("bash", [SCRIPT_PATH, ...args], {
+  return spawnSync(shell, [SCRIPT_PATH, ...args], {
     encoding: "utf8",
     env: { ...baseEnv, ...env }
   });
 }
+
+// ---------------------------------------------------------------------------
+// F-03: exactly ONE list empty, under macOS /bin/bash 3.2 (set -u).
+// bash 3.2 reports an empty array as an unbound variable, so the TARGETS and
+// ADAPTERS loops used to abort with "TARGETS[@]: unbound variable" instead of
+// printing the summary the script documents as legitimate.
+// ---------------------------------------------------------------------------
+
+describe("one empty list under an explicit /bin/bash (F-03)", () => {
+  const MACOS_SHELL = "/bin/bash";
+
+  it("prints the summary when the adapters list is empty and targets are not", () => {
+    const fleet = makeFleet();
+    expect(runScript([], fleet.env).status).toBe(0);
+    const emptyAdapters = join(fleet.root, "no-adapters.txt");
+    writeFileSync(emptyAdapters, "# no adapters on this machine\n");
+    const result = runScriptWithShell(MACOS_SHELL, ["--verify-only"], {
+      ...fleet.env,
+      SCP_ADAPTER_TARGETS_FILE: emptyAdapters
+    });
+    expect(result.stderr).not.toContain("unbound variable");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("adapter_targets: 0");
+    expect(result.stdout).toContain(`native_targets: ${fleet.targets.length}`);
+  });
+
+  it("prints the summary when the targets list is empty and adapters are not", () => {
+    const fleet = makeFleet();
+    expect(runScript([], fleet.env).status).toBe(0);
+    const emptyTargets = join(fleet.root, "no-targets.txt");
+    writeFileSync(emptyTargets, "# no native targets on this machine\n");
+    const result = runScriptWithShell(MACOS_SHELL, ["--verify-only"], {
+      ...fleet.env,
+      SCP_SKILL_TARGETS_FILE: emptyTargets
+    });
+    expect(result.stderr).not.toContain("unbound variable");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("native_targets: 0");
+    expect(result.stdout).toContain(`adapter_targets: ${fleet.adapters.length}`);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// F-04: BOTH lists empty is refused by name, in every mode (close-remediation-1
+// added the guard; this is its regression test).
+// ---------------------------------------------------------------------------
+
+describe("both target lists empty (F-04)", () => {
+  it("refuses by name instead of reporting a healthy empty fleet", () => {
+    const fleet = makeFleet();
+    const emptyTargets = join(fleet.root, "none-targets.txt");
+    const emptyAdapters = join(fleet.root, "none-adapters.txt");
+    writeFileSync(emptyTargets, "# nothing\n");
+    writeFileSync(emptyAdapters, "# nothing\n");
+    for (const args of [[], ["--verify-only"], ["--dry-run"]]) {
+      const result = runScript(args, {
+        ...fleet.env,
+        SCP_SKILL_TARGETS_FILE: emptyTargets,
+        SCP_ADAPTER_TARGETS_FILE: emptyAdapters
+      });
+      expect(result.status, `args=${args.join(" ")}`).toBe(1);
+      expect(result.stderr).toContain("empty target list");
+    }
+  });
+});
 
 // ---------------------------------------------------------------------------
 // POSITIVE CONTROL FIRST: the shipped fleet script on a healthy scratch fleet.

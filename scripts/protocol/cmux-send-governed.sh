@@ -34,7 +34,9 @@
 # Usage (flatten only — deterministic, no send):
 #   echo "<text>" | cmux-send-governed.sh --flatten-only --profile <submit_profile>
 #
-# Usage (dry-run — print the exact cmux commands that WOULD run, no execution):
+# Usage (dry-run — print the exact cmux commands that WOULD run, no execution; --verify still
+#   performs its read-only read-screen/--verify-cmd check under --dry-run, because that check
+#   decides the printed re-Enter):
 #   cmux-send-governed.sh --dry-run --workspace <ws> --surface <surf> \
 #       --profile <submit_profile> [--verify --verify-cmd "<cmd>"] "<text>"
 #
@@ -58,17 +60,27 @@ DRY_RUN=0
 VERIFY=0
 VERIFY_CMD=""
 
+# A value-taking flag given last would make `shift 2` fail before any message, so
+# the value is required explicitly and the refusal names the flag.
+need_value() {
+  # $2 is the CALLER's remaining-argument count: inside a function "$#" is the function's own.
+  if [ "$2" -lt 2 ]; then
+    echo "cmux-send-governed.sh: $1 requires a value" >&2
+    exit 2
+  fi
+}
+
 while [ $# -gt 0 ]; do
   case "$1" in
     --flatten-only) FLATTEN_ONLY=1; shift;;
     --dry-run) DRY_RUN=1; shift;;
     --verify) VERIFY=1; shift;;
-    --profile) PROFILE="${2-}"; shift 2;;
-    --harness) HARNESS="${2-}"; shift 2;;
-    --workspace) WORKSPACE="${2-}"; shift 2;;
-    --surface) SURFACE="${2-}"; shift 2;;
-    --target) TARGET="${2-}"; shift 2;;
-    --verify-cmd) VERIFY_CMD="${2-}"; shift 2;;
+    --profile) need_value "$1" "$#"; PROFILE="${2-}"; shift 2;;
+    --harness) need_value "$1" "$#"; HARNESS="${2-}"; shift 2;;
+    --workspace) need_value "$1" "$#"; WORKSPACE="${2-}"; shift 2;;
+    --surface) need_value "$1" "$#"; SURFACE="${2-}"; shift 2;;
+    --target) need_value "$1" "$#"; TARGET="${2-}"; shift 2;;
+    --verify-cmd) need_value "$1" "$#"; VERIFY_CMD="${2-}"; shift 2;;
     -h|--help)
       sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//'
       exit 0;;
@@ -108,6 +120,11 @@ if [ -z "$PROFILE" ] && [ -n "$HARNESS" ]; then
     # Matches the first submit_profile occurrence in the seed file.
     PROFILE=$(sed -n 's/.*"submit_profile"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$seed" | head -n 1)
   fi
+fi
+
+if [ -z "$PROFILE" ] && [ -n "$HARNESS" ]; then
+  echo "cmux-send-governed.sh: no submit_profile found for harness '$HARNESS'; pass --profile" >&2
+  exit 2
 fi
 
 if [ -z "$PROFILE" ]; then
@@ -227,10 +244,8 @@ emit_cmux() {
     printf '%s\n' "$*"
   else
     # D4: direct cmux invocation with literal argv. The caller passes already-
-    # formed argv via $@ (NOT a command string). The # shellcheck disable below
-    # is because emit_cmux is a thin argv-forwarder; we rely on its callers to
-    # pass each argv element as a separate quoted argument.
-    # shellcheck disable=SC2086
+    # formed argv via $@ (NOT a command string), each element a separate quoted
+    # argument.
     cmux "$@"
   fi
 }
@@ -309,4 +324,9 @@ esac
 if [ "$DRY_RUN" -eq 1 ]; then
   exit 0
 fi
-echo "cmux-send-governed: delivered to workspace:$WORKSPACE surface:$SURFACE (profile=$PROFILE)" >&2
+if [ "$VERIFY" -eq 1 ]; then
+  result_verb="delivered"
+else
+  result_verb="sent"
+fi
+echo "cmux-send-governed: $result_verb to workspace:$WORKSPACE surface:$SURFACE (profile=$PROFILE)" >&2
