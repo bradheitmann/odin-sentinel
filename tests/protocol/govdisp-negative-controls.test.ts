@@ -261,22 +261,19 @@ describe("govdisp Wave-1 required negative controls (odin-scp-applicable)", () =
     }
   );
 
-  it.skip(
-    "Control 7: Ordinary planning emits no Markdown or human view by default — Wave-1 must refuse default human-view generation",
-    () => {
-      // Wave-1: GD-DEC-12 prohibits rendering or storing human-readable registry
-      // views by default. Ordinary planning must not produce Markdown or other
-      // human views unless explicitly requested.
-    }
+  // Not implemented yet (quality-fix-1 F-36): a todo, not an empty skipped body that reads as
+  // done work. GD-DEC-12 prohibits rendering or storing human-readable registry views by
+  // default; ordinary planning must not produce Markdown or other human views unless
+  // explicitly requested.
+  it.todo(
+    "Control 7: Ordinary planning emits no Markdown or human view by default — owner: PM-ODIN; exit: the slice that implements GD-DEC-12 default human-view refusal makes this a live test"
   );
 
-  it.skip(
-    "Control 8: Explicit human-view request requires requested_by plus registry digest binding — Wave-1 must validate binding before emitting view",
-    () => {
-      // Wave-1: GD-DEC-12 requires requested_by and source_registry_digest to be
-      // recorded when a human view is explicitly requested. Without both fields
-      // the view generation must be refused.
-    }
+  // Not implemented yet (quality-fix-1 F-36). GD-DEC-12 requires requested_by and
+  // source_registry_digest to be recorded when a human view is explicitly requested; without
+  // both fields the view generation must be refused.
+  it.todo(
+    "Control 8: Explicit human-view request requires requested_by plus registry digest binding — owner: PM-ODIN; exit: the slice that implements GD-DEC-12 human-view binding makes this a live test"
   );
 
   it(
@@ -370,11 +367,9 @@ describe("govdisp Wave-1 required negative controls (odin-scp-applicable)", () =
     }
   );
 
-  it.skip(
-    "Control 10: Unwired enforcement hook or unknown role/tool — Wave-1 must fail-closed with refusal",
-    () => {
-      // Wave-1: GD-DEC-10 requires authenticated, fail-closed hooks. An unknown
-      // role, tool, artifact kind, or hook registration state must be denied.
-    }
+  // Not implemented yet (quality-fix-1 F-36). GD-DEC-10 requires authenticated, fail-closed
+  // hooks: an unknown role, tool, artifact kind, or hook registration state must be denied.
+  it.todo(
+    "Control 10: Unwired enforcement hook or unknown role/tool fails closed with refusal — owner: PM-ODIN; exit: the slice that implements GD-DEC-10 fail-closed hook registration makes this a live test"
   );
 });

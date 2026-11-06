@@ -7,7 +7,6 @@ import { z } from "zod";
 import {
   VERSION,
   GOVDISP_REGISTRY_AUTHORITY_FLAG_ENV_VAR,
-  appendGovdispEvent,
   appendGovdispEventAsync,
   evaluateReadinessGate,
   exportProtocolSnapshot,
@@ -82,7 +81,6 @@ import {
   onboardingPlanInputShape,
   recordInputShape,
   readinessGateInputShape,
-  reportRecordInputShape,
   reportRecordInputSchema,
   roleCardInputShape,
   roleProfileInputShape,

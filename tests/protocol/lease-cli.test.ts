@@ -206,3 +206,25 @@ describe("any-of acquire and the allow-list through the CLI", () => {
     expect(readdirSync(dir).sort()).toEqual(["slots.allow"]);
   });
 });
+
+describe("lease CLI token parsing (quality-fix-1 F-41)", () => {
+  it.each(["", "   "])("refuses --token %j as stale_token at parse time instead of reading it as 0", async (raw) => {
+    const parent = makeTmpDir();
+    const dir = join(parent, "leases");
+    const acquired = await leaseCli(["acquire", "--dir", dir, "--slot", "job", "--holder", "runner-a", "--ttl", "60"]);
+    expect(acquired.code).toBe(0);
+
+    const check = await leaseCli(["check", "--dir", dir, "--slot", "job", "--holder", "runner-a", "--token", raw]);
+    expect(check.code).toBe(1);
+    expect(check.json).toMatchObject({ ok: false, code: "stale_token" });
+    expect(String(check.json.detail)).toContain("--token must be a non-negative integer");
+  });
+});
+
+describe("odin-sentinel CLI header (quality-fix-1 F-40)", () => {
+  it("documents the lease subcommand and the --capabilities flag in the usage block", () => {
+    const header = readFileSync(join(repoRoot, "src", "bin", "index.ts"), "utf8").split("\n").slice(9, 40).join("\n");
+    expect(header).toMatch(/^ \*\s+lease <acquire\|renew\|release\|check\|status>/m);
+    expect(header).toContain("--capabilities");
+  });
+});

@@ -20,9 +20,11 @@ const HOME_WIN_RE = new RegExp(
 
 const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
 
-// Common secret-token shapes. The set is conservative; readers should add
-// project-specific patterns if they ship custom token prefixes.
-const TOKEN_PATTERNS: RegExp[] = [
+// Common secret-token shapes, shared with the protocol validators' redactSecretLikeText
+// (src/protocol/validators.ts) so both surfaces redact the same shapes. The set is
+// conservative; readers should add project-specific patterns if they ship custom token
+// prefixes.
+export const SECRET_TOKEN_PATTERNS: readonly RegExp[] = [
   /\bsk-(?:proj-)?[a-zA-Z0-9_-]{20,}\b/g,
   /\blin_api_[a-zA-Z0-9]{16,}\b/g,
   /\bghp_[a-zA-Z0-9]{20,}\b/g,
@@ -57,7 +59,7 @@ export function redactString(value: string): string {
     .replace(ENV_DUMP_LINE_RE, "$1<ENV_VALUE>")
     .replace(SECRET_ASSIGNMENT_RE, "$1$2<SECRET>")
     .replace(JSON_SECRET_RE, "$1" + '"<SECRET>"');
-  for (const pattern of TOKEN_PATTERNS) {
+  for (const pattern of SECRET_TOKEN_PATTERNS) {
     result = result.replace(pattern, "<TOKEN>");
   }
   return result;

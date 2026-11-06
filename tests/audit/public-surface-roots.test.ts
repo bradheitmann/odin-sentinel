@@ -91,10 +91,15 @@ describe("charter/ is public audit surface", () => {
 // protocol/ and charter/. Same shape as the charter/ slice: prove inclusion and
 // the named findings; no exemption for the crate.
 
+// The crate's files as the audit sees them: tracked plus untracked-not-ignored (git ls-files),
+// so the gitignored cargo build output under crates/odin-say/target/ is never scanned
+// (quality-fix-1 F-30).
 function cratesFiles(): string[] {
-  return walk(join(repoRoot, "crates"))
-    .map((abs) => abs.slice(repoRoot.length).replace(/^\/+/, ""))
-    .sort();
+  const list = (args: string[]): string[] =>
+    execFileSync("git", ["ls-files", ...args, "--", "crates"], { cwd: repoRoot, encoding: "utf8" })
+      .split("\n")
+      .filter(Boolean);
+  return [...new Set([...list([]), ...list(["--others", "--exclude-standard"])])].sort();
 }
 
 describe("crates/ is public audit surface", () => {

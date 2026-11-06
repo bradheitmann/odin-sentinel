@@ -104,9 +104,12 @@ export function classify(input: ClassifierInput): ClassifierResult {
   // Compute out-of-scope dirty paths (used in rule 6)
   if (write_scope.length > 0) {
     for (const path of dirty_paths) {
-      const inScope = write_scope.some(
-        (scope) => path === scope || path.startsWith(scope + "/") || path.startsWith(scope)
-      );
+      // A scope covers itself and paths under it; a sibling prefix (src/allowed-evil for
+      // scope src/allowed) is out of scope. A trailing "/" on the scope is ignored.
+      const inScope = write_scope.some((rawScope) => {
+        const scope = rawScope.replace(/\/+$/, "");
+        return scope !== "" && (path === scope || path.startsWith(scope + "/"));
+      });
       if (!inScope) {
         dirty_out_of_scope.push(path);
       }

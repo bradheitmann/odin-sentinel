@@ -413,10 +413,15 @@ describe("release sync audit helpers", () => {
   });
 
   it("audits public files while ignoring private local operator spaces", () => {
+    // synthetic sample built at runtime so tracked bytes carry no detector-shaped literal; value is not real
+    const homePathBody = `notes kept at ${["", "Users", "example", "notes", ""].join("/")} only`;
+    // The control proves the body is detector-shaped: on a public path it must be flagged,
+    // so the ignore assertion below can fail when the exclusion is removed.
+    expect(publicSurface.auditPublicSurface({ "README.md": homePathBody })).toEqual(["README.md: macOS home path"]);
     const findings = publicSurface.auditPublicSurface({
       "README.md": "safe public text",
-      "project/planning/private.md": "private notes should be ignored here",
-      ".edge-agentic/local/evidence/log.txt": "private evidence should be ignored here"
+      "project/planning/private.md": homePathBody,
+      ".edge-agentic/local/evidence/log.txt": homePathBody
     });
     expect(findings).toEqual([]);
   });
@@ -431,5 +436,22 @@ describe("release sync audit helpers", () => {
     expect(publicSurface.auditPublicSurface({ "README.md": "open_protocols private marker" })).toEqual([
       "README.md: private project or account marker"
     ]);
+  });
+});
+
+describe("pack content scan never drops an unreadable listed file (quality-fix-1 F-33)", () => {
+  const missing = "docs/qf-missing-pack-file.md";
+
+  it("readPackFileTexts reports a listed but unreadable text file as PACK_FILE_UNREADABLE", () => {
+    const result = verifyPack.readPackFileTexts(["README.md", missing, "assets/logo.png"]);
+    expect(Object.keys(result.texts)).toEqual(["README.md"]);
+    expect(result.findings).toEqual([`PACK_FILE_UNREADABLE: ${missing}`]);
+  });
+
+  it("runVerifyPack fails with the named finding when it reads the pack from disk", () => {
+    expect(() => runWith({
+      pack: { files: [...requiredPaths, { path: missing }], filename: "odin-sentinel-0.6.0.tgz" },
+      packFileTextByPath: undefined
+    })).toThrow(`PACK_FILE_UNREADABLE: ${missing}`);
   });
 });

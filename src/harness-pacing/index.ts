@@ -1,8 +1,9 @@
 /**
- * harness-pacing — public module export surface.
+ * harness-pacing — module export surface (internal).
  *
- * Consumers import from "odin/harness-pacing" or directly from this file.
- * All public types and functions are re-exported here; nothing else is public.
+ * This module is internal: package.json has no "./harness-pacing" export, so consumers
+ * outside this repository cannot import it. In-repo code imports from this file. All of the
+ * module's shared types and functions are re-exported here.
  */
 
 // Types

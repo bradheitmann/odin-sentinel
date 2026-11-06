@@ -16,7 +16,8 @@
 // written when --install --target <dir> is given explicitly. Zero-secret: no environment
 // values are read or printed.
 
-import { existsSync, mkdirSync, writeFileSync, chmodSync } from "node:fs";
+import { existsSync, mkdirSync, realpathSync, writeFileSync, chmodSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { join, resolve } from "node:path";
 
 const HOOK_FILENAME = "odin-activation-precheck.sh";
@@ -76,11 +77,23 @@ shift || true
 
 GOVERNED_PROOF=""
 BASE_DIR=""
+HOOK_USAGE="usage: odin-activation-precheck.sh <instruction-read-proof.json> [--governed-context <proof.json>] [--base <dir>]"
 while [ \$# -gt 0 ]; do
   case "\$1" in
-    --governed-context) GOVERNED_PROOF="\${2:-}"; shift 2 || true ;;
-    --base) BASE_DIR="\${2:-}"; shift 2 || true ;;
-    *) shift || true ;;
+    --governed-context|--base)
+      if [ \$# -lt 2 ] || [ -z "\$2" ]; then
+        echo "odin-activation-precheck: \$1 requires a non-empty value; activation blocked" >&2
+        echo "\$HOOK_USAGE" >&2
+        exit 2
+      fi
+      if [ "\$1" = "--governed-context" ]; then GOVERNED_PROOF="\$2"; else BASE_DIR="\$2"; fi
+      shift 2
+      ;;
+    *)
+      echo "odin-activation-precheck: unknown argument '\$1'; activation blocked" >&2
+      echo "\$HOOK_USAGE" >&2
+      exit 2
+      ;;
   esac
 done
 
@@ -199,7 +212,18 @@ function main() {
   process.exit(0);
 }
 
-const invokedDirectly = process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname);
-if (invokedDirectly) {
+// Run main() only when this file is the invoked entry point. Real paths are compared, as
+// src/bin/index.ts does, so a symlinked invocation still runs main() instead of exiting 0.
+function isMain(metaUrl) {
+  const invoked = process.argv[1];
+  if (!invoked) return false;
+  try {
+    return realpathSync(invoked) === realpathSync(fileURLToPath(metaUrl));
+  } catch {
+    return false;
+  }
+}
+
+if (isMain(import.meta.url)) {
   main();
 }

@@ -16,7 +16,8 @@
 // markers, freshness, and PASS/FAIL reasons. Any secret-looking value inside the proof itself
 // is a hard failure.
 
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { isAbsolute, join, resolve } from "node:path";
 
@@ -70,7 +71,7 @@ function resolveEntryPath(base, p) {
 // Zero-secret guard: flag values that look like tokens/keys/secrets. Mirrors the redaction
 // patterns used by the protocol validators so a proof can never smuggle a credential through.
 const SECRET_PATTERNS = [
-  /(sk|pk|ghp|gho|ghu|github_pat|xox[baprs])-?[A-Za-z0-9_=-]{8,}/i,
+  /(?<![A-Za-z0-9])(sk|pk|ghp|gho|ghu|github_pat|xox[baprs])-?[A-Za-z0-9_=-]{8,}/i,
   /[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD)[A-Z0-9_]*=[^\s"']+/i,
   /Bearer\s+[A-Za-z0-9._=-]{8,}/i
 ];
@@ -351,8 +352,18 @@ function main() {
   process.exit(result.ok ? 0 : 1);
 }
 
-// Only run the CLI when invoked directly, not when imported by tests.
-const invokedDirectly = process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname);
-if (invokedDirectly) {
+// Run main() only when this file is the invoked entry point. Real paths are compared, as
+// src/bin/index.ts does, so a symlinked invocation still runs main() instead of exiting 0.
+function isMain(metaUrl) {
+  const invoked = process.argv[1];
+  if (!invoked) return false;
+  try {
+    return realpathSync(invoked) === realpathSync(fileURLToPath(metaUrl));
+  } catch {
+    return false;
+  }
+}
+
+if (isMain(import.meta.url)) {
   main();
 }

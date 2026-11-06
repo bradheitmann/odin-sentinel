@@ -1,79 +1,21 @@
 import {
-  GOVDISP_REGISTRY_AUTHORITY_FLAG_ENV_VAR,
-  readGovdispRegistryMode,
-  isGovdispRegistryAuthorityEnabled,
-  REGISTRY_AUTHORITY_UNRESOLVED_CODE,
-  REGISTRY_RECEIPT_AUTHORITY_EVENT_CLASSES,
   adjudicateRegistryAuthority,
   withProseTransportAdvisory,
   appendGovdispEvent,
-  appendGovdispEventAsync,
   queryGovdispEvents,
-  ATTEMPT_CEILING,
-  ATTEMPT_REFUSAL_NAME,
-  ATTEMPT_CEILING_CODE,
   deriveAttemptAccounting,
   evaluateAttemptCeiling,
-  META_GOVERNANCE_DEPTH_CAP,
-  AUDIT_REFUSAL_NAME,
-  META_GOVERNANCE_DEPTH_CODE,
-  BREAK_GLASS_WRONG_CLASS_CODE,
   deriveMetaGovernanceDepth,
   evaluateMetaGovernanceDepth,
-  GOVERNANCE_OVERHEAD_BUDGET,
-  OVERHEAD_BUDGET_REFUSAL_NAME,
-  GOVERNANCE_OVERHEAD_BUDGET_CODE,
-  TERMINAL_BLOCKED_REFUSAL_NAME,
-  TERMINAL_ALREADY_RECORDED_CODE,
-  BUDGET_NOT_EXHAUSTED_CODE,
-  GOVERNANCE_APPEND_REFUSAL_NAME,
-  OBJECTIVE_TERMINALLY_BLOCKED_CODE,
   deriveOverheadAccounting,
   evaluateOverheadBudget,
   recordBudgetExhaustion,
   appendGovernanceOverheadEvent,
-  FINDING_REFUSAL_NAME,
-  FINDING_NOT_ACTIVE_CODE,
-  FINDING_CLOSURE_PREREQUISITES,
   deriveFindingState,
   evaluateFindingClosure,
   countActiveFindings
 } from "./governance.js";
-import type {
-  GovdispRegistryModeConfig,
-  RegistryAuthorityOptions,
-  RegistryAuthorityInfo,
-  RegistryModeValidationResult,
-  GovdispRegistryRejection,
-  GovdispRegistryQuery,
-  GovdispRegistryStoreLike,
-  GovdispRegistryAppendResult,
-  GovdispRegistryQueryResult,
-  AttemptRefusal,
-  AttemptAccounting,
-  DeriveAttemptAccountingResult,
-  EvaluateAttemptCeilingResult,
-  MetaGovernanceDepthRefusal,
-  MetaGovernanceDepthDerivation,
-  DeriveMetaGovernanceDepthResult,
-  EvaluateMetaGovernanceDepthResult,
-  MetaGovernanceDepthEvaluationOptions,
-  OverheadAccounting,
-  OverheadBudgetRefusal,
-  TerminalBlockedRefusal,
-  ObjectiveTerminallyBlockedRefusal,
-  RecordBudgetExhaustionInput,
-  DeriveOverheadAccountingResult,
-  EvaluateOverheadBudgetResult,
-  RecordBudgetExhaustionResult,
-  AppendGovernanceOverheadEventResult,
-  FindingClosurePrerequisite,
-  FindingStateDerivation,
-  FindingClosureRefusal,
-  DeriveFindingStateResult,
-  EvaluateFindingClosureResult,
-  CountActiveFindingsResult
-} from "./governance.js";
+import type { RegistryAuthorityOptions, RegistryModeValidationResult } from "./governance.js";
 import { createHash } from "node:crypto";
 import YAML from "yaml";
 import {
@@ -2448,12 +2390,16 @@ export function getMissionFrontrunPack(
   const data = loadProtocolData(repository);
   const writeScopeStr = input.write_scope.length > 0 ? input.write_scope.join(", ") : "[]";
 
+  // One pass over the template with a function replacer: caller strings are inserted
+  // literally (no `$&` / `$\`` expansion) and are never scanned again for placeholders.
+  const tokens: Record<string, string> = {
+    WRITE_SCOPE: writeScopeStr,
+    TASK_ID: input.task_id,
+    REPO_PATH: input.repo_path,
+    MISSION_NAME: input.mission_name
+  };
   function substitute(template: string): string {
-    return template
-      .replace(/\{\{WRITE_SCOPE\}\}/g, writeScopeStr)
-      .replace(/\{\{TASK_ID\}\}/g, input.task_id)
-      .replace(/\{\{REPO_PATH\}\}/g, input.repo_path)
-      .replace(/\{\{MISSION_NAME\}\}/g, input.mission_name);
+    return template.replace(/\{\{(WRITE_SCOPE|TASK_ID|REPO_PATH|MISSION_NAME)\}\}/g, (_match, name: string) => tokens[name] ?? "");
   }
 
   return {
@@ -2956,8 +2902,6 @@ export function validateClosureIndependence(claim: Record<string, unknown>): Val
   const invalid: string[] = [];
   const warnings: string[] = [];
 
-  const implementer = typeof claim.implementer_lane === "string" ? claim.implementer_lane : undefined;
-  const closer = typeof claim.closing_authority === "string" ? claim.closing_authority : undefined;
   const verdicts = Array.isArray(claim.verdicts) ? claim.verdicts.map((v) => asRecord(v)) : undefined;
 
   if (claim.verdicts !== undefined && verdicts === undefined) invalid.push("verdicts");
@@ -3313,7 +3257,6 @@ export function validateAuthorityAction(action: Record<string, unknown>): Valida
   // separators as hyphens, so this final representation mapping is not a
   // second fold.
   const actionType = canonicalRoleComponent(action.action_type)?.replaceAll("-", "_") ?? "";
-  const target = typeof action.target_slot === "string" ? action.target_slot : undefined;
 
   // STORY-GOVTRUTH-R1: both identities resolve through the same canonical-slot
   // primitive the commit gate uses, so the two gates cannot disagree about the

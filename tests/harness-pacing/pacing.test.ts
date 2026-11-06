@@ -370,7 +370,8 @@ describe("commit-gate: loadSeed crush file-first; embed only when absent", () =>
       harness_id: "crush",
       version: "1.0",
       last_updated: "2026-06-12T00:00:00Z",
-      samples_total: 1,
+      // samples_total matches the (empty) events list: loadSeed now validates seeds (quality-fix-1 F-26).
+      samples_total: 0,
       events: [],
       crash_signatures: ["f94360680e22b229e9fff8d9d34346689d023b2fffa2e6f8b13c7b4337d4c13f"],
       recommended: {

@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+import { realpathSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { CmuxBackend } from "./backends/cmux.js";
 import { TmuxBackend } from "./backends/tmux.js";
@@ -103,13 +106,20 @@ function parseCliArgs(): {
   };
 }
 
-async function getDirtyPaths(): Promise<string[]> {
+/**
+ * Dirty paths from `git diff`. A failed `git diff` throws (the poll loop reports it) rather
+ * than returning [] — "no dirty paths" would silently disable the out-of-scope rule.
+ */
+export async function getDirtyPaths(): Promise<string[]> {
   const result = await execFileNoThrow("git", [
     "diff",
     "--name-only",
     "--diff-filter=ACDMRT",
   ]);
-  if (result.status !== 0) return [];
+  if (result.status !== 0) {
+    const detail = result.stderr.trim().split("\n")[0] ?? "";
+    throw new Error(`git diff failed (exit ${result.status}); dirty paths unknown${detail ? `: ${detail}` : ""}`);
+  }
   return result.stdout
     .split("\n")
     .map((l) => l.trim())
@@ -163,6 +173,17 @@ async function main(): Promise<void> {
         `Substrate '${substrate}' is not yet supported by odin-watch. Supported: cmux, tmux`
       );
   }
+
+  // Bind the shipped filesystem registry store for the default-ON FINDING_OPENED emission,
+  // with the same lazy dynamic import as src/bin/index.ts (the runtime host never statically
+  // couples to the event-registry module). The base resolves from the launch cwd's
+  // `.odin/registry`; the explicit ODIN_GOVDISP_REGISTRY_MCP opt-out is still read by the writer.
+  const { LOCAL_REGISTRY_BASE, appendRegistryEvent, appendRegistryEventAsync, queryRegistryEvents } =
+    await import("../protocol/event-registry/storage.js");
+  const registryOptions = {
+    store: { appendRegistryEvent, appendRegistryEventAsync, queryRegistryEvents },
+    registryBase: resolve(process.cwd(), LOCAL_REGISTRY_BASE),
+  };
 
   let prevHash: string | null = null;
   let lastVerdictState: WakeVerdict | null = null;
@@ -232,7 +253,7 @@ async function main(): Promise<void> {
       };
 
       // Write output files
-      writeWakeFiles(flagDir, label, wakeState);
+      writeWakeFiles(flagDir, label, wakeState, registryOptions);
 
       prevHash = snapshot.hash;
       lastVerdictState = result.verdict;
@@ -254,8 +275,25 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err: unknown) => {
-  const msg = err instanceof Error ? err.message : String(err);
-  console.error(`odin-watch fatal: ${msg}`);
-  process.exitCode = 1;
-});
+/**
+ * Run main() only when this file is the invoked entry point (as src/bin/index.ts does), so
+ * tests can import getDirtyPaths without starting the poll loop. Realpath comparison keeps
+ * bin shims and symlinks working.
+ */
+function isInvokedEntrypoint(): boolean {
+  const invoked = process.argv[1];
+  if (!invoked) return false;
+  try {
+    return realpathSync(invoked) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+if (isInvokedEntrypoint()) {
+  main().catch((err: unknown) => {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`odin-watch fatal: ${msg}`);
+    process.exitCode = 1;
+  });
+}

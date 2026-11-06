@@ -177,3 +177,19 @@ describe("mission-frontrun on-disk contract templates", () => {
     });
   }
 });
+
+describe("getMissionFrontrunPack inserts caller strings literally (quality-fix-1 F-34)", () => {
+  it("does not expand $& or $` in a caller value", () => {
+    const pack = getMissionFrontrunPack({ ...baseInput, repo_path: "/tmp/repo-$&-$`-end" }, stubRepository());
+    expect(pack.contracts.orchestrator).toContain("/tmp/repo-$&-$`-end");
+    expect(pack.contracts.orchestrator).not.toContain("{{REPO_PATH}}");
+  });
+
+  it("does not substitute a placeholder that appears inside a caller value", () => {
+    const pack = getMissionFrontrunPack(
+      { ...baseInput, write_scope: ["src/{{REPO_PATH}}/x.ts"], task_id: "T-{{MISSION_NAME}}" },
+      stubRepository()
+    );
+    expect(pack.contracts.worker).toBe("worker T-{{MISSION_NAME}} /tmp/test-repo src/{{REPO_PATH}}/x.ts Test Mission");
+  });
+});

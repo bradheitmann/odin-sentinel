@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 export const MINIMUM_COMPATIBLE_CHILD_MCP_VERSION = "0.4.5";
 
@@ -266,18 +266,19 @@ function isTextPackageFile(file) {
   return /\.(js|mjs|cjs|ts|json|md|ya?ml|txt|html|css|sh)$/.test(file) || !file.includes(".");
 }
 
-function readPackFileTexts(paths) {
-  return Object.fromEntries(
-    paths
-      .filter(isTextPackageFile)
-      .flatMap((file) => {
-        try {
-          return [[file, readFileSync(file, "utf8")]];
-        } catch {
-          return [];
-        }
-      })
-  );
+// A listed text file that cannot be read is a named finding, never silently dropped from the
+// forbidden-content scan (which would then report clean for bytes it never read).
+export function readPackFileTexts(paths) {
+  const texts = {};
+  const findings = [];
+  for (const file of paths.filter(isTextPackageFile)) {
+    try {
+      texts[file] = readFileSync(file, "utf8");
+    } catch {
+      findings.push(`PACK_FILE_UNREADABLE: ${file}`);
+    }
+  }
+  return { texts, findings };
 }
 
 // A release section in any scanned file describes the version its own `## `
@@ -791,7 +792,8 @@ function parsePackOutput(output) {
 
 export function runVerifyPack({ pack, packageJson, publicVersionFiles, costPrivacyText, packFileTextByPath }) {
   const packPaths = pack.files.map((file) => file.path);
-  const packFileTexts = packFileTextByPath ?? readPackFileTexts(packPaths);
+  const packRead = packFileTextByPath ? { texts: packFileTextByPath, findings: [] } : readPackFileTexts(packPaths);
+  const packFileTexts = packRead.texts;
 
   // Version-surface convergence runs FIRST and short-circuits on an unavailable
   // input. An absent public-surface file is a named refusal in its own right;
@@ -814,6 +816,7 @@ export function runVerifyPack({ pack, packageJson, publicVersionFiles, costPriva
   const errors = [
     ...validatePackageMetadata(packageJson),
     ...validatePackFileList(packPaths),
+    ...packRead.findings,
     ...validatePackFileContents(packFileTexts),
     ...validatePackagedProtocolVersions(packFileTexts, packageJson.version),
     ...findStaleVersionReferences(publicVersionFiles, packageJson.version),
@@ -865,6 +868,19 @@ export function main() {
   console.log(`Release sync PASS: public version ${result.version}; minimum compatible child MCP ${result.minimumCompatibleChildMcpVersion}`);
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+// Run main() only when this file is the invoked entry point. Real paths are compared, as
+// src/bin/index.ts does, so a symlinked invocation still runs main() instead of exiting 0.
+function isMain(metaUrl) {
+  const invoked = process.argv[1];
+  if (!invoked) return false;
+  try {
+    return realpathSync(invoked) === realpathSync(fileURLToPath(metaUrl));
+  } catch {
+    return false;
+  }
+}
+
+
+if (isMain(import.meta.url)) {
   main();
 }

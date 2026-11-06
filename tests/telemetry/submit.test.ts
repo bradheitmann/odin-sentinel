@@ -182,8 +182,12 @@ describe("submitSessionReport", () => {
   });
 
   it("returns submitted=false when fetch throws", async () => {
+    // synthetic sample built at runtime so tracked bytes carry no detector-shaped literal; value is not real
+    const homePath = ["", "Users", "example", "project", "report.json"].join("/");
+    // synthetic sample built at runtime so tracked bytes carry no detector-shaped literal; value is not real
+    const secretToken = ["sk", "0123456789abcdefghijklmnopqrstuv"].join("-");
     const fakeFetch: typeof fetch = async () => {
-      throw new Error("network down while submitting the session report");
+      throw new Error(`network down while submitting ${homePath} with ${secretToken}`);
     };
     const compiled = compileSessionReport(makeInput(), "0.4.0") as unknown as Record<string, unknown>;
     const result = await submitSessionReport(compiled, {
@@ -195,6 +199,8 @@ describe("submitSessionReport", () => {
     expect(result.reason).toContain("network down");
     expect(result.reason).not.toContain("/Users/example");
     expect(result.reason).not.toContain("0123456789abcdefghijklmnopqrstuv");
+    expect(result.reason).toContain("<HOME>");
+    expect(result.reason).toContain("<TOKEN>");
   });
 
   it("converts reports to an allowlisted telemetry payload before network submission", () => {
