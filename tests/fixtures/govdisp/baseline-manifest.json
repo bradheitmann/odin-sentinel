@@ -129,13 +129,13 @@
     },
     {
       "path": "protocol/role-cards/crush-stability.md",
-      "bytes": 2021,
-      "sha256": "ea6c8a2d476807f9e87828cd3eabc076d4693c07e924d495e48f99e0aea7b556"
+      "bytes": 2335,
+      "sha256": "94c1fcd896e3e3f7d0da6986feacbe222f6251f2b7943c42814a1e935d4c4fe3"
     },
     {
       "path": "protocol/role-cards/dev-worker.md",
-      "bytes": 2541,
-      "sha256": "ed08cc3f50c599e707d432734970343ca2345837879531db9a31c2194de5ab65"
+      "bytes": 2653,
+      "sha256": "c163214e61b9c0c5d14325212179671db03b020bab3c7d40296d2ceae03afa24"
     },
     {
       "path": "protocol/role-cards/exec-asst.md",
@@ -149,23 +149,23 @@
     },
     {
       "path": "protocol/role-cards/mission-droid.md",
-      "bytes": 1931,
-      "sha256": "088e5d417f341923dd2843d8ba1e6a23661a011f8b0fbc990e9c9ce13f85a00c"
+      "bytes": 2254,
+      "sha256": "0dc496b0c2c7e96654db29a30be7550981560ec93fadd750d5a7bb9913487499"
     },
     {
       "path": "protocol/role-cards/qa-worker.md",
-      "bytes": 2474,
-      "sha256": "a57e0e00b837a279a802facfb52d187d5fd3084ba130992c6d8c1050e5c94dfd"
+      "bytes": 2586,
+      "sha256": "c73b8955d9ab59adf4e2a2a0f85873984e2d21a821a51e354bf4197f65b72cbd"
     },
     {
       "path": "protocol/role-cards/shadow.md",
-      "bytes": 1762,
-      "sha256": "00956689274c500b78cbef40b7012264b1174a350503733becb2fbb108c2c98a"
+      "bytes": 2056,
+      "sha256": "f494c46892a1e67e9d657a28e1426bdfcb84bc1e285daf70d95f52f0d3263a2e"
     },
     {
       "path": "protocol/role-cards/team-pm.md",
-      "bytes": 2458,
-      "sha256": "7ace429fed29bf0615fd7d568df524130a844d21c70864b8917369a630781e39"
+      "bytes": 2570,
+      "sha256": "1b9cc1ee2649c402cb966c2c41b5c79514723c7290a6bb3d71dc7c3d42ecf435"
     },
     {
       "path": "protocol/roles.yaml",
@@ -209,8 +209,8 @@
     },
     {
       "path": "src/mcp/server.ts",
-      "bytes": 46451,
-      "sha256": "24a45528310359f8e67ded5d884adfeea30259bda492bd71aed488a63daaa118"
+      "bytes": 46403,
+      "sha256": "524e54123ed14e88a616d9b4ef944d68938d0a48c16f24f97dd624d3b991edbb"
     },
     {
       "path": "src/protocol/event-registry/compact.ts",
@@ -229,8 +229,8 @@
     },
     {
       "path": "src/protocol/event-registry/storage.ts",
-      "bytes": 26801,
-      "sha256": "a59e5c69b599e53b01cd4bfaca76d972bb80af56127305c631606dfb99516bbe"
+      "bytes": 28406,
+      "sha256": "2576c1da25daf94281f314bd131e52c554eb508e9e8c5c9014a532f7b2b60972"
     },
     {
       "path": "src/protocol/event-registry/types.ts",
@@ -254,8 +254,8 @@
     },
     {
       "path": "src/protocol/lease/store.ts",
-      "bytes": 21815,
-      "sha256": "a232c86cbfa89406efab20cd10f4c2d5890f6be32f7b0e8e30ee62fdf7b11588"
+      "bytes": 22081,
+      "sha256": "40940887905b6b0de420939e02647e204221bcf238aa47a9a8bf0025e5a258bd"
     },
     {
       "path": "src/protocol/repository.ts",
@@ -269,13 +269,13 @@
     },
     {
       "path": "src/protocol/schemas.ts",
-      "bytes": 45072,
-      "sha256": "45f9c6e3fd3962b4708a6b4941174413d941027ea3e8f91f4f01a723b68eda93"
+      "bytes": 44846,
+      "sha256": "b5907898f4e07b035b82e3ba7b5a59893cb311cd830408b9dc7554764a25b0c8"
     },
     {
       "path": "src/protocol/service.ts",
-      "bytes": 197233,
-      "sha256": "5120d862fa2eb066dd560265a0ac71782821a04b38c5ef3446d9c23a53080810"
+      "bytes": 195515,
+      "sha256": "3856187e20e3cbbb31f23f4755a91fa695dfb5292f013f1e1702aa739e233b46"
     },
     {
       "path": "src/protocol/surface-layout.ts",
@@ -284,8 +284,8 @@
     },
     {
       "path": "src/protocol/validators.ts",
-      "bytes": 4264,
-      "sha256": "cd4dea67efc5a548b0362ed6305eb7549044b79e1a50815f2ed4539fdd618ba4"
+      "bytes": 5063,
+      "sha256": "a3371a5354f4a3369dd81ebf923e726de188acf05c7090004541b3f16cd00978"
     },
     {
       "path": "src/protocol/version.ts",
