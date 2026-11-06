@@ -349,15 +349,6 @@ export const submitSessionReportInputSchema = z.object({
   userConsentConfirmed: z.literal(true)
 }).strict();
 
-export const reportRecordInputShape = {
-  report: sessionReportOutputSchema
-} as const;
-
-export const submitSessionReportInputShape = {
-  report: sessionReportOutputSchema,
-  userConsentConfirmed: z.literal(true)
-} as const;
-
 // BootReceipt: TypeScript interface for governed occupant boot receipts.
 // Required fields align with protocol/receipts/boot-receipt.yaml required_fields.
 // Optional fields are additive and never break existing receipts.
