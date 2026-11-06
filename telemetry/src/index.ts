@@ -68,7 +68,7 @@ function json(status: number, body: Record<string, unknown>, origin: string | nu
   return new Response(JSON.stringify(body), { status, headers });
 }
 
-function parseAllowedOrigins(value: string | undefined): string[] {
+function parseCsvList(value: string | undefined): string[] {
   if (!value) return [];
   return value.split(",").map((entry) => entry.trim()).filter((entry) => entry.length > 0);
 }
@@ -76,7 +76,7 @@ function parseAllowedOrigins(value: string | undefined): string[] {
 function selectOrigin(request: Request, env: Env): string | null {
   const origin = request.headers.get("origin");
   if (!origin) return null;
-  const allowed = parseAllowedOrigins(env.ALLOWED_ORIGINS);
+  const allowed = parseCsvList(env.ALLOWED_ORIGINS);
   if (origin === new URL(request.url).origin) return origin;
   return allowed.includes(origin) ? origin : null;
 }
@@ -122,7 +122,7 @@ function modelSignalSummaries(value: unknown): Array<{ role: string; model: stri
 }
 
 function versionAllowed(version: string, env: Env): boolean {
-  const list = parseAllowedOrigins(env.PROTOCOL_VERSION_ALLOWLIST);
+  const list = parseCsvList(env.PROTOCOL_VERSION_ALLOWLIST);
   if (list.length === 0) return true;
   return list.includes(version);
 }
@@ -333,6 +333,11 @@ export default {
     }
 
     const report = body as SessionReport;
+    // Reject an over-long version before any truncation: cutting it to 32 characters first
+    // would let a version whose first 32 characters match an allowlisted entry through.
+    if (typeof report.version === "string" && report.version.trim().length > 32) {
+      return json(400, { ok: false, error: "invalid_version" }, allowOrigin);
+    }
     const version = toFiniteString(report.version, 32);
     if (version.length === 0) {
       return json(400, { ok: false, error: "missing_version" }, allowOrigin);
@@ -355,23 +360,28 @@ export default {
     const driftWarningCount = toFiniteInt(report.driftWarningCount, 0, 10_000);
     const degradedLayout = report.degradedLayout === true ? 1 : 0;
 
-    await insertReport(env, {
-      id,
-      version,
-      teamCount,
-      violationCount,
-      haltCount,
-      layoutDriftCount,
-      peakContextPct,
-      closeoutClean,
-      modelSignals,
-      violationClasses,
-      blockerClassifications,
-      roleSlotCount,
-      driftWarningCount,
-      degradedLayout,
-      receivedAt: Date.now()
-    });
+    try {
+      await insertReport(env, {
+        id,
+        version,
+        teamCount,
+        violationCount,
+        haltCount,
+        layoutDriftCount,
+        peakContextPct,
+        closeoutClean,
+        modelSignals,
+        violationClasses,
+        blockerClassifications,
+        roleSlotCount,
+        driftWarningCount,
+        degradedLayout,
+        receivedAt: Date.now()
+      });
+    } catch {
+      // A D1 write failure keeps the endpoint's JSON envelope; the error text is not echoed.
+      return json(500, { ok: false, error: "storage_error" }, allowOrigin);
+    }
 
     return json(200, { ok: true, id }, allowOrigin);
   }

@@ -101,8 +101,17 @@ jobs:
       - name: Lint
         run: cargo clippy --locked --all-targets -- -D warnings
 
+      # tests/support/fake_cmux.rs is deliberately NOT a cargo target (a test-only pane
+      # double that must never be packaged or installed), so fmt and clippy above do not
+      # see it. It is checked here by file instead.
+      - name: Format the test support binary
+        run: rustfmt --check --edition 2021 tests/support/fake_cmux.rs
+
+      - name: Lint the test support binary
+        run: clippy-driver --edition 2021 --emit=metadata --out-dir "$RUNNER_TEMP" -D warnings tests/support/fake_cmux.rs
+
       - name: Test
-        run: cargo test --locked
+        run: cargo test --locked --all-targets
 
   # Charter check (pattern C, template v3). Non-required, so a red charter job
   # never blocks a merge; honest, so it never reports success for a check it did

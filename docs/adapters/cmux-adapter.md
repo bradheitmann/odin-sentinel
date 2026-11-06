@@ -2,7 +2,7 @@
 
 ## Overview
 
-cmux is the **primary tier-3 substrate** for the Supervised Completion Protocol
+cmux is the **primary tier-3 substrate** for the Sentinel Coordination Protocol
 (SCP). It is a macOS GUI application with a rich CLI that exposes send, screen
 read, wait-for, event hooks, sidebar status, and notification APIs.
 

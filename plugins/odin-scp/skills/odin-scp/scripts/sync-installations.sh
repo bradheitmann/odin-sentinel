@@ -252,7 +252,7 @@ fi
 # An empty list is a legitimate value of a targets file, but it is never a silent
 # success: with nothing to sync and nothing to verify, the run would otherwise
 # report zero installations and exit 0, which reads exactly like a healthy fleet.
-if (( ${#TARGETS[@]} == 0 && ${#ADAPTERS[@]} == 0 )); then
+if [ -z "${TARGETS[*]+set}" ] && [ -z "${ADAPTERS[*]+set}" ]; then
   echo "empty target list: no native target and no adapter to sync or verify (check SCP_SKILL_TARGETS_FILE and SCP_ADAPTER_TARGETS_FILE)" >&2
   exit 1
 fi
@@ -536,7 +536,7 @@ target_is_home_ancestor() {
 }
 
 home_refusals=0
-for target in "${TARGETS[@]}"; do
+for target in "${TARGETS[@]+"${TARGETS[@]}"}"; do
   if target_is_home_or_root "$target"; then
     echo "refusing native target that is \$HOME or /: $target" >&2
     home_refusals=$((home_refusals + 1))
@@ -659,7 +659,7 @@ elif [[ "$DRY_RUN" == true ]]; then
 fi
 
 if [[ "$mode" == "sync" ]]; then
-  for target in "${TARGETS[@]}"; do
+  for target in "${TARGETS[@]+"${TARGETS[@]}"}"; do
     if target_overlaps_master "$target"; then
       emit "skipping target that resolves to master (nothing ever writes back into master): $target"
       continue
@@ -678,7 +678,7 @@ if [[ "$mode" == "sync" ]]; then
     rsync -a --delete "$MASTER/" "$target/"
   done
 
-  for adapter in "${ADAPTERS[@]}"; do
+  for adapter in "${ADAPTERS[@]+"${ADAPTERS[@]}"}"; do
     adapter_dir="$(dirname "$adapter")"
     if adapter_overlaps_master "$adapter"; then
       emit "skipping adapter that resolves into master (nothing ever writes back into master): $adapter"
@@ -697,7 +697,7 @@ elif [[ "$mode" == "dry-run" ]]; then
   # A dry run reports the plan and writes NOTHING: no mkdir, no rsync, no
   # adapter write. The verification pass below then reports the real fleet
   # state, and any absence or drift makes the run exit non-zero.
-  for target in "${TARGETS[@]}"; do
+  for target in "${TARGETS[@]+"${TARGETS[@]}"}"; do
     if target_overlaps_master "$target"; then
       emit "DRY-RUN would skip target that resolves to master: $target"
     elif target_is_home_ancestor "$target"; then
@@ -710,7 +710,7 @@ elif [[ "$mode" == "dry-run" ]]; then
       emit "DRY-RUN would sync native target: $target"
     fi
   done
-  for adapter in "${ADAPTERS[@]}"; do
+  for adapter in "${ADAPTERS[@]+"${ADAPTERS[@]}"}"; do
     if adapter_overlaps_master "$adapter"; then
       emit "DRY-RUN would skip adapter that resolves into master: $adapter"
     elif adapter_is_special "$adapter"; then
@@ -723,7 +723,7 @@ elif [[ "$mode" == "dry-run" ]]; then
 else
   # Verify-only writes nothing, but an ancestor of $HOME is still named and
   # refused so the listing error is reported in every mode.
-  for target in "${TARGETS[@]}"; do
+  for target in "${TARGETS[@]+"${TARGETS[@]}"}"; do
     if ! target_overlaps_master "$target" && target_is_home_ancestor "$target"; then
       emit "REFUSED native target (an ancestor of \$HOME): $target"
       refused_targets+=("$target")
@@ -768,7 +768,7 @@ absent_targets=()
 drifted_targets=()
 drifted_details=()
 verified_targets=0
-for target in "${TARGETS[@]}"; do
+for target in "${TARGETS[@]+"${TARGETS[@]}"}"; do
   if [[ ! -f "$target/SKILL.md" ]]; then
     absent_targets+=("$target/SKILL.md")
     continue
@@ -788,7 +788,7 @@ done
 absent_adapters=()
 drifted_adapters=()
 verified_adapters=0
-for adapter in "${ADAPTERS[@]}"; do
+for adapter in "${ADAPTERS[@]+"${ADAPTERS[@]}"}"; do
   if [[ ! -f "$adapter" ]]; then
     absent_adapters+=("$adapter")
     continue
@@ -894,7 +894,8 @@ emit "mode: $mode"
 emit "master: $MASTER"
 emit "skill_sha256: $master_hash"
 emit "adapter_sha256: $adapter_hash"
-emit "native_targets: ${#TARGETS[@]}"
+if [ -z "${TARGETS[*]+set}" ]; then native_targets=0; else native_targets=${#TARGETS[@]}; fi
+emit "native_targets: ${native_targets}"
 emit "native_verified: $verified_targets"
 emit "native_absent: ${#absent_targets[@]}"
 emit "native_drifted: ${#drifted_targets[@]}"
@@ -903,7 +904,8 @@ emit "native_drifted: ${#drifted_targets[@]}"
 if (( ${#refused_targets[@]} > 0 )); then
   emit "native_refused: ${#refused_targets[@]}"
 fi
-emit "adapter_targets: ${#ADAPTERS[@]}"
+if [ -z "${ADAPTERS[*]+set}" ]; then adapter_targets=0; else adapter_targets=${#ADAPTERS[@]}; fi
+emit "adapter_targets: ${adapter_targets}"
 emit "adapter_verified: $verified_adapters"
 emit "adapter_absent: ${#absent_adapters[@]}"
 emit "adapter_drifted: ${#drifted_adapters[@]}"

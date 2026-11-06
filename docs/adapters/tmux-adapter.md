@@ -2,7 +2,7 @@
 
 ## Overview
 
-tmux is a **tier-2 substrate** for the Supervised Completion Protocol (SCP).
+tmux is a **tier-2 substrate** for the Sentinel Coordination Protocol (SCP).
 It provides SEND, ENTER_PROOF, READ_SCREEN, and WAIT_IDLE — a solid mid-tier
 capability set sufficient for governed agent supervision when screen capture and
 idle-wait primitives are required.

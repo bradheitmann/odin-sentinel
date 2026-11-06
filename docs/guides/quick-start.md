@@ -145,7 +145,8 @@ each harness is already provisioned through an account, environment, secret mana
 local config.
 
 Hook deployment: install the activation hooks with
-`node scripts/protocol/install-activation-hooks.mjs` so the full-instruction-read precheck
+`node scripts/protocol/install-activation-hooks.mjs`, run from a repository checkout or from the
+installed package's `scripts/protocol/` directory, so the full-instruction-read precheck
 runs before governed edits. The onboarding plan lists this as a guided step.
 
 The onboarding plan only reports where ODIN-owned artifacts will be tracked (the install

@@ -157,7 +157,7 @@ describe("event-registry contention (lock semantics)", () => {
     const fsAppend = vi.fn().mockImplementation((_p: string, data: string) => {
       written.push(data);
     });
-    const fsMkdir = vi.fn().mockImplementation((path: string, opts?: unknown) => {
+    const fsMkdir = vi.fn().mockImplementation((_path: string, opts?: unknown) => {
       if (opts === undefined) {
         lockAttempts += 1;
         if (lockAttempts === 1) {
@@ -182,7 +182,7 @@ describe("event-registry contention (lock semantics)", () => {
 
   it("rethrows unexpected lock-acquisition errors (operator-visible halt, never a silent drop)", () => {
     const fsAppend = vi.fn();
-    const fsMkdir = vi.fn().mockImplementation((path: string, opts?: unknown) => {
+    const fsMkdir = vi.fn().mockImplementation((_path: string, opts?: unknown) => {
       if (opts === undefined) {
         const error = new Error("EACCES: permission denied, mkdir") as NodeJS.ErrnoException;
         error.code = "EACCES";

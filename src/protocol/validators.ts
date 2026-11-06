@@ -1,3 +1,5 @@
+import { SECRET_TOKEN_PATTERNS } from "../telemetry/redactor.js";
+
 export type ValidationResult = {
   valid: boolean;
   missing: string[];
@@ -94,11 +96,21 @@ export function isVersionBelow(version: string, minimum: string): boolean {
   return compareSemver(version, minimum) < 0;
 }
 
+// The leading boundary keeps ordinary words such as "risk-assessment" and "task-management"
+// from reading as an `sk-`/`pk-` token. Mirrored in scripts/protocol/verify-governed-context.mjs.
+const PREFIXED_TOKEN_RE = /(?<![A-Za-z0-9])(sk|pk|ghp|gho|ghu|github_pat|xox[baprs])-?[A-Za-z0-9_=-]{8,}/gi;
+// A JSON field whose name marks it as a credential, with a quoted value of 8+ characters.
+const JSON_SECRET_FIELD_RE = /("[^"]*(?:api[_-]?key|secret|password|access[_-]?key|private[_-]?key)[^"]*"\s*:\s*)"[^"]{8,}"/gi;
+
 export function redactSecretLikeText(value: string): string {
-  return value
-    .replace(/(sk|pk|ghp|gho|ghu|github_pat|xox[baprs])-?[A-Za-z0-9_=-]{8,}/gi, "[REDACTED]")
+  let result = value
+    .replace(PREFIXED_TOKEN_RE, "[REDACTED]")
     .replace(/([A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD)[A-Z0-9_]*=)[^\s]+/gi, "$1[REDACTED]")
-    .replace(/(Bearer\s+)[A-Za-z0-9._=-]+/gi, "$1[REDACTED]");
+    .replace(/(Bearer\s+)[A-Za-z0-9._=-]+/gi, "$1[REDACTED]")
+    .replace(JSON_SECRET_FIELD_RE, '$1"[REDACTED]"');
+  // The telemetry redactor's token-shape list (Doppler, Google AIza, JWT, and others).
+  for (const pattern of SECRET_TOKEN_PATTERNS) result = result.replace(pattern, "[REDACTED]");
+  return result;
 }
 
 // EPIC-026/028/031 holdout-facing validator surfaces. The sealed holdouts import

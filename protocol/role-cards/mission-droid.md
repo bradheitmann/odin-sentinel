@@ -34,6 +34,9 @@ role_slot: <team>/MISSION-DEV-<n>
 agent_id: <team-mission-dev-id>
 team: <team>
 role: <team>/DEV-<n>
+authority_layer: implementation
+terminal_locator: workspace:1 pane:<pane> surface:mission-dev-<n>
+model_harness: <harness>
 reports_to: <team>/TEAM-PM
 cwd: <repo-root>
 branch: <branch>
@@ -41,6 +44,13 @@ head_sha: <full-sha>
 permission_mode: workspace-write
 may_implement: true
 may_qa_accept: false
+write_scope: [<file1>, <file2>]
+evidence_path: .odin/audit/session
+current_task: <task>
+staffed_by: A/EXEC-PM
+parent_surface_ref: <parent-surface-ref>
+column_index: <column-index>
+team_letter: <team>
 roster_ack: true
 current_state: BOOTSTRAPPED_IDLE
 ```

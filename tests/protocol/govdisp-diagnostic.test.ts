@@ -6,7 +6,6 @@ import {
   isDisplacementPositive,
   REQUIRED_FINGERPRINTS,
   type DisplacementCase,
-  type DisplacementResult,
 } from "../../src/protocol/event-registry/diagnostic.js";
 
 interface RawFixture {

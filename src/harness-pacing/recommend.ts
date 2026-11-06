@@ -21,7 +21,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import type { PacingRecommendation, HarnessProfile } from "./schema.js";
 import type { HarnessPacingEvent } from "../protocol/schemas.js";
-import { readProfile } from "./storage.js";
+import { isValidHarnessProfile, readProfile } from "./storage.js";
 import {
   defaultFormatSeparator,
   isSafeHarnessId,
@@ -99,7 +99,9 @@ export function loadSeed(
   const path = join(seedDir, `${harness_id}.json`);
   if (fsExists(path)) {
     try {
-      return JSON.parse(fsRead(path, "utf8") as string) as HarnessProfile;
+      const parsed: unknown = JSON.parse(fsRead(path, "utf8") as string);
+      // A seed that fails the module's own profile validator is not trusted: callers get null.
+      return isValidHarnessProfile(parsed, harness_id) ? parsed : null;
     } catch {
       // Malformed on-disk seed is not silently replaced — callers get null.
       return null;

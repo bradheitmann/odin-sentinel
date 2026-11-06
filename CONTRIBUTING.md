@@ -4,6 +4,11 @@ How a change gets into this repository: write the done list first, land through 
 verification, and keep the public surface clean. This file is written for a contributor who has
 never seen the repository; follow it in order.
 
+The landing steps below use the `charter` command-line tool. Its pinned revision is `CHARTER_REV`
+in `.github/workflows/ci.yml`. The tool is currently private, so you cannot install it yourself:
+an outside contributor can open a pull request without it, and a maintainer runs the charter steps
+when landing the change.
+
 ## Landing a slice
 
 1. **Write the done list and pin it.** A slice starts with a done list under `charter/DONE/`
@@ -68,8 +73,12 @@ never seen the repository; follow it in order.
    ```
    git switch main
    git pull --ff-only origin main
-   git merge --no-ff <branch>
+   test "$(git rev-parse <branch>)" = <full CI-verified sha>
+   git merge --no-ff <full CI-verified sha>
    ```
+
+   The `test` line stops you if the branch tip has moved past the commit CI verified; the merge
+   then names that exact commit rather than the branch.
 
    Before you push, check the identity of every revision you are about to publish:
 

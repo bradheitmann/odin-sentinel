@@ -49,7 +49,7 @@ enum Command {
         #[arg(long)]
         harness: Option<String>,
     },
-    /// Classify a pane (blocked, busy, stale_input, idle) without sending anything.
+    /// Classify a pane (blocked, busy, capped, stale_input, idle) without sending anything.
     Status {
         surface: String,
         /// Pane-rules JSON file (default: the embedded rules).
@@ -177,7 +177,15 @@ fn run() -> Result<i32> {
             );
             let rules = rules_for(&config.pane_rules_path)?;
             let cmux = RealCmux::new(&config.cmux_binary);
-            let screen = say::tail14(&cmux.read_screen(&say::surface_locator(&surface)));
+            let locator = say::surface_locator(&surface);
+            let screen = match cmux.read_screen(&locator) {
+                Ok(raw) => say::tail14(&raw),
+                Err(failure) => {
+                    // A failed read is not an idle pane: report it and exit non-zero.
+                    eprintln!("status: {failure}");
+                    return Ok(say::EXIT_READ_FAILED);
+                }
+            };
             let state = say::classify(&screen, &rules);
             let mut line = format!("status: {surface} {}", state.as_str());
             if state == say::PaneState::Capped {

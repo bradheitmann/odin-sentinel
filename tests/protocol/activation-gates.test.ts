@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -259,5 +259,30 @@ describe("install-activation-hooks.mjs", () => {
     }
 
     expect(runNode(installerPath, ["--install"]).status).toBe(2);
+  });
+
+  it("the installed hook refuses a missing flag value, an empty value, and an unknown flag with exit 2 (no hang, no PASS)", () => {
+    // A real (non-symlinked) directory, so the hook's own path resolution is not in play.
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), "odin-hook-args-")));
+    try {
+      expect(runNode(installerPath, ["--install", "--target", dir]).status).toBe(0);
+      const hook = join(dir, "odin-activation-precheck.sh");
+      const runHook = (args: string[]) => spawnSync("sh", [hook, ...args], { cwd: dir, encoding: "utf8", timeout: 5_000 });
+      for (const args of [
+        ["ir.json", "--base"],
+        ["ir.json", "--governed-context"],
+        ["ir.json", "--governed-contex", "x.json"],
+        ["ir.json", "--governed-context", ""],
+        ["ir.json", "--base", ""]
+      ]) {
+        const result = runHook(args);
+        expect(result.signal, args.join(" ")).toBeNull();
+        expect(result.status, args.join(" ")).toBe(2);
+        expect(result.stdout, args.join(" ")).not.toContain("PASS");
+        expect(result.stderr, args.join(" ")).toContain("usage: odin-activation-precheck.sh");
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

@@ -34,6 +34,7 @@
  */
 import { appendFileSync, existsSync, mkdirSync, readFileSync, rmdirSync } from "node:fs";
 import { join } from "node:path";
+import { findSymlink } from "../../utils/no-follow.js";
 import { govdispEventSchema } from "../schemas.js";
 import {
   ATTEMPT_EVENT_TYPES,
@@ -236,6 +237,22 @@ function unsafeScopeRejection(scope: unknown): EventRejection {
     event_class: "<store>",
     code: "unsafe_scope",
     detail: `registry scope must be a single safe path segment (alphanumeric start, then alnum/. _ -); rejected: ${JSON.stringify(scope)}`
+  };
+}
+
+/**
+ * Refuse a symbolic link at the scope directory or the event log. A cloned repository can
+ * plant one under .odin/registry/<scope>/; following it would append or read outside the
+ * workspace. Returns a named symlink_refused rejection, or null when neither path is a link.
+ */
+function registrySymlinkRejection(dir: string, path: string, eventClass: string): EventRejection | null {
+  const link = findSymlink([dir, path]);
+  if (link === null) return null;
+  return {
+    field: link === path ? REGISTRY_EVENTS_FILENAME : "scope",
+    event_class: eventClass,
+    code: "symlink_refused",
+    detail: `registry path ${link} is a symbolic link; refusing to follow it outside the registry base (nothing was read or written)`
   };
 }
 
@@ -510,6 +527,8 @@ export function appendRegistryEvent(
   const prepared = prepareAppend(scope, event, base, options);
   if (!prepared.ok) return { ok: false, rejections: prepared.rejections };
   const { dir, path, lockDir, line, event: parsedEvent } = prepared;
+  const linked = registrySymlinkRejection(dir, path, parsedEvent.event_class);
+  if (linked) return { ok: false, rejections: [linked] };
 
   // --- mutations only after full incoming-event validation ---
   fsMkdir(dir, { recursive: true });
@@ -520,6 +539,9 @@ export function appendRegistryEvent(
   }
 
   try {
+    // Re-check under the lock, immediately before the write.
+    const raced = registrySymlinkRejection(dir, path, parsedEvent.event_class);
+    if (raced) return { ok: false, rejections: [raced] };
     fsAppend(path, line, "utf8");
   } finally {
     fsRmdir(lockDir);
@@ -544,6 +566,8 @@ export async function appendRegistryEventAsync(
   const prepared = prepareAppend(scope, event, base, options);
   if (!prepared.ok) return { ok: false, rejections: prepared.rejections };
   const { dir, path, lockDir, line, event: parsedEvent } = prepared;
+  const linked = registrySymlinkRejection(dir, path, parsedEvent.event_class);
+  if (linked) return { ok: false, rejections: [linked] };
 
   fsMkdir(dir, { recursive: true });
 
@@ -553,6 +577,9 @@ export async function appendRegistryEventAsync(
   }
 
   try {
+    // Re-check under the lock, immediately before the write.
+    const raced = registrySymlinkRejection(dir, path, parsedEvent.event_class);
+    if (raced) return { ok: false, rejections: [raced] };
     fsAppend(path, line, "utf8");
   } finally {
     fsRmdir(lockDir);
@@ -577,6 +604,8 @@ export function readRegistryEvents(
     return { ok: false, rejections: [unsafeScopeRejection(scope)] };
   }
   const path = join(base, scope, REGISTRY_EVENTS_FILENAME);
+  const linked = registrySymlinkRejection(join(base, scope), path, "<store>");
+  if (linked) return { ok: false, rejections: [linked] };
   if (!fsExists(path)) {
     return { ok: true, events: [] };
   }
