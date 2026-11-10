@@ -310,10 +310,21 @@ impl TapSource for SeatEntry {
 pub fn read_seat_sources(sources: &[(String, String)]) -> SeatSources {
     let mut out = SeatSources::default();
     for (name, text) in sources {
-        read_tables(name, text, &mut out);
-        read_seat_map_lines(name, text, &mut out);
+        // Only the base name of a source is ever reported: nothing this tool writes may carry a
+        // directory path taken from its arguments.
+        let label = base_name(name);
+        read_tables(&label, text, &mut out);
+        read_seat_map_lines(&label, text, &mut out);
     }
     out
+}
+
+/// The last path segment of a source argument, for display.
+pub fn base_name(path: &str) -> String {
+    std::path::Path::new(path)
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| path.to_owned())
 }
 
 fn read_tables(source: &str, text: &str, out: &mut SeatSources) {
@@ -385,24 +396,29 @@ fn read_seat_map_lines(source: &str, text: &str, out: &mut SeatSources) {
                 None => rest,
             },
         };
-        let entries_text = entries_text.trim_start_matches([':', ',', ' ', '\t'].as_slice());
+        let entries_text = entries_text.trim_start_matches(|c: char| !c.is_alphanumeric());
         for entry in split_entries(entries_text) {
-            let entry = entry.trim();
+            let entry = trim_entry_start(&entry);
             if entry.is_empty() {
                 continue;
             }
-            match parse_seat_entry(entry, prefix.as_deref()) {
-                Some((label, short, detail, lane)) => {
-                    let long_label = label.trim().to_owned();
+            match parse_seat_entry(&entry, prefix.as_deref()) {
+                Some(parsed) => {
+                    let long_label = parsed.label.clone();
                     let seat = out.entry(&long_label, source);
-                    if let Some(full) = make_surface(prefix.as_deref(), &short) {
+                    if let Some(full) = make_surface(prefix.as_deref(), &parsed.short) {
                         seat.surfaces.insert(full);
                     }
-                    if !detail.is_empty() {
-                        seat.detail = detail;
+                    if !parsed.detail.is_empty() {
+                        seat.detail = parsed.detail.clone();
                     }
-                    if !lane.is_empty() {
-                        seat.lane = lane;
+                    if !parsed.lane.is_empty() {
+                        seat.lane = parsed.lane.clone();
+                    }
+                    if let Some(tail) = parsed.remainder {
+                        // Text that follows an entry but fits no entry shape is reported, never
+                        // swallowed into that entry's detail.
+                        out.unparsed.push(tail);
                     }
                 }
                 None => {
@@ -443,11 +459,18 @@ fn digits_prefix(text: &str) -> Option<String> {
 
 /// Entries are separated by `;` or `,`, but a separator inside parentheses (a detail such as
 /// `Root110(Codex, PAUSED)`) does not split.
+/// Split on a `;` or `,` only when it is outside parentheses AND is followed (after spaces) by
+/// the start of a new entry (`NAME=NNN`, or `NAME`+three digits then an opening parenthesis).
+/// Any other separator — a comma inside a detail, or a `;` inside a parenthesis — stays in the
+/// current entry, so `**Fable5.2, assigned medium**(a; b)` is one entry.
 fn split_entries(text: &str) -> Vec<String> {
+    let chars: Vec<char> = text.chars().collect();
     let mut out = Vec::new();
     let mut current = String::new();
     let mut depth = 0usize;
-    for ch in text.chars() {
+    let mut i = 0usize;
+    while i < chars.len() {
+        let ch = chars[i];
         match ch {
             '(' => {
                 depth += 1;
@@ -457,38 +480,98 @@ fn split_entries(text: &str) -> Vec<String> {
                 depth = depth.saturating_sub(1);
                 current.push(ch);
             }
-            ';' if depth == 0 => {
-                out.push(std::mem::take(&mut current));
-            }
-            ',' if depth == 0 => {
-                out.push(std::mem::take(&mut current));
+            ';' | ',' if depth == 0 => {
+                let rest: String = chars[i + 1..].iter().collect();
+                if starts_entry(&rest) {
+                    out.push(std::mem::take(&mut current));
+                } else {
+                    current.push(ch);
+                }
             }
             _ => current.push(ch),
         }
+        i += 1;
     }
     out.push(current);
     out
 }
 
+/// Does this text (after spaces) begin a new seat entry?
+fn starts_entry(text: &str) -> bool {
+    let trimmed = trim_entry_start(text);
+    let bytes: Vec<char> = trimmed.chars().collect();
+    let mut name_len = 0usize;
+    while name_len < bytes.len() {
+        let c = bytes[name_len];
+        if c.is_alphanumeric() || matches!(c, '.' | '_' | '-') {
+            name_len += 1;
+        } else {
+            break;
+        }
+    }
+    if name_len == 0 {
+        return false;
+    }
+    let after: String = bytes[name_len..].iter().collect();
+    let after = after.trim_start();
+    if let Some(rest) = after.strip_prefix('=') {
+        let digits: String = rest.trim_start().chars().take(3).collect();
+        return digits.len() == 3 && digits.chars().all(|c| c.is_ascii_digit());
+    }
+    // A `NAME(` entry whose id is malformed is still an entry boundary: it parses to nothing and
+    // is then reported verbatim as unparsed, rather than being glued to the previous entry.
+    after.starts_with('(') && name_len > 1
+}
+
+/// Strip anything before the first letter or digit, plus markdown emphasis.
+fn trim_entry_start(entry: &str) -> String {
+    entry
+        .trim_start_matches(|c: char| !c.is_alphanumeric())
+        .to_owned()
+}
+
+fn strip_emphasis(text: &str) -> String {
+    text.chars()
+        .filter(|c| !matches!(c, '*' | '`'))
+        .collect::<String>()
+        .trim()
+        .to_owned()
+}
+
 /// `NAME=NNN detail(lane)` or `NAMENNN(detail)`.
-fn parse_seat_entry(entry: &str, prefix: Option<&str>) -> Option<(String, String, String, String)> {
+struct ParsedEntry {
+    label: String,
+    short: String,
+    detail: String,
+    lane: String,
+    /// Text after the entry that fits no entry shape; reported as unparsed, never folded in.
+    remainder: Option<String>,
+}
+
+fn parse_seat_entry(entry: &str, prefix: Option<&str>) -> Option<ParsedEntry> {
     if let Some((left, rest)) = entry.split_once('=') {
-        let label = left.trim();
+        let label = strip_emphasis(left.trim());
         let mut parts = rest.splitn(2, char::is_whitespace);
         let short = parts.next().unwrap_or("").trim();
         if label.is_empty() || short.len() != 3 || !short.chars().all(|c| c.is_ascii_digit()) {
             return None;
         }
         let tail = parts.next().unwrap_or("").trim();
-        let (detail, lane) = split_detail(tail);
-        return Some((label.to_owned(), short.to_owned(), detail, lane));
+        let (detail, lane, remainder) = split_detail(tail);
+        return Some(ParsedEntry {
+            label,
+            short: short.to_owned(),
+            detail,
+            lane,
+            remainder,
+        });
     }
     let open = entry.find('(')?;
     let close = entry.rfind(')')?;
     if close < open {
         return None;
     }
-    let head = entry[..open].trim();
+    let head = strip_emphasis(entry[..open].trim());
     if head.len() < 4 {
         return None;
     }
@@ -499,21 +582,55 @@ fn parse_seat_entry(entry: &str, prefix: Option<&str>) -> Option<(String, String
     if prefix.is_none() && short.is_empty() {
         return None;
     }
-    let detail = entry[open + 1..close].trim().to_owned();
-    Some((label.to_owned(), short.to_owned(), detail, String::new()))
+    let detail = strip_emphasis(&entry[open + 1..close]);
+    let after = entry[close + 1..].trim();
+    let remainder = if after.is_empty() {
+        None
+    } else {
+        Some(after.to_owned())
+    };
+    Some(ParsedEntry {
+        label: label.to_owned(),
+        short: short.to_owned(),
+        detail,
+        lane: String::new(),
+        remainder,
+    })
 }
 
-/// `detail(lane)`: parenthesised tail is the lane, the rest is the detail.
-fn split_detail(tail: &str) -> (String, String) {
+/// `detail(lane)`: the parenthesised tail is the lane and the detail ends at that parenthesis.
+/// Without a parenthesis the detail ends at the first full stop followed by a space; whatever
+/// follows is returned as the remainder, which the caller reports as unparsed.
+fn split_detail(tail: &str) -> (String, String, Option<String>) {
     if let (Some(open), Some(close)) = (tail.find('('), tail.rfind(')')) {
         if close > open {
+            let after = tail[close + 1..].trim();
             return (
-                tail[..open].trim().to_owned(),
-                tail[open + 1..close].trim().to_owned(),
+                strip_emphasis(&tail[..open]),
+                strip_emphasis(&tail[open + 1..close]),
+                if after.is_empty() {
+                    None
+                } else {
+                    Some(after.to_owned())
+                },
             );
         }
     }
-    (tail.trim().to_owned(), String::new())
+    match tail.find(". ") {
+        Some(at) => {
+            let remainder = tail[at + 1..].trim();
+            (
+                strip_emphasis(&tail[..at]),
+                String::new(),
+                if remainder.is_empty() {
+                    None
+                } else {
+                    Some(remainder.to_owned())
+                },
+            )
+        }
+        None => (strip_emphasis(tail), String::new(), None),
+    }
 }
 
 fn make_surface(prefix: Option<&str>, short: &str) -> Option<String> {
