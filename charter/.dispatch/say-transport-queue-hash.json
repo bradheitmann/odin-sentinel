@@ -1,7 +1,10 @@
 {
+  "accepted_unix_s": 1794327424,
+  "accepted_utc": "2026-11-10T16:17:04Z",
   "base_commit": "a628ad6c2604f9b3b6c7a85312b472e9f7c399a5",
   "brief_sha256": null,
   "done_sha256": "737ede73d4bd29a394cd23e506ce7872ce66a75151f5573a58f9ca115a2fcfb3",
   "schema_version": "charter.dispatch/1",
-  "slice": "say-transport-queue-hash"
+  "slice": "say-transport-queue-hash",
+  "state": "accepted"
 }

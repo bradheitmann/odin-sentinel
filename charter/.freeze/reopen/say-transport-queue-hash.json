@@ -1,0 +1,45 @@
+{
+  "done_sha256": "737ede73d4bd29a394cd23e506ce7872ce66a75151f5573a58f9ca115a2fcfb3",
+  "entries": [
+    {
+      "evidence_sha256": "07a4ed22d1e39c165868ec8eb0f8555ef00f19335fa7947d4ba38b123f98cbf3",
+      "proof": "1",
+      "recorded_utc": "2026-11-10T16:17:00Z",
+      "run_id": "odqa-stq-3976374"
+    },
+    {
+      "evidence_sha256": "07a4ed22d1e39c165868ec8eb0f8555ef00f19335fa7947d4ba38b123f98cbf3",
+      "proof": "2",
+      "recorded_utc": "2026-11-10T16:17:00Z",
+      "run_id": "odqa-stq-3976374"
+    },
+    {
+      "evidence_sha256": "07a4ed22d1e39c165868ec8eb0f8555ef00f19335fa7947d4ba38b123f98cbf3",
+      "proof": "3",
+      "recorded_utc": "2026-11-10T16:17:00Z",
+      "run_id": "odqa-stq-3976374"
+    },
+    {
+      "evidence_sha256": "07a4ed22d1e39c165868ec8eb0f8555ef00f19335fa7947d4ba38b123f98cbf3",
+      "proof": "4",
+      "recorded_utc": "2026-11-10T16:17:00Z",
+      "run_id": "odqa-stq-3976374"
+    },
+    {
+      "evidence_sha256": "07a4ed22d1e39c165868ec8eb0f8555ef00f19335fa7947d4ba38b123f98cbf3",
+      "proof": "5",
+      "recorded_utc": "2026-11-10T16:17:00Z",
+      "run_id": "odqa-stq-3976374"
+    },
+    {
+      "evidence_sha256": "07a4ed22d1e39c165868ec8eb0f8555ef00f19335fa7947d4ba38b123f98cbf3",
+      "proof": "6",
+      "recorded_utc": "2026-11-10T16:17:00Z",
+      "run_id": "odqa-stq-3976374"
+    }
+  ],
+  "head": "3976374c53e8f4711655f1c9de52059860b2dad4",
+  "manifest_sha256": "049add6a6fb1d5f0ee7c725253d1aef7d4a00ce80454414508ddc76625b0191b",
+  "schema_version": "charter.reopen/1",
+  "slice": "say-transport-queue-hash"
+}
