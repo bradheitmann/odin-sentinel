@@ -1,0 +1,9 @@
+2026-11-10T13:28:07Z target_surface_locator=surface:1000000111 submitted=true verification_method=read_screen observed_processing_state=DELIVERED_ACKED sender_role=A/EXEC-PM note=echoed one line
+2026-11-10T13:28:13Z target_surface_locator=surface:surface:1000000112 submitted=true verification_method=read_screen observed_processing_state=DELIVERED_NO_ACK sender_role=A/EXEC-PM note=prompt-clear
+2026-11-10T13:28:40Z target_surface_locator=surface:1000000112 submitted=false verification_method=read_screen observed_processing_state=DELIVERED_NO_ACK sender_role=A/EXEC-PM note=hand-written row claiming delivered, not submitted
+2026-11-10T13:28:50Z target_surface_locator=surface:1000000112 submitted=true verification_method=read_screen observed_processing_state=DELIVERED_ACKED sender_role=A/EXEC-PM note=echoed
+{"timestamp":"2026-11-10T13:29:10Z","subcommand":"say","target_surface_locator":"surface:1000000111","submitted":true,"verification_method":"read_screen","observed_processing_state":"DELIVERED_ACKED","sender_role":"EXEC PM","note":"echoed"}
+[INFO] 2026-11-10T13:30:00Z hand-written info line that is not a record
+this line fits no shape at all
+
+2026-11-10T13:29:20Z target_surface_locator=surface:1000000111 submitted=true observed_processing_state=DELIVERED_ACKED note=hand-written row without sender_role

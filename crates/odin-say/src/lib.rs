@@ -9,6 +9,7 @@
 //! door to time, [`rules`] is the only door to pane vocabulary, and [`proof`] is the only
 //! door to the proof log.
 
+pub mod board;
 pub mod clock;
 pub mod cmux;
 pub mod config;
@@ -18,6 +19,7 @@ pub mod rules;
 pub mod say;
 pub mod timeutil;
 
+pub use board::{seat_key, BoardLine, CheckReport, Delivery, ProofLog, SeatMap, SeatStatus};
 pub use clock::{Clock, FakeClock, RealClock};
 pub use cmux::{Call, Cmux, RealCmux, StubCmux};
 pub use config::{Config, ConfigFlags};

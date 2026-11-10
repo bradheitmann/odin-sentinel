@@ -1,0 +1,9 @@
+{
+  "rows": [
+    { "seat": "DEV1", "label": "C/DEV-1", "surface": "1000000111", "live_title": "C/DEV-1", "status": "LIVE", "detail": "model-a", "lane": "sharedfix", "sources": ["staffing.md", "custody.md"] },
+    { "seat": "DEV3", "label": "C/DEV-3", "surface": "1000000113", "live_title": "", "status": "NOT_LIVE", "detail": "model-c", "lane": "", "sources": ["staffing.md"] },
+    { "seat": "QA2", "label": "C/QA-2", "surface": "1000000112", "live_title": "C/QA-9", "status": "TITLE_MISMATCH", "detail": "model-b", "lane": "native", "sources": ["staffing.md", "custody.md"] }
+  ],
+  "unparsed": [],
+  "unlisted": []
+}
