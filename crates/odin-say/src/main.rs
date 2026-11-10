@@ -384,11 +384,16 @@ fn run_board(command: BoardCommand) -> Result<i32> {
                     println!("  hint: {hint}");
                 }
             }
+            for note in &report.notes {
+                // A note is not a failure: it never changes the exit status.
+                println!("note: {}", note.summary());
+            }
             println!(
-                "board check: {} lines, {} dispatched, {} findings, {} unparsed proof lines",
+                "board check: {} lines, {} dispatched, {} findings, {} notes, {} unparsed proof lines",
                 report.checked,
                 report.dispatched,
                 report.findings.len(),
+                report.notes.len(),
                 log.unparsed
             );
             if report.findings.is_empty() {

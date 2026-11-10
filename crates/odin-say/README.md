@@ -123,8 +123,12 @@ odin-say board post    --board <file> --seat <s> --lane <l> --state <word> --tex
   `DELIVERED_*` record, and when a seat map names the dispatched seat the record must target that seat's
   surface. Reasons: `MALFORMED_FIELDS`, `BAD_TIMESTAMP`, `BAD_STATE`, `DISPATCH_NO_DELIVERED`,
   `DELIVERED_NO_PROOF`, `DELIVERED_WRONG_TARGET`; a missing stamp prints the deliveries from the ten
-  minutes before the line as fix hints. A short `HH:MM:SSZ` stamp takes the line's date, or the
-  previous UTC day when its time of day is later than the line's.
+  minutes before the line as fix hints. A short `HH:MM:SSZ` stamp is looked up on the line's own
+  UTC day first and only then, when its time of day is later than the line's, on the previous day
+  (the consumer's late-delivery idiom is same-day). When the seat map maps any word of the state
+  field, a stamp's delivery must target the surface of one of those named seats — any of them, in
+  any order. For each named seat no stamp covers, `check` prints `note: line N: SEAT_NOT_COVERED
+  <seat>`: notes never change the exit status and are counted separately in the summary.
 - `events` writes one JSON-lines event log, ordered by time then input order, typed `board_line`,
   `board_line_unparsed` or `delivery` (from the first board line's UTC day onward). The same inputs give the
   same bytes; the file is written through a temporary file and renamed.
