@@ -12,7 +12,7 @@
        ◯ general-purpose (+2)  Launching eight reader subagents                                                            3m 24s · ↓ 100.0k tokens
      refused-stale-137-150740.txt
 
-⏺ Bash(C=~/checkout cmux read-screen --surface surface:1000020057 --lines 30 > $C/self-busy-before-$(date -u +%H%M%S).txt; cmux send --surface surface:1000020057 "ODIN-SELFTEST queued capture probe from PM-ODIN to its own pane: ignore this line"; sleep 1; cmux
+⏺ Bash(C=<checkout> cmux read-screen --surface surface:1000020057 --lines 30 > $C/self-busy-before-$(date -u +%H%M%S).txt; cmux send --surface surface:1000020057 "ODIN-SELFTEST queued capture probe from PM-ODIN to its own pane: ignore this line"; sleep 1; cmux
   read-screen --surface surface:1000020057 --lines 30 > $C/self-typed-not-entered-$(date -u +%H%M%S).txt; cmux send-key --surface surface:1000020057 Enter; sleep 3; cmux read-screen --surface surface:1000020057 --lines 30 > $C/self-queued-$(date -u +%H%M%S).txt; tail -12 $C/self-queued-*.txt | cut -c1-150; echo ====; tail -6
   $C/self-typed-not-entered-*.txt | cut -c1-150)
   ⎿  PostToolUse:Bash hook error
