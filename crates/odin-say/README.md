@@ -98,6 +98,43 @@ record must not look like a recorded delivery. If the record write fails AFTER t
 run exits 9 and prints the full record JSON on stderr so the evidence survives; a send whose
 record was not written is never exit 0.
 
+## Board
+
+Four read-mostly subcommands for a team that keeps its coordination on a hand-written board. They read the
+team's own files; `board post` is the only writer, and it appends one line.
+
+```
+odin-say board seat-map --source <page>... --tree-json <file|-> --out-md <page.md> --out-json <rows.json>
+odin-say board check   --board <file> --proof-log <file> [--seat-map-json <rows.json>]
+odin-say board events  --board <file> --proof-log <file> --out <events.jsonl>
+odin-say board post    --board <file> --seat <s> --lane <l> --state <word> --text <text> --pointer <p> \
+                       [--surface <id> --proof-log <file> --window-secs 600]
+```
+
+- `seat-map` joins the seat pages (markdown tables with `Seat/title` and `Surface` cells, and
+  `**Seat map:**` lines with short ids completed by a `surface:<digits>…` prefix) with the multiplexer's
+  JSON tree listing. Seat keys are upper-cased with a leading `C/` and hyphens removed, so `C/DEV-15` and
+  `DEV15` are one seat. Each seat is LIVE, TITLE_MISMATCH, NOT_LIVE, NO_SURFACE or CONFLICT; entries that
+  cannot be parsed and panes that no source names are listed, never dropped.
+- `check` types every board line (`UTC | seat | lane | state | pointer`) and verifies each `DISPATCHED`
+  line against the proof log. The `delivered=` stamp is read from the pointer field or, as the consumer
+  sometimes writes it, from the end of the state field (a stamp in the seat or lane field does not
+  count); it must match, to the second, a submitted
+  `DELIVERED_*` record, and when a seat map names the dispatched seat the record must target that seat's
+  surface. Reasons: `MALFORMED_FIELDS`, `BAD_TIMESTAMP`, `BAD_STATE`, `DISPATCH_NO_DELIVERED`,
+  `DELIVERED_NO_PROOF`, `DELIVERED_WRONG_TARGET`; a missing stamp prints the deliveries from the ten
+  minutes before the line as fix hints. A short `HH:MM:SSZ` stamp takes the line's date, or the
+  previous UTC day when its time of day is later than the line's.
+- `events` writes one JSON-lines event log, ordered by time then input order, typed `board_line`,
+  `board_line_unparsed` or `delivery` (from the first board line's UTC day onward). The same inputs give the
+  same bytes; the file is written through a temporary file and renamed.
+- `post` appends one line in a single append write. A pipe or a line break in a field is refused. A
+  `DISPATCHED` line needs `--surface` and a delivery to it inside `--window-secs`; the line then carries
+  `delivered=`, and without one the command writes nothing.
+
+Exit codes for the board subcommands: `0` ok, `1` check failed, `2` usage or read error, `3` post refused
+for lack of a delivery.
+
 ## Proof records
 
 One JSON object per attempt, append-only:

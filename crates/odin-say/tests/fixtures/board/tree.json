@@ -1,0 +1,27 @@
+{
+  "workspaces": [
+    {
+      "panes": [
+        {
+          "pane_ref": "pane:1",
+          "surfaces": [
+            { "ref": "surface:1000000111", "title": "C/DEV-1", "pane_ref": "pane:1" },
+            { "ref": "surface:1000000199", "title": "unlisted neighbour", "pane_ref": "pane:1" }
+          ]
+        },
+        {
+          "pane_ref": "pane:2",
+          "surfaces": [
+            { "ref": "surface:1000000112", "title": "C/QA-9", "pane_ref": "pane:2" }
+          ]
+        },
+        {
+          "pane_ref": "pane:3",
+          "surfaces": [
+            { "ref": "surface:1000000114", "title": "C/DEV-4", "pane_ref": "pane:3" }
+          ]
+        }
+      ]
+    }
+  ]
+}
