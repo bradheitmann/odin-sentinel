@@ -217,14 +217,24 @@ pub fn shows_queued(screen: &str, flat: &str, rules: &PaneRules, harness: &str) 
         crate::rules::QueuePlacement::SameLine => screen
             .lines()
             .any(|line| line.contains(head.as_str()) && has_marker(line)),
-        // The sent text on a prompt-glyph line, the marker on a LATER line (claude-code).
+        // The sent text on a prompt-glyph line, and the marker on the INPUT-BAR line (the
+        // prompt line between the rule lines above the mode footer, per B2). PM ruling
+        // 2026-11-10: the bar line IS the later line the rule names, and it is the stricter
+        // reading — a message or tool output that merely quotes the marker below the typed
+        // text is not evidence.
         crate::rules::QueuePlacement::LaterLine => {
-            screen.lines().enumerate().any(|(index, line)| {
+            let Some(bar) = input_bar(screen) else {
+                return false;
+            };
+            let bar_at = screen.lines().position(|line| line == bar);
+            let head_at = screen.lines().position(|line| {
                 let is_prompt = line.starts_with('\u{203a}') || line.starts_with('\u{276f}');
-                is_prompt
-                    && line.contains(head.as_str())
-                    && screen.lines().skip(index + 1).any(&has_marker)
-            })
+                is_prompt && line.contains(head.as_str())
+            });
+            match (head_at, bar_at) {
+                (Some(head_at), Some(bar_at)) => head_at < bar_at && has_marker(bar),
+                _ => false,
+            }
         }
     }
 }

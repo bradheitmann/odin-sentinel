@@ -274,8 +274,8 @@
     },
     {
       "path": "src/protocol/service.ts",
-      "bytes": 195515,
-      "sha256": "3856187e20e3cbbb31f23f4755a91fa695dfb5292f013f1e1702aa739e233b46"
+      "bytes": 196475,
+      "sha256": "44d39740f4d5ebdadee949cd0042d83446952661c289aa158ba3decfbdc5115d"
     },
     {
       "path": "src/protocol/surface-layout.ts",

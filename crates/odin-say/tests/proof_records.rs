@@ -227,3 +227,61 @@ fn the_no_home_path_story_holds_when_the_environment_is_bare() {
     );
     assert!(!config.proof_path.to_string_lossy().starts_with('/'));
 }
+
+// C (say-transport-queue-hash): the digest names the bytes exactly as sent. The vector for a
+// text with a line break is hashed AFTER the sender's flattening, so "a\nb" must equal the
+// digest of "a b". A known-answer vector pins it independently of our own hashing.
+#[test]
+fn the_message_digest_is_the_sha256_of_the_flattened_text() {
+    assert_eq!(
+        odin_say::proof::sha256_hex(b"a b"),
+        "c8687a08aa5d6ed2044328fa6a697ab8e96dc34291e8c2034ae8c38e6fcc6d65"
+    );
+    let cmux = StubCmux::new(&[screen!("codex_idle"), screen!("codex_acked_after_send")]);
+    let clock = FakeClock::new();
+    let outcome = deliver(
+        &cmux,
+        &clock,
+        PaneRules::embedded(),
+        &HarnessSelector::default(),
+        "surface:7",
+        "a\nb",
+        &options(),
+    );
+    assert_eq!(
+        outcome.message_sha256.as_deref(),
+        Some("c8687a08aa5d6ed2044328fa6a697ab8e96dc34291e8c2034ae8c38e6fcc6d65"),
+        "the digest must be taken after flattening"
+    );
+}
+
+#[test]
+fn different_texts_carry_different_digests_and_a_record_without_one_still_parses() {
+    let first = deliver_outcome("run the gate");
+    let second = deliver_outcome("run the other gate");
+    assert_ne!(first.message_sha256, second.message_sha256);
+    assert_eq!(
+        first.message_sha256.as_deref(),
+        Some("8cd8a91b9b0e375881fe7d7d6a494a82d4232b74f0132f44c460419c91152a25")
+    );
+    // A record written before the field existed (or by `status`) parses unchanged.
+    let legacy = r#"{"record_kind":"delivery","timestamp":"2026-10-31T00:00:00Z","subcommand":"status","target_surface_locator":"surface:7","submitted":true,"verification_method":"read_screen","observed_processing_state":"DELIVERED_ACKED","sender_role":"EXEC PM","note":"echoed","polls":1,"waited_ms":0,"harness":"codex","harness_source":"detected","queued":false,"reset_at":null,"cap_marker":null}"#;
+    let entry: odin_say::proof::ProofEntry =
+        serde_json::from_str(legacy).expect("legacy record parses");
+    assert_eq!(entry.message_sha256, None);
+    assert_eq!(entry.transport_error, None);
+}
+
+fn deliver_outcome(text: &str) -> Outcome {
+    let cmux = StubCmux::new(&[screen!("codex_idle"), screen!("codex_acked_after_send")]);
+    let clock = FakeClock::new();
+    deliver(
+        &cmux,
+        &clock,
+        PaneRules::embedded(),
+        &HarnessSelector::default(),
+        "surface:7",
+        text,
+        &options(),
+    )
+}

@@ -106,8 +106,10 @@ record was not written is never exit 0.
   send. When the text was typed but the Enter key command failed, the state stays `INPUT_BAR_ONLY`
   with note `enter-failed`, the same exit and the same `transport_error`.
 - A pane whose rules say it queues mid-turn is typed into while busy: pi shows the sent text and
-  its queue marker on one line, Claude Code on a prompt line with `Press up to edit queued
-  messages` on a later line (both captured). A queued send is recorded as `PANE_STILL_THINKING`,
+  its queue marker on one line, Claude Code on a prompt line with the marker on the **input-bar
+  line** itself — the prompt-glyph line between the rule lines above the mode footer (both
+  captured). A marker that merely appears somewhere below the typed text, in a quoted message or
+  tool output, is not evidence. A queued send is recorded as `PANE_STILL_THINKING`,
   `submitted: true`, `queued: true`, note `queued`, exit 0; without the evidence it is
   `INPUT_BAR_ONLY`, note `queue-not-proven`, exit 7, and no second Enter.
 - The input bar is the prompt-glyph line between the rule lines above the mode footer. A

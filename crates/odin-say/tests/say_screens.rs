@@ -265,6 +265,22 @@ fn a_busy_claude_code_pane_queues_on_captured_evidence() {
 }
 
 #[test]
+fn a_marker_quoted_below_the_typed_text_but_not_on_the_bar_is_not_queued() {
+    // PM ruling 2026-11-10: the evidence must be on the INPUT-BAR line. A screen that merely
+    // quotes the marker in its output, below the typed text, is not proof of a queued send.
+    let text = "a queued line with a quoted marker";
+    let rule = "\u{2500}".repeat(60);
+    let quoted = format!(
+        "{rule}\n\u{276f} {text}\n  note: the harness says Press up to edit queued messages when it queues\n\u{00b7} Spelunking\u{2026} (1m 05s)\n{rule}\n\u{276f} \n{rule}\n  \u{23f5}\u{23f5} bypass permissions on \u{00b7} 1 shell \u{00b7} esc to interrupt\n"
+    );
+    let cmux = StubCmux::new(&[screen!("claude_busy_self"), quoted.as_str()]);
+    let (out, _clock) = run(&cmux, text);
+    assert_eq!(out.state, DeliveryState::InputBarOnly, "{out:?}");
+    assert_eq!((out.submitted, out.exit), (true, 7));
+    assert_eq!(cmux.keys(), vec!["Enter"]);
+}
+
+#[test]
 fn a_claude_code_queue_without_the_evidence_marker_is_not_proven() {
     let queued_without_marker = screen!("claude_busy_queued_capture")
         .replace("Press up to edit queued messages", "an unrelated line");
