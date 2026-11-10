@@ -92,10 +92,15 @@ fixtures are CONSTRUCTED from the first capture and labelled as such in the test
 
 ## Claude Code queue captures (2026-11-10)
 
-Four screens captured from a live Claude Code pane on 2026-11-10 and scrubbed of private text
-(message bodies, tool output, names, absolute paths) with the structural lines — glyphs, rules,
-footer, spinner, prompt lines — kept byte for byte. The private originals stay outside this
-repository. Each fixture's sha256 below is of the private original, as captured.
+Four screens captured from a live Claude Code pane on 2026-11-10, kept for their STRUCTURE: every
+content line above the spinner/status line is replaced line for line by the placeholder
+`  <private line removed>` (two leading spaces), so no prose, tool call, tool output, hook message,
+repository name, run number, date, surface id or file name survives. The two sub-agent task
+descriptions carry the second placeholder `<task description removed>` with their glyphs, agent type
+names and timings kept. Byte for byte the fixtures keep: blank lines, the spinner/status line, the
+token-count line, both rule lines, the bar line, the footer line, and — in the queued capture — the
+queued-text line with the ODIN-SELFTEST probe text and the `ctrl+enter to send now` line. The private
+originals stay outside this repository; each sha256 below is of its private original, as captured.
 
 | fixture | private original | sha256 |
 | --- | --- | --- |

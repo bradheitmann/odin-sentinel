@@ -1,22 +1,22 @@
-  four ways:
+  <private line removed>
 
-  - A paragraph of private prose replaced by this placeholder line, kept at the same width in the capture.eference to its eval
-    result, a reference to its Atlas price (never a hand-typed number), and the condition under which a backup takes over.
-  - A price move re-ranks; a model version move re-evaluates. The program will say which checks rerun in each case.
-  - All three repos get their own tasks, phrased as proposals to each PM:
-    - Model Atlas exposes dated per-route prices and price history, including locally served models where the cost is compute, not tokens.
-    - Model Teardrop encodes "prove the lower tier cannot" as a checkable requirement, and defines the backup-set format.
-    - MISTER-CLEAN readies the eval harness, including the System-1 harness, with a result format the other two can consume.
-  - "Cheaper" is computed: tokens per call from run 53's log multiplied by the Atlas price, with "unpriced" as a typed gap and never zero.
-
-  On automatic routing, I told the worker to confirm what your 31 October decision says (routing and evals belong in mister-clean, not reveng)
-  and to follow it. It names the contracts a router would need from each repo and does not design one.
-
-  MODEL-ATLAS also just closed its seam task. After the one pointer-only repair I allowed, its third QA passed and the run-53 role facts are in
-  a new export, 2026.11.10-1. It reports this landed at 27986c6; I have not checked that repo myself. I pointed MODEL-TIER-DROP at that export
-  for the run 54 ladder. Atlas still has no card for MiMo V2.6 Pro, so that rung will show as unresolved until Atlas adds one.
-
-  Both the repository gates are still running.
+  <private line removed>
+  <private line removed>
+  <private line removed>
+  <private line removed>
+  <private line removed>
+  <private line removed>
+  <private line removed>
+  <private line removed>
+  <private line removed>
+  <private line removed>
+  <private line removed>
+  <private line removed>
+  <private line removed>
+  <private line removed>
+  <private line removed>
+  <private line removed>
+  <private line removed>
 
 ✻ Waiting for 8 background agents to finish
                                                                                                                                  391260 tokens
@@ -26,5 +26,5 @@
   ⏵⏵ bypass permissions on · 3 shells · /tasks to see subagents · ← 3 agents · ↓ to manage
   
   ⏺ main
-  ◯ general-purpose (+5)  Launching eight reader subagents                                                             2m 26s · ↓ 85.6k tokens
-❯ ◯ general-purpose       Reading a document section (placeholder)                                                      2m 15s · ↓ 148.4k tokens
+  ◯ general-purpose (+5)  <task description removed>
+❯ ◯ general-purpose       <task description removed>
