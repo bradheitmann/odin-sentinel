@@ -42,6 +42,27 @@ pub struct CapRules {
     pub reset_header: String,
 }
 
+/// Where a harness shows its queue evidence relative to the sent text.
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum QueuePlacement {
+    /// The sent text and the marker share one line (pi).
+    #[default]
+    SameLine,
+    /// The sent text is on a prompt line and the marker is on a LATER line (claude-code).
+    LaterLine,
+}
+
+impl QueuePlacement {
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "same_line" => Some(Self::SameLine),
+            "later_line" => Some(Self::LaterLine),
+            _ => None,
+        }
+    }
+}
+
 /// Per-harness identity and mid-turn policy.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct HarnessRules {
@@ -50,6 +71,9 @@ pub struct HarnessRules {
     pub mid_turn: MidTurn,
     /// Literal markers that show sent text sitting in this harness's queue/steer region.
     pub queue_evidence: Vec<String>,
+    /// Where that evidence must appear.
+    #[serde(default)]
+    pub queue_evidence_placement: QueuePlacement,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
@@ -152,6 +176,13 @@ impl PaneRules {
             .unwrap_or(&[])
     }
 
+    pub fn queue_placement_for(&self, harness: &str) -> QueuePlacement {
+        self.harnesses
+            .get(harness)
+            .map(|rules| rules.queue_evidence_placement)
+            .unwrap_or_default()
+    }
+
     /// First harness (in table order) whose detect markers appear on the screen.
     pub fn detect_harness(&self, screen: &str) -> Option<&str> {
         self.harnesses.iter().find_map(|(name, rules)| {
@@ -194,7 +225,12 @@ mod tests {
             .any(|w| w == "bypass permissions"));
         assert_eq!(rules.live_tail_non_empty_lines, 3);
         assert_eq!(rules.mid_turn_for("pi"), MidTurn::Queue);
-        for harness in ["claude-code", "codex", "opencode", "unknown"] {
+        assert_eq!(rules.mid_turn_for("claude-code"), MidTurn::Queue);
+        assert_eq!(
+            rules.queue_placement_for("claude-code"),
+            QueuePlacement::LaterLine
+        );
+        for harness in ["codex", "opencode", "unknown"] {
             assert_eq!(rules.mid_turn_for(harness), MidTurn::Refuse, "{harness}");
         }
         assert!(!rules.queue_evidence_for("pi").is_empty());

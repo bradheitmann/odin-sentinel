@@ -98,6 +98,27 @@ record must not look like a recorded delivery. If the record write fails AFTER t
 run exits 9 and prints the full record JSON on stderr so the evidence survives; a send whose
 record was not written is never exit 0.
 
+## Send failures, queued panes, and the message digest
+
+- When the multiplexer refuses a send, the record is a `send_refusal` with state `SEND_FAILED`,
+  note `send-failed`, exit 5, and `transport_error`: the multiplexer's exit description followed by
+  the first line of its error output (at most 300 characters). Nothing is typed after a refused
+  send. When the text was typed but the Enter key command failed, the state stays `INPUT_BAR_ONLY`
+  with note `enter-failed`, the same exit and the same `transport_error`.
+- A pane whose rules say it queues mid-turn is typed into while busy: pi shows the sent text and
+  its queue marker on one line, Claude Code on a prompt line with the marker on the **input-bar
+  line** itself — the prompt-glyph line between the rule lines above the mode footer (both
+  captured). A marker that merely appears somewhere below the typed text, in a quoted message or
+  tool output, is not evidence. A queued send is recorded as `PANE_STILL_THINKING`,
+  `submitted: true`, `queued: true`, note `queued`, exit 0; without the evidence it is
+  `INPUT_BAR_ONLY`, note `queue-not-proven`, exit 7, and no second Enter.
+- The input bar is the prompt-glyph line between the rule lines above the mode footer. A
+  prompt-glyph line below the footer (a sub-agent selector) is never read as stale text and never
+  gets an Enter.
+- Every record written by `say` carries `message_sha256`: the lower-case hex SHA-256 of the UTF-8
+  bytes of the text exactly as sent to the pane, after the sender's whitespace flattening. Records
+  from `status`, and old log lines, have no such field and still parse.
+
 ## Board
 
 Four read-mostly subcommands for a team that keeps its coordination on a hand-written board. They read the

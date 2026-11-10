@@ -61,6 +61,36 @@ fn deliver_with_failing_pane(screens: &[&str], text: &str, options: &DeliveryOpt
     )
 }
 
+/// Same flow, but only key commands fail: the text is typed, the Enter is refused.
+fn deliver_with_failing_keys(screens: &[&str], text: &str, options: &DeliveryOptions) -> Outcome {
+    let cmux = StubCmux::new(screens).failing_keys("exit 1: key refused");
+    let clock = FakeClock::new();
+    deliver(
+        &cmux,
+        &clock,
+        PaneRules::embedded(),
+        &HarnessSelector::default(),
+        SURFACE,
+        text,
+        options,
+    )
+}
+
+/// Same flow, but the pane read itself fails from the first read on.
+fn deliver_with_failing_read(screens: &[&str], text: &str, options: &DeliveryOptions) -> Outcome {
+    let cmux = StubCmux::new(screens).with_read_failure_from(1);
+    let clock = FakeClock::new();
+    deliver(
+        &cmux,
+        &clock,
+        PaneRules::embedded(),
+        &HarnessSelector::default(),
+        SURFACE,
+        text,
+        options,
+    )
+}
+
 fn bar_with(text: &str) -> String {
     format!("› {text}\n")
 }
@@ -145,6 +175,28 @@ fn golden_corpus() -> String {
             "run the gate",
             &options(5, 180),
         )),
+        // 12. Claude Code queues mid-turn (captured 2026-11-10): the sent text on a prompt
+        //     line and the evidence marker on a later line.
+        line(&deliver_against(
+            &[
+                screen!("claude_busy_self"),
+                screen!("claude_busy_queued_capture"),
+            ],
+            "ODIN-SELFTEST queued capture probe from PM-ODIN to its own pane: ignore this line",
+            &options(5, 180),
+        )),
+        // 13. Exit 5, Enter key refused: the text is in the bar, named by the note.
+        line(&deliver_with_failing_keys(
+            &[screen!("codex_idle")],
+            "x",
+            &options(5, 180),
+        )),
+        // 14. The pane read itself failed: nothing is typed and nothing is delivered.
+        line(&deliver_with_failing_read(
+            &[screen!("codex_idle")],
+            "x",
+            &options(5, 180),
+        )),
     ];
     let mut text = records.join("\n");
     text.push('\n');
@@ -188,7 +240,7 @@ fn every_golden_record_parses_back_with_its_outcome_shape() {
         .collect();
     assert_eq!(
         records.len(),
-        11,
+        14,
         "one record per recordable sender outcome"
     );
 
@@ -213,10 +265,13 @@ fn every_golden_record_parses_back_with_its_outcome_shape() {
             ("send_refusal", "PANE_BLOCKED_ON_PERMISSION", false, false),
             ("delivery", "INPUT_BAR_ONLY", true, false),
             ("send_refusal", "INPUT_BAR_ONLY", false, false),
-            ("send_refusal", "INPUT_BAR_ONLY", false, false),
-            ("send_refusal", "INPUT_BAR_ONLY", false, false),
+            ("send_refusal", "SEND_FAILED", false, false),
+            ("send_refusal", "SEND_FAILED", false, false),
             ("delivery", "INPUT_BAR_ONLY", true, false),
             ("send_refusal", "SEAT_CAPPED", false, false),
+            ("delivery", "PANE_STILL_THINKING", true, true),
+            ("send_refusal", "INPUT_BAR_ONLY", false, false),
+            ("send_refusal", "PANE_READ_FAILED", false, false),
         ]
     );
     // Every record carries the six delivery-proof fields with the right types.

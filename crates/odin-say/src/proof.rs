@@ -7,8 +7,21 @@
 
 use crate::say::{surface_locator, Outcome};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::io::Write;
 use std::path::Path;
+
+/// Lower-case hex SHA-256 of the bytes given, used for the message digest.
+pub fn sha256_hex(bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    let out = hasher.finalize();
+    let mut hex = String::with_capacity(64);
+    for byte in out {
+        hex.push_str(&format!("{byte:02x}"));
+    }
+    hex
+}
 
 /// The record attests a send.
 pub const RECORD_KIND_DELIVERY: &str = "delivery";
@@ -50,6 +63,12 @@ pub struct ProofEntry {
     pub reset_at: Option<String>,
     /// The cap marker that matched, when the seat was capped.
     pub cap_marker: Option<String>,
+    /// Why the multiplexer refused a send or a key command, when it did.
+    #[serde(default)]
+    pub transport_error: Option<String>,
+    /// Lower-case hex SHA-256 of the text exactly as sent to the pane, after flattening.
+    #[serde(default)]
+    pub message_sha256: Option<String>,
 }
 
 impl ProofEntry {
@@ -83,6 +102,8 @@ impl ProofEntry {
             queued: outcome.queued,
             reset_at: outcome.reset_at.clone(),
             cap_marker: outcome.cap_marker.clone(),
+            transport_error: outcome.transport_error.clone(),
+            message_sha256: outcome.message_sha256.clone(),
         }
     }
 }
@@ -138,6 +159,8 @@ mod tests {
             queued: false,
             reset_at: None,
             cap_marker: None,
+            transport_error: None,
+            message_sha256: None,
             harness: crate::identity::HarnessIdentity::unknown(),
         }
     }

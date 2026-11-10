@@ -120,7 +120,6 @@ fn every_unverified_harness_keeps_the_bounded_wait_and_refuses() {
     let opencode_busy = "⠙ Streaming the reply\n\n  ctrl+p commands\n";
     let unknown_busy = "⠙ Thinking (5s · Working on it)\n\n  a footer nobody knows\n";
     let cases: Vec<(&str, String)> = vec![
-        ("claude-code", screen!("claude_busy_queued").to_string()),
         ("codex", screen!("codex_busy").to_string()),
         ("opencode", opencode_busy.to_string()),
         ("unknown", unknown_busy.to_string()),
@@ -245,9 +244,9 @@ fn blocked_panes_refuse_at_once_for_every_harness() {
 }
 
 #[test]
-fn the_harness_table_ships_only_pi_on_queue() {
+fn the_harness_table_ships_queue_only_where_a_capture_proves_it() {
     for (name, harness) in &rules().harnesses {
-        let expected = if name == "pi" {
+        let expected = if matches!(name.as_str(), "pi" | "claude-code") {
             odin_say::rules::MidTurn::Queue
         } else {
             odin_say::rules::MidTurn::Refuse

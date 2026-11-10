@@ -248,26 +248,80 @@ fn a_pane_busy_for_two_polls_then_idle_is_delivered() {
 }
 
 #[test]
-fn a_busy_claude_code_pane_refuses_after_the_wait_budget() {
-    // Slice 2: only a harness whose rules say it buffers (pi) is typed into mid-turn.
-    // Claude Code queues in the field, but without its own captured evidence it stays on
-    // the refuse default, so a busy pane here keeps slice 1's bounded wait.
-    let cmux = StubCmux::new(&[screen!("claude_busy_queued")]);
-    let clock = FakeClock::new();
-    let out = deliver(
+fn a_busy_claude_code_pane_queues_on_captured_evidence() {
+    // Captured 2026-11-10: a message typed mid-turn appears on a prompt line and the bar
+    // reads "Press up to edit queued messages" on a LATER line.
+    let cmux = StubCmux::new(&[
+        screen!("claude_busy_self"),
+        screen!("claude_busy_queued_capture"),
+    ]);
+    let (out, _clock) = run(
         &cmux,
-        &clock,
-        rules(),
-        &HarnessSelector::default(),
-        SURFACE,
-        "queue later",
-        &options(5, 20),
+        "ODIN-SELFTEST queued capture probe from PM-ODIN to its own pane: ignore this line",
     );
     assert_eq!(out.state, DeliveryState::PaneStillThinking);
-    assert_eq!((out.submitted, out.exit), (false, 3));
-    assert_eq!(out.polls, 5);
-    assert!(out.waited_ms >= 20_000);
-    assert!(cmux.texts().is_empty());
+    assert_eq!((out.submitted, out.queued, out.exit), (true, true, 0));
+    assert_eq!(out.note, "queued");
+}
+
+#[test]
+fn a_marker_quoted_below_the_typed_text_but_not_on_the_bar_is_not_queued() {
+    // PM ruling 2026-11-10: the evidence must be on the INPUT-BAR line. A screen that merely
+    // quotes the marker in its output, below the typed text, is not proof of a queued send.
+    let text = "a queued line with a quoted marker";
+    let rule = "\u{2500}".repeat(60);
+    let quoted = format!(
+        "{rule}\n\u{276f} {text}\n  note: the harness says Press up to edit queued messages when it queues\n\u{00b7} Spelunking\u{2026} (1m 05s)\n{rule}\n\u{276f} \n{rule}\n  \u{23f5}\u{23f5} bypass permissions on \u{00b7} 1 shell \u{00b7} esc to interrupt\n"
+    );
+    let cmux = StubCmux::new(&[screen!("claude_busy_self"), quoted.as_str()]);
+    let (out, _clock) = run(&cmux, text);
+    assert_eq!(out.state, DeliveryState::InputBarOnly, "{out:?}");
+    assert_eq!((out.submitted, out.exit), (true, 7));
+    assert_eq!(cmux.keys(), vec!["Enter"]);
+}
+
+#[test]
+fn a_claude_code_queue_without_the_evidence_marker_is_not_proven() {
+    let queued_without_marker = screen!("claude_busy_queued_capture")
+        .replace("Press up to edit queued messages", "an unrelated line");
+    let cmux = StubCmux::new(&[screen!("claude_busy_self"), queued_without_marker.as_str()]);
+    let (out, _clock) = run(&cmux, "a queued line with no evidence");
+    assert_eq!(out.state, DeliveryState::InputBarOnly);
+    assert_eq!((out.submitted, out.exit), (true, 7));
+    assert_eq!(out.note, "queue-not-proven");
+    // No second Enter for an unproven queue send.
+    assert_eq!(cmux.keys(), vec!["Enter"]);
+}
+
+#[test]
+fn the_subagent_selector_below_the_footer_is_not_stale_input() {
+    // Captured 2026-11-10: the prompt-glyph line below the footer is the sub-agent selector.
+    // It must never be read as text stuck in the bar, and never get an Enter before the send.
+    let cmux = StubCmux::new(&[screen!("claude_subagent_selector"), screen!("claude_idle")]);
+    let (out, _clock) = run(&cmux, "after the selector");
+    assert!(!stale_input(screen!("claude_subagent_selector")));
+    assert!(out.state.delivered(), "{:?}", out.state);
+    // One Enter, for the send itself: the selector line was not "cleared".
+    assert_eq!(cmux.keys(), vec!["Enter"]);
+}
+
+#[test]
+fn a_failed_send_is_send_failed_with_the_transport_error() {
+    let cmux = StubCmux::new(&[screen!("codex_idle")]).failing_with("exit 1: sync lost");
+    let (out, _clock) = run(&cmux, "x");
+    assert_eq!(out.state, DeliveryState::SendFailed);
+    assert_eq!((out.note, out.exit), ("send-failed", 5));
+    assert_eq!(out.transport_error.as_deref(), Some("exit 1: sync lost"));
+    assert!(cmux.keys().is_empty(), "no key may follow a failed send");
+}
+
+#[test]
+fn a_failed_enter_keeps_the_bar_state_and_names_the_key() {
+    let cmux = StubCmux::new(&[screen!("codex_idle")]).failing_keys("exit 1: key refused");
+    let (out, _clock) = run(&cmux, "x");
+    assert_eq!(out.state, DeliveryState::InputBarOnly);
+    assert_eq!((out.note, out.exit), ("enter-failed", 5));
+    assert_eq!(out.transport_error.as_deref(), Some("exit 1: key refused"));
 }
 
 #[test]
@@ -320,7 +374,7 @@ fn an_echo_with_a_response_after_it_is_delivered_not_stuck() {
 fn a_failed_send_is_input_bar_only_with_exit_five() {
     let cmux = StubCmux::new(&[screen!("codex_idle")]).failing();
     let (out, _clock) = run(&cmux, "x");
-    assert_eq!(out.state, DeliveryState::InputBarOnly);
+    assert_eq!(out.state, DeliveryState::SendFailed);
     assert_eq!((out.note, out.exit), ("send-failed", 5));
     assert!(cmux.keys().is_empty());
 }
@@ -370,7 +424,7 @@ fn a_permission_prompt_after_the_overlay_escape_is_refused_before_any_text() {
 
 #[test]
 fn a_permission_prompt_appearing_during_the_busy_wait_is_refused_before_any_text() {
-    let cmux = StubCmux::new(&[screen!("claude_busy"), screen!("permission_prompt")]);
+    let cmux = StubCmux::new(&[screen!("codex_busy"), screen!("permission_prompt")]);
     let (out, _clock) = run(&cmux, "do not type this");
     assert_eq!(out.state, DeliveryState::PaneBlockedOnPermission);
     assert_eq!((out.submitted, out.exit), (false, 2));

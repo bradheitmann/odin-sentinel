@@ -801,8 +801,10 @@ export const CMUX_DELIVERY_STATES = [
   "DELIVERED_NO_ACK",
   "INPUT_BAR_ONLY",
   "PANE_BLOCKED_ON_PERMISSION",
+  "PANE_READ_FAILED",
   "PANE_STILL_THINKING",
-  "SEAT_CAPPED"
+  "SEAT_CAPPED",
+  "SEND_FAILED"
 ] as const;
 
 /**
@@ -840,9 +842,14 @@ const CMUX_RECORD_KINDS = ["delivery", "send_refusal"] as const;
 const CMUX_SEND_REFUSAL_STATES = [
   "PANE_STILL_THINKING",
   "PANE_BLOCKED_ON_PERMISSION",
+  "PANE_READ_FAILED",
   "INPUT_BAR_ONLY",
-  "SEAT_CAPPED"
+  "SEAT_CAPPED",
+  "SEND_FAILED"
 ] as const;
+
+/** The message digest a `say` record may carry: lower-case hex SHA-256, nothing else. */
+const CMUX_MESSAGE_SHA256 = /^[0-9a-f]{64}$/;
 
 const CMUX_DELIVERY_PROOF_FIELDS = [
   "target_surface_locator",
@@ -889,6 +896,7 @@ function validateCmuxDeliveryProofProse(proof: Record<string, unknown>): CmuxDel
     sender_role: "string"
   });
   const warnings: string[] = [];
+  validateMessageDigest(proof, invalid);
 
   const state = typeof proof.observed_processing_state === "string" ? proof.observed_processing_state : undefined;
   if (state !== undefined && !CMUX_DELIVERY_STATES.includes(state as (typeof CMUX_DELIVERY_STATES)[number])) {
@@ -963,6 +971,7 @@ function validateCmuxSendRefusalProse(proof: Record<string, unknown>): CmuxDeliv
     sender_role: "string"
   });
   const warnings: string[] = [];
+  validateMessageDigest(proof, invalid);
 
   const state = typeof proof.observed_processing_state === "string" ? proof.observed_processing_state : undefined;
   if (state !== undefined && !(CMUX_DELIVERY_STATES as readonly string[]).includes(state)) {
@@ -1000,13 +1009,25 @@ function validateCmuxSendRefusalProse(proof: Record<string, unknown>): CmuxDeliv
  * proves anything, a dry-run proves nothing, and a submitted record with an
  * observed state but no acknowledgement is delivered_no_ack.
  */
-function deliveryVerdictFor(result: ValidationResult, proof: Record<string, unknown>): CmuxDeliveryVerdict {
-  if (!result.valid) return "not_proven";
+/**
+ * `message_sha256`, when present, names the sent text: 64 lower-case hex characters. Anything
+ * else is invalid by name (an unknown field is still ignored, as before).
+ */
+function validateMessageDigest(proof: Record<string, unknown>, invalid: string[]): void {
+  if (proof.message_sha256 === undefined || proof.message_sha256 === null) return;
+  if (typeof proof.message_sha256 !== "string" || !CMUX_MESSAGE_SHA256.test(proof.message_sha256)) {
+    invalid.push("message_sha256");
+  }
+}
+
+function deliveryVerdictFor(result: ValidationResult, proof: Record<string, unknown>): CmuxDeliveryVerdict {  if (!result.valid) return "not_proven";
   if (proof.dry_run === true) return "not_proven";
   const state = typeof proof.observed_processing_state === "string" ? proof.observed_processing_state : undefined;
   // A capped seat is a refusal whatever the record kind: nothing was typed, so nothing was
   // delivered (the sender exits 10 and writes one send_refusal record).
   if (state === "SEAT_CAPPED") return "not_delivered";
+  // A refused send and a failed pane read attest nothing: neither is a delivery.
+  if (state === "SEND_FAILED" || state === "PANE_READ_FAILED") return "not_delivered";
   if (state === "DELIVERED_ACKED") return "delivered";
   if (state !== undefined && (CMUX_DELIVERY_STATES as readonly string[]).includes(state)) return "delivered_no_ack";
   return "not_proven";

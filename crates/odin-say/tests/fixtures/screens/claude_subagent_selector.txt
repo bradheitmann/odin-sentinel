@@ -1,0 +1,30 @@
+  <private line removed>
+
+  <private line removed>
+  <private line removed>
+  <private line removed>
+  <private line removed>
+  <private line removed>
+  <private line removed>
+  <private line removed>
+  <private line removed>
+  <private line removed>
+  <private line removed>
+  <private line removed>
+  <private line removed>
+  <private line removed>
+  <private line removed>
+  <private line removed>
+  <private line removed>
+  <private line removed>
+
+✻ Waiting for 8 background agents to finish
+                                                                                                                                 391260 tokens
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯  
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on · 3 shells · /tasks to see subagents · ← 3 agents · ↓ to manage
+  
+  ⏺ main
+  ◯ general-purpose (+5)  <task description removed>
+❯ ◯ general-purpose       <task description removed>

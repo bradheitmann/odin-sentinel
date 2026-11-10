@@ -52,6 +52,8 @@ fn main() {
                 }
             }
             if std::env::var("FAKE_CMUX_FAIL_SEND").is_ok_and(|v| v == "1") {
+                // A refused send prints one error line, as the real multiplexer does.
+                eprintln!("fake-cmux: sync lost while writing the pane buffer");
                 std::process::exit(1);
             }
         }

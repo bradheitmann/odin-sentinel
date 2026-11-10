@@ -40,6 +40,7 @@ pub enum DeliveryState {
     InputBarOnly,
     PaneBlockedOnPermission,
     PaneReadFailed,
+    SendFailed,
     PaneStillThinking,
     SeatCapped,
 }
@@ -52,6 +53,7 @@ impl DeliveryState {
             Self::InputBarOnly => "INPUT_BAR_ONLY",
             Self::PaneBlockedOnPermission => "PANE_BLOCKED_ON_PERMISSION",
             Self::PaneReadFailed => "PANE_READ_FAILED",
+            Self::SendFailed => "SEND_FAILED",
             Self::PaneStillThinking => "PANE_STILL_THINKING",
             Self::SeatCapped => "SEAT_CAPPED",
         }
@@ -101,6 +103,10 @@ pub struct Outcome {
     pub reset_at: Option<String>,
     /// The cap marker that matched, when the pane was capped.
     pub cap_marker: Option<String>,
+    /// Why the multiplexer refused a send or a key command, when it did.
+    pub transport_error: Option<String>,
+    /// Lower-case hex SHA-256 of the text exactly as sent, after flattening.
+    pub message_sha256: Option<String>,
     /// The harness identity the mid-turn policy was selected from.
     pub harness: HarnessIdentity,
 }
@@ -191,11 +197,11 @@ pub fn blocked(screen: &str, rules: &PaneRules) -> bool {
         .any(|line| rules.blocked.iter().any(|p| line.contains(p)))
 }
 
-/// Harnesses that queue sent text while busy show it in a queue region (for pi: a
-/// `Steering: <text>` line followed by the queued-messages hint). The read-back proves the
-/// queueing only when the sent text (its flattened head) and a harness queue-evidence marker
-/// appear on the SAME line: a stale `Steering:` line elsewhere on the pane, or the text still
-/// sitting in the input bar, is not evidence.
+/// Harnesses that queue sent text while busy show it in a queue region. The read-back is
+/// proven only where the harness's own captured placement says so: the sent text (its flattened
+/// head) on the SAME line as the marker for pi, or on a prompt-glyph line with the marker on a
+/// LATER line for claude-code. A stale `Steering:` line elsewhere, or the text still sitting in
+/// the input bar, is not evidence.
 pub fn shows_queued(screen: &str, flat: &str, rules: &PaneRules, harness: &str) -> bool {
     let head: String = flat.chars().take(40).collect();
     if head.trim().is_empty() {
@@ -205,18 +211,72 @@ pub fn shows_queued(screen: &str, flat: &str, rules: &PaneRules, harness: &str) 
     if evidence.is_empty() {
         return false;
     }
-    screen.lines().any(|line| {
-        line.contains(head.as_str()) && evidence.iter().any(|marker| line.contains(marker.as_str()))
-    })
+    let has_marker = |line: &str| evidence.iter().any(|marker| line.contains(marker.as_str()));
+    match rules.queue_placement_for(harness) {
+        // The sent text and the marker on one line (pi).
+        crate::rules::QueuePlacement::SameLine => screen
+            .lines()
+            .any(|line| line.contains(head.as_str()) && has_marker(line)),
+        // The sent text on a prompt-glyph line, and the marker on the INPUT-BAR line (the
+        // prompt line between the rule lines above the mode footer, per B2). PM ruling
+        // 2026-11-10: the bar line IS the later line the rule names, and it is the stricter
+        // reading — a message or tool output that merely quotes the marker below the typed
+        // text is not evidence.
+        crate::rules::QueuePlacement::LaterLine => {
+            let Some(bar) = input_bar(screen) else {
+                return false;
+            };
+            let bar_at = screen.lines().position(|line| line == bar);
+            let head_at = screen.lines().position(|line| {
+                let is_prompt = line.starts_with('\u{203a}') || line.starts_with('\u{276f}');
+                is_prompt && line.contains(head.as_str())
+            });
+            match (head_at, bar_at) {
+                (Some(head_at), Some(bar_at)) => head_at < bar_at && has_marker(bar),
+                _ => false,
+            }
+        }
+    }
 }
 
 /// Only the LAST prompt-glyph line is the input bar; earlier ones are the harness echo of
 /// already-submitted messages.
+/// The input bar: on a Claude Code pane, the prompt-glyph line between the two horizontal rule
+/// lines ABOVE the mode footer. A prompt-glyph line BELOW the footer (the sub-agent selector) is
+/// not the input bar and never gets an Enter. A screen without that structure falls back to the
+/// last prompt-glyph line (earlier prompt lines are the harness echo of submitted messages).
 pub fn input_bar(screen: &str) -> Option<&str> {
-    screen
-        .lines()
-        .rev()
-        .find(|l| l.starts_with("› ") || l.starts_with("❯ "))
+    let is_prompt = |line: &str| line.starts_with('\u{203a}') || line.starts_with('\u{276f}');
+    let is_rule = |line: &str| {
+        let trimmed = line.trim();
+        trimmed.chars().count() >= 10
+            && trimmed
+                .chars()
+                .all(|c| matches!(c, '\u{2500}' | '\u{2501}' | '\u{2550}' | '-'))
+    };
+    let is_footer = |line: &str| {
+        line.contains("bypass permissions")
+            || line.contains('\u{23f5}')
+            || line.contains("\u{2193} to manage")
+            || line.contains("accept edits on")
+    };
+    let lines: Vec<&str> = screen.lines().collect();
+    let above = lines
+        .iter()
+        .rposition(|line| is_footer(line))
+        .unwrap_or(lines.len());
+    if let Some(last_rule) = lines[..above].iter().rposition(|line| is_rule(line)) {
+        if let Some(prev_rule) = lines[..last_rule].iter().rposition(|line| is_rule(line)) {
+            if let Some(bar) = lines[prev_rule + 1..last_rule]
+                .iter()
+                .rev()
+                .find(|line| is_prompt(line))
+            {
+                return Some(bar);
+            }
+        }
+    }
+    lines.iter().rev().find(|line| is_prompt(line)).copied()
 }
 
 pub fn stale_input(screen: &str) -> bool {
@@ -402,6 +462,8 @@ fn refuse(
         queued: false,
         reset_at: None,
         cap_marker: None,
+        transport_error: None,
+        message_sha256: None,
         harness: HarnessIdentity::unknown(),
     }
 }
@@ -417,6 +479,8 @@ fn delivered(state: DeliveryState, note: &'static str, polls: u32, waited_ms: u6
         queued: false,
         reset_at: None,
         cap_marker: None,
+        transport_error: None,
+        message_sha256: None,
         harness: HarnessIdentity::unknown(),
     }
 }
@@ -434,6 +498,8 @@ fn queued(note: &'static str, polls: u32) -> Outcome {
         queued: true,
         reset_at: None,
         cap_marker: None,
+        transport_error: None,
+        message_sha256: None,
         harness: HarnessIdentity::unknown(),
     }
 }
@@ -452,6 +518,8 @@ pub fn deliver(
     opts: &DeliveryOptions,
 ) -> Outcome {
     let flat = flatten(text);
+    // The digest names the bytes exactly as they are sent to the pane, after flattening.
+    let message_sha256 = crate::proof::sha256_hex(flat.as_bytes());
     let poll_ms = u64::try_from(opts.poll.as_millis())
         .unwrap_or(u64::MAX)
         .max(1);
@@ -495,7 +563,8 @@ pub fn deliver(
         if blocked(&screen, rules) {
             if screen.contains(rules.dismissible_overlay.as_str()) {
                 // The overlay is dismissible: Escape, wait, re-read, proceed.
-                cmux.send_key(surface, "Escape");
+                // A refused Escape leaves the overlay: the re-read below decides.
+                let _ = cmux.send_key(surface, "Escape");
                 clock.sleep(Duration::from_secs(1));
                 match cmux.read_screen(surface) {
                     Ok(raw) => screen = tail14(&raw),
@@ -543,18 +612,31 @@ pub fn deliver(
                     // Pi accepts text mid-turn and delivers it as a queued steer: send now,
                     // exactly one Enter, and require queue evidence on the read-back.
                     waited_ms = clock.elapsed_ms() - first_busy_at.unwrap_or(0);
-                    if !cmux.send_text(surface, &flat) {
-                        return refuse(
-                            DeliveryState::InputBarOnly,
+                    if let Err(failure) = cmux.send_text(surface, &flat) {
+                        let mut outcome = refuse(
+                            DeliveryState::SendFailed,
                             false,
                             "send-failed",
                             EXIT_SEND_FAILED,
                             polls,
                             waited_ms,
                         );
+                        outcome.transport_error = Some(failure.detail.clone());
+                        return outcome;
                     }
                     clock.sleep(Duration::from_millis(1500));
-                    cmux.send_key(surface, "Enter");
+                    if let Err(failure) = cmux.send_key(surface, "Enter") {
+                        let mut outcome = refuse(
+                            DeliveryState::InputBarOnly,
+                            false,
+                            "enter-failed",
+                            EXIT_SEND_FAILED,
+                            polls,
+                            waited_ms,
+                        );
+                        outcome.transport_error = Some(failure.detail.clone());
+                        return outcome;
+                    }
                     clock.sleep(Duration::from_secs(3));
                     let read_back = match cmux.read_screen(surface) {
                         Ok(raw) => tail14(&raw),
@@ -657,7 +739,8 @@ pub fn deliver(
         }
 
         if stale_input(&screen) {
-            cmux.send_key(surface, "Enter");
+            // A refused Enter leaves the stale text: the re-read below decides.
+            let _ = cmux.send_key(surface, "Enter");
             clock.sleep(Duration::from_secs(3));
             match cmux.read_screen(surface) {
                 Ok(raw) => screen = tail14(&raw),
@@ -696,18 +779,34 @@ pub fn deliver(
             }
         }
 
-        if !cmux.send_text(surface, &flat) {
-            return refuse(
-                DeliveryState::InputBarOnly,
+        if let Err(failure) = cmux.send_text(surface, &flat) {
+            // The multiplexer refused the send: nothing was typed, so this is a transport
+            // failure, never a pane state.
+            let mut outcome = refuse(
+                DeliveryState::SendFailed,
                 false,
                 "send-failed",
                 EXIT_SEND_FAILED,
                 polls,
                 waited_ms,
             );
+            outcome.transport_error = Some(failure.detail.clone());
+            return outcome;
         }
         clock.sleep(Duration::from_millis(1500));
-        cmux.send_key(surface, "Enter");
+        if let Err(failure) = cmux.send_key(surface, "Enter") {
+            // The text IS in the bar: the state stays INPUT_BAR_ONLY, the note names the key.
+            let mut outcome = refuse(
+                DeliveryState::InputBarOnly,
+                false,
+                "enter-failed",
+                EXIT_SEND_FAILED,
+                polls,
+                waited_ms,
+            );
+            outcome.transport_error = Some(failure.detail.clone());
+            return outcome;
+        }
         clock.sleep(Duration::from_secs(3));
         match cmux.read_screen(surface) {
             Ok(raw) => screen = tail14(&raw),
@@ -728,7 +827,8 @@ pub fn deliver(
         let in_bar = |screen: &str| input_bar(screen).is_some_and(|b| b.contains(head.as_str()));
         if in_bar(&screen) {
             // single_enter_verify: re-Enter ONCE.
-            cmux.send_key(surface, "Enter");
+            // A refused Enter leaves the stale text: the re-read below decides.
+            let _ = cmux.send_key(surface, "Enter");
             clock.sleep(Duration::from_secs(3));
             match cmux.read_screen(surface) {
                 Ok(raw) => screen = tail14(&raw),
@@ -777,6 +877,7 @@ pub fn deliver(
 
     Outcome {
         harness: identity,
+        message_sha256: Some(message_sha256),
         ..outcome
     }
 }

@@ -89,3 +89,22 @@ line, including its JSON payload, the reset value and the footer chrome, is verb
 fixtures are CONSTRUCTED from the first capture and labelled as such in the tests:
 `seat_capped_stale.txt` (a later turn response appended after the cap, so it is a stale cap) and
 `seat_capped_busy.txt` (a live spinner status line added, so the pane is busy and refuses).
+
+## Claude Code queue captures (2026-11-10)
+
+Four screens captured from a live Claude Code pane on 2026-11-10, kept for their STRUCTURE: every
+content line above the spinner/status line is replaced line for line by the placeholder
+`  <private line removed>` (two leading spaces), so no prose, tool call, tool output, hook message,
+repository name, run number, date, surface id or file name survives. The two sub-agent task
+descriptions carry the second placeholder `<task description removed>` with their glyphs, agent type
+names and timings kept. Byte for byte the fixtures keep: blank lines, the spinner/status line, the
+token-count line, both rule lines, the bar line, the footer line, and — in the queued capture — the
+queued-text line with the ODIN-SELFTEST probe text and the `ctrl+enter to send now` line. The private
+originals stay outside this repository; each sha256 below is of its private original, as captured.
+
+| fixture | private original | sha256 |
+| --- | --- | --- |
+| `tests/fixtures/screens/claude_busy_self.txt` | `self-busy-before-150930.txt` | `ed18df9c74a9fe7c753e790868199ed9adf7aa055f8f46096b365b6c2daf22b6` |
+| `tests/fixtures/screens/claude_busy_typed_not_entered.txt` | `self-typed-not-entered-150931.txt` | `ccef151af5de6cd9ba8445a97dfb91b92b04524cff672b6c29799b474b86e3a5` |
+| `tests/fixtures/screens/claude_busy_queued_capture.txt` | `self-queued-150934.txt` | `51fa4bef62f5cc20d655251802d820d8532ab106e16a9db6621587091e95ae45` |
+| `tests/fixtures/screens/claude_subagent_selector.txt` | `refused-stale-137-150740.txt` | `a6b2d571e98e095645e9dbbf010b7a6609ec64a58f378867335253d460020c63` |
