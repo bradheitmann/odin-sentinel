@@ -1,7 +1,10 @@
 {
+  "accepted_unix_s": 1794319923,
+  "accepted_utc": "2026-11-10T14:12:03Z",
   "base_commit": "32a1b1eaed453d87e7cd63dd51181eb7f3242452",
   "brief_sha256": null,
   "done_sha256": "7d9a2fa80f067f18f45192a2e1d734bee3ccb126e72514c353d0de16af220649",
   "schema_version": "charter.dispatch/1",
-  "slice": "board-seatmap"
+  "slice": "board-seatmap",
+  "state": "accepted"
 }
