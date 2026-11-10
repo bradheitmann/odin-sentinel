@@ -354,3 +354,47 @@ fn a_failed_read_refuses_with_no_send_and_records_the_failure() {
     assert_eq!(proof[0]["observed_processing_state"], "PANE_READ_FAILED");
     assert_eq!(proof[0]["note"], "read-failed");
 }
+
+// A (say-transport-queue-hash): a multiplexer that refuses the send is a transport failure, not a
+// pane state, and its error line reaches the record.
+#[test]
+fn a_failed_send_records_send_failed_with_the_transport_error() {
+    let rig = Rig::new(&["codex_idle"]);
+    let out = rig
+        .command()
+        .env("FAKE_CMUX_FAIL_SEND", "1")
+        .args(["say", "7", "hello"])
+        .output()
+        .expect("run");
+    assert_eq!(out.status.code(), Some(5), "{}", text(&out).1);
+    let proof = proof_lines(&rig.proof());
+    assert_eq!(proof.len(), 1);
+    assert_eq!(proof[0]["record_kind"], "send_refusal");
+    assert_eq!(proof[0]["observed_processing_state"], "SEND_FAILED");
+    assert_eq!(proof[0]["note"], "send-failed");
+    assert_eq!(proof[0]["submitted"], false);
+    let transport = proof[0]["transport_error"]
+        .as_str()
+        .expect("transport_error");
+    assert!(transport.starts_with("exit 1:"), "{transport}");
+    assert!(transport.contains("sync lost"), "{transport}");
+    // No key follows a failed send.
+    assert!(rig.calls().iter().all(|call| call[0] != "send-key"));
+}
+
+#[test]
+fn every_say_record_carries_the_message_digest() {
+    let rig = Rig::new(&["codex_idle", "codex_acked_after_send"]);
+    let out = rig
+        .command()
+        .args(["say", "7", "digest me"])
+        .output()
+        .expect("run");
+    assert_eq!(out.status.code(), Some(0));
+    let proof = proof_lines(&rig.proof());
+    let digest = proof[0]["message_sha256"].as_str().expect("message_sha256");
+    assert_eq!(digest.len(), 64);
+    assert!(digest
+        .chars()
+        .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()));
+}

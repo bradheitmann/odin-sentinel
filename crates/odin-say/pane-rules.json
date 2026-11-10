@@ -7,8 +7,8 @@
     "stale_input",
     "idle"
   ],
-  "dismissible_overlay": "enter insert · esc close",
-  "spinner_glyphs": "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏",
+  "dismissible_overlay": "enter insert \u00b7 esc close",
+  "spinner_glyphs": "\u280b\u2819\u2839\u2838\u283c\u2834\u2826\u2827\u2807\u280f",
   "status_markers": [
     "esc to interrupt",
     "Working (",
@@ -37,7 +37,7 @@
   "busy_region_note": "A busy word only marks a pane busy on a LIVE line: one that also carries a spinner glyph or a status marker, or one of the last 3 non-empty lines. Leftover scrollback text (for example an old 'Thinking:' line above an idle prompt) never makes a pane busy; that false refusal was a field defect (1,485 of 2,451 proof lines in one team's log).",
   "live_tail_non_empty_lines": 3,
   "blocked": [
-    "enter insert · esc close",
+    "enter insert \u00b7 esc close",
     "Allow?",
     "allow once",
     "Do you want to proceed",
@@ -82,32 +82,36 @@
       }
     ],
     "output_markers": [
-      "⏺",
-      "•"
+      "\u23fa",
+      "\u2022"
     ],
     "reset_header": "X-RateLimit-Reset"
   },
-  "harness_note": "Per-harness identity and mid-turn policy. Detection markers are literal footer/chrome strings; the first harness (in table order) whose markers appear on the pane tail is the pane's harness. mid_turn controls what a busy pane means: queue = the harness buffers text typed mid-turn and delivers it as a queued steer, so send immediately and require queue_evidence on the read-back; refuse = the harness may not buffer, so keep the bounded wait and refuse if it is still busy. Only pi ships as queue, on captured evidence; every other harness refuses until its own capture proves buffering.",
+  "harness_note": "Per-harness identity and mid-turn policy. Detection markers are literal footer/chrome strings; the first harness (in table order) whose markers appear on the pane tail is the pane's harness. mid_turn controls what a busy pane means: queue = the harness buffers text typed mid-turn and delivers it as a queued steer, so send immediately and require queue_evidence on the read-back; refuse = the harness may not buffer, so keep the bounded wait and refuse if it is still busy. queue_evidence_placement says where the evidence must appear: same_line (the sent text and the marker on one line, pi) or later_line (the sent text on a prompt line and the marker on a LATER line, claude-code, captured 2026-11-10). claude-code and pi ship as queue on captured evidence; every other harness refuses until its own capture proves buffering.",
   "harnesses": {
     "pi": {
       "detect": [
         "(auto)",
-        "↑"
+        "\u2191"
       ],
       "mid_turn": "queue",
       "queue_evidence": [
         "Steering:",
         "Option+Up to edit all queued messages"
-      ]
+      ],
+      "queue_evidence_placement": "same_line"
     },
     "claude-code": {
       "detect": [
         "bypass permissions on",
-        "↓ to manage",
+        "\u2193 to manage",
         "accept edits on"
       ],
-      "mid_turn": "refuse",
-      "queue_evidence": []
+      "mid_turn": "queue",
+      "queue_evidence": [
+        "Press up to edit queued messages"
+      ],
+      "queue_evidence_placement": "later_line"
     },
     "codex": {
       "detect": [
@@ -115,14 +119,16 @@
         "Codex"
       ],
       "mid_turn": "refuse",
-      "queue_evidence": []
+      "queue_evidence": [],
+      "queue_evidence_placement": "same_line"
     },
     "opencode": {
       "detect": [
         "ctrl+p commands"
       ],
       "mid_turn": "refuse",
-      "queue_evidence": []
+      "queue_evidence": [],
+      "queue_evidence_placement": "same_line"
     }
   },
   "input_bar_note": "Only the LAST prompt-glyph line is the input bar; an earlier line with the same glyph is the harness echo of an already-submitted message.",

@@ -12,12 +12,44 @@ use std::process::{Command, Stdio};
 use std::rc::Rc;
 use std::time::Duration;
 
+/// A send or key command the multiplexer itself refused: it exited non-zero, was killed by a
+/// signal, or could not be run at all. Carries the exit description and the first line of the
+/// command's error output, on one line, at most 300 characters.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TransportFailure {
+    pub detail: String,
+}
+
+impl TransportFailure {
+    pub fn new(detail: impl Into<String>) -> Self {
+        let mut text: String = detail
+            .into()
+            .lines()
+            .next()
+            .unwrap_or_default()
+            .trim()
+            .to_owned();
+        if text.chars().count() > 300 {
+            text = text.chars().take(300).collect();
+        }
+        Self { detail: text }
+    }
+}
+
+impl std::fmt::Display for TransportFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.detail)
+    }
+}
+
 pub trait Cmux {
     /// Raw pane text for `surface:<id>`; `Err` when the pane could not be read. A failed read
     /// is never an empty pane: the sender refuses instead of typing into a pane it cannot see.
     fn read_screen(&self, surface: &str) -> Result<String, ReadScreenFailed>;
-    fn send_text(&self, surface: &str, text: &str) -> bool;
-    fn send_key(&self, surface: &str, key: &str) -> bool;
+    /// `Err` when the multiplexer refused the send: the caller must report a transport failure,
+    /// never a pane state.
+    fn send_text(&self, surface: &str, text: &str) -> Result<(), TransportFailure>;
+    fn send_key(&self, surface: &str, key: &str) -> Result<(), TransportFailure>;
 }
 
 /// A pane read that did not produce text: the binary could not be spawned, or it exited
@@ -52,14 +84,27 @@ impl RealCmux {
         }
     }
 
-    fn quiet(&self, args: &[&str]) -> bool {
-        Command::new(&self.binary)
+    fn quiet(&self, args: &[&str]) -> Result<(), TransportFailure> {
+        let output = Command::new(&self.binary)
             .args(args)
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .map(|s| s.success())
-            .unwrap_or(false)
+            .stderr(Stdio::piped())
+            .output()
+            .map_err(|e| TransportFailure::new(format!("could not run the binary: {e}")))?;
+        if output.status.success() {
+            return Ok(());
+        }
+        let how = match output.status.code() {
+            Some(code) => format!("exit {code}"),
+            None => "terminated by a signal".to_owned(),
+        };
+        let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+        let first = stderr.lines().next().unwrap_or("").trim();
+        Err(TransportFailure::new(if first.is_empty() {
+            how
+        } else {
+            format!("{how}: {first}")
+        }))
     }
 }
 
@@ -84,11 +129,11 @@ impl Cmux for RealCmux {
         Ok(String::from_utf8_lossy(&output.stdout).into_owned())
     }
 
-    fn send_text(&self, surface: &str, text: &str) -> bool {
+    fn send_text(&self, surface: &str, text: &str) -> Result<(), TransportFailure> {
         self.quiet(&["send", "--surface", surface, text])
     }
 
-    fn send_key(&self, surface: &str, key: &str) -> bool {
+    fn send_key(&self, surface: &str, key: &str) -> Result<(), TransportFailure> {
         self.quiet(&["send-key", "--surface", surface, key])
     }
 }
@@ -107,6 +152,10 @@ pub struct StubCmux {
     screens: RefCell<VecDeque<String>>,
     last: RefCell<String>,
     pub ok: bool,
+    /// The error line a failing stub reports, so tests can assert on transport_error.
+    pub error: String,
+    /// When set, only key commands fail (the text was typed; the Enter was refused).
+    pub keys_fail: bool,
     pub calls: RefCell<Vec<Call>>,
     /// When set, every read advances this fake clock: a read that takes time.
     read_cost: Option<(Rc<FakeClock>, Duration)>,
@@ -122,6 +171,8 @@ impl StubCmux {
             screens: RefCell::new(screens.iter().map(|s| (*s).to_string()).collect()),
             last: RefCell::new(String::new()),
             ok: true,
+            error: "exit 1: fake multiplexer refused the send".to_owned(),
+            keys_fail: false,
             calls: RefCell::new(Vec::new()),
             read_cost: None,
             fail_reads_from: None,
@@ -146,6 +197,20 @@ impl StubCmux {
 
     pub fn failing(mut self) -> Self {
         self.ok = false;
+        self
+    }
+
+    /// Fail only on key commands, with a specific error line.
+    pub fn failing_keys(mut self, error: &str) -> Self {
+        self.keys_fail = true;
+        self.error = error.to_owned();
+        self
+    }
+
+    /// Fail with a specific error line (exit status plus the multiplexer's own message).
+    pub fn failing_with(mut self, error: &str) -> Self {
+        self.ok = false;
+        self.error = error.to_owned();
         self
     }
 
@@ -203,17 +268,25 @@ impl Cmux for StubCmux {
         Ok(self.last.borrow().clone())
     }
 
-    fn send_text(&self, surface: &str, text: &str) -> bool {
+    fn send_text(&self, surface: &str, text: &str) -> Result<(), TransportFailure> {
         self.calls
             .borrow_mut()
             .push(Call::SendText(surface.into(), text.into()));
-        self.ok
+        if self.ok {
+            Ok(())
+        } else {
+            Err(TransportFailure::new(self.error.clone()))
+        }
     }
 
-    fn send_key(&self, surface: &str, key: &str) -> bool {
+    fn send_key(&self, surface: &str, key: &str) -> Result<(), TransportFailure> {
         self.calls
             .borrow_mut()
             .push(Call::SendKey(surface.into(), key.into()));
-        self.ok
+        if self.ok && !self.keys_fail {
+            Ok(())
+        } else {
+            Err(TransportFailure::new(self.error.clone()))
+        }
     }
 }

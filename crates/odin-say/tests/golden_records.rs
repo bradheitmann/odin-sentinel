@@ -213,8 +213,8 @@ fn every_golden_record_parses_back_with_its_outcome_shape() {
             ("send_refusal", "PANE_BLOCKED_ON_PERMISSION", false, false),
             ("delivery", "INPUT_BAR_ONLY", true, false),
             ("send_refusal", "INPUT_BAR_ONLY", false, false),
-            ("send_refusal", "INPUT_BAR_ONLY", false, false),
-            ("send_refusal", "INPUT_BAR_ONLY", false, false),
+            ("send_refusal", "SEND_FAILED", false, false),
+            ("send_refusal", "SEND_FAILED", false, false),
             ("delivery", "INPUT_BAR_ONLY", true, false),
             ("send_refusal", "SEAT_CAPPED", false, false),
         ]
