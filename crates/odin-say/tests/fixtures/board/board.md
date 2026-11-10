@@ -4,6 +4,6 @@
 2026-11-10T13:28:36Z | A | M02 | DISPATCHED QA2 merge abc1234 | briefs/m02.md delivered=13:28:13Z
 2026-11-10T13:28:36Z | A | M03 | DISPATCHED DEV3 missing stamp | briefs/m03.md
 2026-11-10T13:28:36Z | A | M04 | DISPATCHED DEV1 unproven stamp | briefs/m04.md delivered=13:29:59Z
-2026-11-10T13:28:36Z | A | M05 | DISPATCHED QA2 refusal stamp | briefs/m05.md delivered=13:28:40Z
-2026-11-10T13:28:36Z | A | M06 | DISPATCHED DEV1 wrong target stamp | briefs/m06.md delivered=13:28:50Z
+2026-11-10T13:28:36Z | A | M05 | DISPATCHED QA2 refusal stamp | briefs/m05.md delivered=13:28:30Z
+2026-11-10T13:28:36Z | A | M06 | DISPATCHED DEV1 wrong target stamp | briefs/m06.md delivered=13:28:13Z
 2026-11-10T13:28:36Z | A | M07 | DISPATCHED DEV1 four field line

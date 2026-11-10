@@ -140,6 +140,58 @@ fn a_stamp_in_the_state_field_is_accepted_and_still_proved() {
     assert_eq!(report.findings[0].reason, "DELIVERED_NO_PROOF");
 }
 
+// F1: the previous-day rule for a short stamp, including a month boundary.
+#[test]
+fn a_short_stamp_later_than_the_line_is_read_on_the_previous_day() {
+    let log = read_proof_log(
+        "2026-11-09T23:58:00Z target_surface_locator=surface:1000000111 submitted=true observed_processing_state=DELIVERED_ACKED\n",
+    );
+    let board = "2026-11-10T00:05:00Z | A | M01 | DISPATCHED DEV1 midnight dispatch | briefs/m01.md delivered=23:58:00Z\n";
+    assert!(check_board(board, &log, None).findings.is_empty());
+}
+
+#[test]
+fn the_previous_day_rule_does_not_invent_a_delivery() {
+    let log = read_proof_log(
+        "2026-11-10T00:04:00Z target_surface_locator=surface:1000000111 submitted=true observed_processing_state=DELIVERED_ACKED\n",
+    );
+    let board = "2026-11-10T00:05:00Z | A | M01 | DISPATCHED DEV1 midnight dispatch | briefs/m01.md delivered=23:58:00Z\n";
+    let report = check_board(board, &log, None);
+    assert_eq!(report.findings.len(), 1, "{:?}", report.findings);
+    assert_eq!(report.findings[0].reason, "DELIVERED_NO_PROOF");
+}
+
+#[test]
+fn the_previous_day_rule_crosses_a_month_boundary() {
+    let log = read_proof_log(
+        "2026-10-31T23:59:00Z target_surface_locator=surface:1000000111 submitted=true observed_processing_state=DELIVERED_NO_ACK\n",
+    );
+    let board = "2026-11-01T00:01:00Z | A | M01 | DISPATCHED DEV1 month boundary | briefs/m01.md delivered=23:59:00Z\n";
+    assert!(check_board(board, &log, None).findings.is_empty());
+}
+
+#[test]
+fn a_full_utc_stamp_is_used_as_written_even_when_it_is_the_previous_day() {
+    let log = read_proof_log(
+        "2026-11-09T23:58:00Z target_surface_locator=surface:1000000111 submitted=true observed_processing_state=DELIVERED_ACKED\n",
+    );
+    let board = "2026-11-10T00:05:00Z | A | M01 | DISPATCHED DEV1 explicit stamp | briefs/m01.md delivered=2026-11-09T23:58:00Z\n";
+    assert!(check_board(board, &log, None).findings.is_empty());
+}
+
+// F2: the stamp counts in the pointer field and at the end of the state field, and nowhere else.
+#[test]
+fn a_stamp_in_the_seat_or_lane_field_does_not_count() {
+    let reporter = "2026-11-10T13:28:36Z | A delivered=13:28:07Z | M01 | DISPATCHED DEV1 seen in the lane field | briefs/m01.md\n";
+    let report = check_board(reporter, &proof(), None);
+    assert_eq!(report.findings.len(), 1, "{:?}", report.findings);
+    assert_eq!(report.findings[0].reason, "DISPATCH_NO_DELIVERED");
+    let in_seat = "2026-11-10T13:28:36Z | A | M01 delivered=13:28:07Z | DISPATCHED DEV1 seen in the lane field | briefs/m01.md\n";
+    let report = check_board(in_seat, &proof(), None);
+    assert_eq!(report.findings.len(), 1, "{:?}", report.findings);
+    assert_eq!(report.findings[0].reason, "DISPATCH_NO_DELIVERED");
+}
+
 #[test]
 fn a_missing_board_file_exits_two() {
     let out = std::process::Command::new(env!("CARGO_BIN_EXE_odin-say"))

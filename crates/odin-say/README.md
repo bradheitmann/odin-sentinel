@@ -117,11 +117,14 @@ odin-say board post    --board <file> --seat <s> --lane <l> --state <word> --tex
   `DEV15` are one seat. Each seat is LIVE, TITLE_MISMATCH, NOT_LIVE, NO_SURFACE or CONFLICT; entries that
   cannot be parsed and panes that no source names are listed, never dropped.
 - `check` types every board line (`UTC | seat | lane | state | pointer`) and verifies each `DISPATCHED`
-  line against the proof log: a `delivered=HH:MM:SSZ` stamp must match, to the second, a submitted
+  line against the proof log. The `delivered=` stamp is read from the pointer field or, as the consumer
+  sometimes writes it, from the end of the state field (a stamp in the seat or lane field does not
+  count); it must match, to the second, a submitted
   `DELIVERED_*` record, and when a seat map names the dispatched seat the record must target that seat's
   surface. Reasons: `MALFORMED_FIELDS`, `BAD_TIMESTAMP`, `BAD_STATE`, `DISPATCH_NO_DELIVERED`,
   `DELIVERED_NO_PROOF`, `DELIVERED_WRONG_TARGET`; a missing stamp prints the deliveries from the ten
-  minutes before the line as fix hints.
+  minutes before the line as fix hints. A short `HH:MM:SSZ` stamp takes the line's date, or the
+  previous UTC day when its time of day is later than the line's.
 - `events` writes one JSON-lines event log, ordered by time then input order, typed `board_line`,
   `board_line_unparsed` or `delivery` (from the first board line's UTC day onward). The same inputs give the
   same bytes; the file is written through a temporary file and renamed.

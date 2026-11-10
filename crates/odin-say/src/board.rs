@@ -893,7 +893,6 @@ pub struct CheckReport {
 
 pub fn check_board(board: &str, log: &ProofLog, seat_map: Option<&Value>) -> CheckReport {
     let mut report = CheckReport::default();
-    let mut previous_date: Option<String> = None;
     for (index, raw) in board.lines().enumerate() {
         let line_no = index + 1;
         let trimmed = raw.trim();
@@ -913,21 +912,20 @@ pub fn check_board(board: &str, log: &ProofLog, seat_map: Option<&Value>) -> Che
                 continue;
             }
         };
-        let date = date_of(&line.utc).to_owned();
-        previous_date = Some(date.clone());
         if state_word(&line.state) != "DISPATCHED" {
             continue;
         }
         report.dispatched += 1;
-        let mut stamps = delivered_stamps(&line.pointer);
-        let stamp_field = if stamps.is_empty() {
-            stamps = delivered_stamps(&line.state);
-            "state"
-        } else {
-            "pointer"
+        // F2 (PM ruling): the consumer writes the stamp in the pointer field OR at the end of the
+        // state field, so both positions count; the proof requirement is unchanged, and a stamp in
+        // the seat or lane field does not count.
+        let (mut stamps, stamp_field) = match delivered_stamps(&line.pointer) {
+            stamps if !stamps.is_empty() => (stamps, "pointer"),
+            _ => (delivered_stamps(&line.state), "state"),
         };
+        let _ = &mut stamps;
         if stamps.is_empty() {
-            let hints = hints_before(&date, &line.utc, log);
+            let hints = hints_before(&line.utc, log);
             report.findings.push(Finding {
                 line_no,
                 reason: "DISPATCH_NO_DELIVERED",
@@ -939,7 +937,6 @@ pub fn check_board(board: &str, log: &ProofLog, seat_map: Option<&Value>) -> Che
             });
             continue;
         }
-        let _ = stamp_field;
         let seat = line
             .state
             .split_whitespace()
@@ -950,7 +947,7 @@ pub fn check_board(board: &str, log: &ProofLog, seat_map: Option<&Value>) -> Che
             .as_ref()
             .and_then(|key| seat_surface_from_map(seat_map, key));
         for stamp in &stamps {
-            let Some(full) = resolve_stamp(&date, stamp) else {
+            let Some(full) = resolve_stamp(&line.utc, stamp) else {
                 report.findings.push(Finding {
                     line_no,
                     reason: "BAD_TIMESTAMP",
@@ -965,7 +962,9 @@ pub fn check_board(board: &str, log: &ProofLog, seat_map: Option<&Value>) -> Che
                 report.findings.push(Finding {
                     line_no,
                     reason: "DELIVERED_NO_PROOF",
-                    detail: format!("delivered={stamp} matches no proof-log record"),
+                    detail: format!(
+                        "delivered={stamp} ({stamp_field} field) matches no proof-log record"
+                    ),
                     hints: Vec::new(),
                 });
                 continue;
@@ -974,7 +973,7 @@ pub fn check_board(board: &str, log: &ProofLog, seat_map: Option<&Value>) -> Che
                 report.findings.push(Finding {
                     line_no,
                     reason: "DELIVERED_NO_PROOF",
-                    detail: format!("delivered={stamp} matches only a refusal (submitted false)"),
+                    detail: format!("delivered={stamp} ({stamp_field} field) matches only a refusal (submitted false)"),
                     hints: Vec::new(),
                 });
                 continue;
@@ -1002,7 +1001,6 @@ pub fn check_board(board: &str, log: &ProofLog, seat_map: Option<&Value>) -> Che
             }
         }
     }
-    let _ = previous_date;
     report
 }
 
@@ -1020,20 +1018,41 @@ fn delivered_stamps(pointer: &str) -> Vec<String> {
     out
 }
 
-/// A `HH:MM:SSZ` stamp belongs to the line's date, or to the previous day when its time of day
-/// is later than the line's own (a board written after midnight about the evening before).
-fn resolve_stamp(date: &str, stamp: &str) -> Option<String> {
+/// A full UTC stamp is used as written. A `HH:MM:SSZ` stamp belongs to the line's date, or to the
+/// PREVIOUS UTC day when its time of day is later than the line's (a board written just after
+/// midnight about the evening before) — including across a month or year boundary.
+fn resolve_stamp(line_utc: &str, stamp: &str) -> Option<String> {
     if is_utc_stamp(stamp) {
         return Some(stamp.to_owned());
     }
     if !is_clock_stamp(stamp) {
         return None;
     }
-    let candidate = format!("{date}T{stamp}");
-    Some(candidate)
+    let line_seconds = stamp_seconds(line_utc)?;
+    let stamp_sod = clock_seconds_of_day(stamp)?;
+    let line_sod = line_seconds.rem_euclid(86_400);
+    let day_start = if stamp_sod > line_sod {
+        line_seconds - 86_400
+    } else {
+        line_seconds
+    };
+    let day = timeutil::format_utc((day_start - line_sod) as u64);
+    Some(format!("{}T{stamp}", &day[..10]))
 }
 
-fn hints_before(date: &str, utc: &str, log: &ProofLog) -> Vec<String> {
+/// Seconds of the day for a `HH:MM:SSZ` clock stamp.
+fn clock_seconds_of_day(stamp: &str) -> Option<i64> {
+    if !is_clock_stamp(stamp) {
+        return None;
+    }
+    let hh: i64 = stamp[0..2].parse().ok()?;
+    let mm: i64 = stamp[3..5].parse().ok()?;
+    let ss: i64 = stamp[6..8].parse().ok()?;
+    Some(hh * 3600 + mm * 60 + ss)
+}
+
+fn hints_before(utc: &str, log: &ProofLog) -> Vec<String> {
+    // Epoch seconds, so a ten-minute window that crosses midnight is covered.
     let Some(line_seconds) = stamp_seconds(utc) else {
         return Vec::new();
     };
@@ -1051,7 +1070,6 @@ fn hints_before(date: &str, utc: &str, log: &ProofLog) -> Vec<String> {
         })
         .collect();
     hints.truncate(12);
-    let _ = date;
     hints
 }
 
