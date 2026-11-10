@@ -884,14 +884,72 @@ pub struct Finding {
     pub hints: Vec<String>,
 }
 
+/// A line about a line that is not a failure: it never changes the exit status.
+#[derive(Debug, Clone)]
+pub struct Note {
+    pub line_no: usize,
+    pub reason: &'static str,
+    pub seat: String,
+}
+
+impl Note {
+    pub fn summary(&self) -> String {
+        format!("line {}: {} {}", self.line_no, self.reason, self.seat)
+    }
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct CheckReport {
     pub checked: usize,
     pub dispatched: usize,
     pub findings: Vec<Finding>,
+    pub notes: Vec<Note>,
+}
+
+/// seat key -> surface, from the seat-map JSON rows.
+fn seat_map_index(seat_map: Option<&Value>) -> BTreeMap<String, String> {
+    let mut index = BTreeMap::new();
+    let Some(rows) = seat_map
+        .and_then(|map| map.get("rows"))
+        .and_then(Value::as_array)
+    else {
+        return index;
+    };
+    for row in rows {
+        let key = row.get("seat").and_then(Value::as_str).unwrap_or("");
+        let surface = row.get("surface").and_then(Value::as_str).unwrap_or("");
+        if !key.is_empty() && !surface.is_empty() {
+            index.insert(seat_key(key), normalise_surface(surface));
+        }
+    }
+    index
+}
+
+/// Every word of the state field after the state word whose seat key is in the map; punctuation
+/// around a word is ignored.
+fn named_seats(state: &str, index: &BTreeMap<String, String>) -> Vec<(String, String)> {
+    state
+        .split_whitespace()
+        .skip(1)
+        .map(|word| word.trim_matches(|c: char| !c.is_alphanumeric()))
+        .filter(|word| !word.is_empty())
+        .filter_map(|word| {
+            let key = seat_key(word);
+            index.get(&key).map(|surface| (key, surface.clone()))
+        })
+        .fold(Vec::new(), |mut acc, entry| {
+            if !acc
+                .iter()
+                .any(|(key, _): &(String, String)| key == &entry.0)
+            {
+                acc.push(entry);
+            }
+            acc
+        })
 }
 
 pub fn check_board(board: &str, log: &ProofLog, seat_map: Option<&Value>) -> CheckReport {
+    let seat_index = seat_map_index(seat_map);
     let mut report = CheckReport::default();
     for (index, raw) in board.lines().enumerate() {
         let line_no = index + 1;
@@ -937,17 +995,11 @@ pub fn check_board(board: &str, log: &ProofLog, seat_map: Option<&Value>) -> Che
             });
             continue;
         }
-        let seat = line
-            .state
-            .split_whitespace()
-            .nth(1)
-            .map(seat_key)
-            .filter(|key| !key.is_empty());
-        let seat_surface = seat
-            .as_ref()
-            .and_then(|key| seat_surface_from_map(seat_map, key));
+        let named = named_seats(&line.state, &seat_index);
+        let mut covered: BTreeSet<String> = BTreeSet::new();
         for stamp in &stamps {
-            let Some(full) = resolve_stamp(&line.utc, stamp) else {
+            let candidates = resolve_stamp_candidates(&line.utc, stamp);
+            if candidates.is_empty() {
                 report.findings.push(Finding {
                     line_no,
                     reason: "BAD_TIMESTAMP",
@@ -955,49 +1007,89 @@ pub fn check_board(board: &str, log: &ProofLog, seat_map: Option<&Value>) -> Che
                     hints: Vec::new(),
                 });
                 continue;
-            };
-            let matching: Vec<&Delivery> =
-                log.records.iter().filter(|r| r.timestamp == full).collect();
-            if matching.is_empty() {
-                report.findings.push(Finding {
-                    line_no,
-                    reason: "DELIVERED_NO_PROOF",
-                    detail: format!(
-                        "delivered={stamp} ({stamp_field} field) matches no proof-log record"
-                    ),
-                    hints: Vec::new(),
-                });
-                continue;
             }
-            if !matching.iter().any(|record| record.is_delivery()) {
-                report.findings.push(Finding {
-                    line_no,
-                    reason: "DELIVERED_NO_PROOF",
-                    detail: format!("delivered={stamp} ({stamp_field} field) matches only a refusal (submitted false)"),
-                    hints: Vec::new(),
-                });
-                continue;
-            }
-            if let Some(wanted) = &seat_surface {
-                let ok = matching
+            // A delivery at ANY candidate second satisfies the stamp; when several deliveries
+            // share that second, any of them may satisfy it (L2).
+            let mut matched: Vec<&Delivery> = Vec::new();
+            let mut saw_record = false;
+            let mut saw_refusal_only = false;
+            for candidate in &candidates {
+                let at: Vec<&Delivery> = log
+                    .records
                     .iter()
-                    .any(|record| record.is_delivery() && &record.surface == wanted);
+                    .filter(|record| &record.timestamp == candidate)
+                    .collect();
+                if at.is_empty() {
+                    continue;
+                }
+                saw_record = true;
+                let deliveries: Vec<&Delivery> = at
+                    .into_iter()
+                    .filter(|record| record.is_delivery())
+                    .collect();
+                if deliveries.is_empty() {
+                    saw_refusal_only = true;
+                    continue;
+                }
+                matched = deliveries;
+                break;
+            }
+            if matched.is_empty() {
+                let detail = if saw_refusal_only {
+                    format!("delivered={stamp} ({stamp_field} field) matches only a refusal (submitted false)")
+                } else {
+                    format!("delivered={stamp} ({stamp_field} field) matches no proof-log record")
+                };
+                let _ = saw_record;
+                report.findings.push(Finding {
+                    line_no,
+                    reason: "DELIVERED_NO_PROOF",
+                    detail,
+                    hints: Vec::new(),
+                });
+                continue;
+            }
+            if !named.is_empty() {
+                // The delivery must target the surface of ANY seat the line names (L2).
+                let ok = matched
+                    .iter()
+                    .any(|record| named.iter().any(|(_, surface)| surface == &record.surface));
                 if !ok {
                     report.findings.push(Finding {
                         line_no,
                         reason: "DELIVERED_WRONG_TARGET",
                         detail: format!(
-                            "delivered={stamp} proves surface {} but seat {} is on {wanted}",
-                            matching
+                            "delivered={stamp} proves surface {} but the line names {}",
+                            matched
                                 .iter()
-                                .map(|r| r.surface.as_str())
+                                .map(|record| record.surface.as_str())
                                 .collect::<Vec<_>>()
                                 .join(","),
-                            seat.clone().unwrap_or_default()
+                            named
+                                .iter()
+                                .map(|(key, surface)| format!("{key} on {surface}"))
+                                .collect::<Vec<_>>()
+                                .join(", ")
                         ),
                         hints: Vec::new(),
                     });
+                    continue;
                 }
+                for (key, surface) in &named {
+                    if matched.iter().any(|record| &record.surface == surface) {
+                        covered.insert(key.clone());
+                    }
+                }
+            }
+        }
+        // Coverage notes: a line may mention a seat it did not dispatch to.
+        for (key, _) in &named {
+            if !covered.contains(key) {
+                report.notes.push(Note {
+                    line_no,
+                    reason: "SEAT_NOT_COVERED",
+                    seat: key.clone(),
+                });
             }
         }
     }
@@ -1018,26 +1110,30 @@ fn delivered_stamps(pointer: &str) -> Vec<String> {
     out
 }
 
-/// A full UTC stamp is used as written. A `HH:MM:SSZ` stamp belongs to the line's date, or to the
-/// PREVIOUS UTC day when its time of day is later than the line's (a board written just after
-/// midnight about the evening before) — including across a month or year boundary.
-fn resolve_stamp(line_utc: &str, stamp: &str) -> Option<String> {
+/// The seconds a stamp may name, in lookup order. A full UTC stamp names exactly one second.
+/// A short stamp names the line's day first, and the previous day only when its time of day is
+/// later than the line's (L1: the consumer's late-delivery idiom is same-day).
+pub fn resolve_stamp_candidates(line_utc: &str, stamp: &str) -> Vec<String> {
     if is_utc_stamp(stamp) {
-        return Some(stamp.to_owned());
+        return vec![stamp.to_owned()];
     }
     if !is_clock_stamp(stamp) {
-        return None;
+        return Vec::new();
     }
-    let line_seconds = stamp_seconds(line_utc)?;
-    let stamp_sod = clock_seconds_of_day(stamp)?;
-    let line_sod = line_seconds.rem_euclid(86_400);
-    let day_start = if stamp_sod > line_sod {
-        line_seconds - 86_400
-    } else {
-        line_seconds
+    let Some(line_seconds) = stamp_seconds(line_utc) else {
+        return Vec::new();
     };
-    let day = timeutil::format_utc((day_start - line_sod) as u64);
-    Some(format!("{}T{stamp}", &day[..10]))
+    let Some(stamp_sod) = clock_seconds_of_day(stamp) else {
+        return Vec::new();
+    };
+    let line_sod = line_seconds.rem_euclid(86_400);
+    let day = timeutil::format_utc((line_seconds - line_sod) as u64);
+    let mut out = vec![format!("{}T{stamp}", &day[..10])];
+    if stamp_sod > line_sod {
+        let previous = timeutil::format_utc((line_seconds - line_sod - 86_400) as u64);
+        out.push(format!("{}T{stamp}", &previous[..10]));
+    }
+    out
 }
 
 /// Seconds of the day for a `HH:MM:SSZ` clock stamp.
@@ -1071,22 +1167,6 @@ fn hints_before(utc: &str, log: &ProofLog) -> Vec<String> {
         .collect();
     hints.truncate(12);
     hints
-}
-
-fn seat_surface_from_map(seat_map: Option<&Value>, key: &str) -> Option<String> {
-    let map = seat_map?;
-    let rows = map.get("rows")?.as_array()?;
-    for row in rows {
-        let row_key = row.get("seat").and_then(Value::as_str).unwrap_or("");
-        if seat_key(row_key) != key {
-            continue;
-        }
-        let surface = row.get("surface").and_then(Value::as_str).unwrap_or("");
-        if !surface.is_empty() {
-            return Some(normalise_surface(surface));
-        }
-    }
-    None
 }
 
 // ---------------------------------------------------------------------------
