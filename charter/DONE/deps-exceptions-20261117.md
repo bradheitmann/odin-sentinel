@@ -1,5 +1,6 @@
 # Done list — deps-exceptions-20261117 (written BEFORE dispatch; does not grow during it)
 Base bytes: 8c26fb3 (main)
+Re-pinned by PM-ODIN before QA, at OD/DEV's head 500b491, under lead A's ruling 2 (T): the two AC13 tests read the shipped manifest at the real clock. The first pin froze every test and promised tests/audit green; the tests' fixed clock made that impossible with the ruled dates. Proof 7 is new; proofs 5 and 6 and the Design, write scope and out-of-scope lines changed for it.
 
 ## Problem
 `pnpm run audit:deps` fails on main and on every branch, so CI `validate` is red. A new high advisory, GHSA-fc5q-39xc-vjpf (picomatch <=4.0.7, ReDoS through single-branch repeated extglobs; patched >=4.0.8, which npm does not publish yet), resolves in the tree with no record. All its paths are dev-only: @vitest/coverage-v8 > vitest > (vite | tinyglobby | fdir) > picomatch. Separately, the ten pin records in scripts/audit/audit-exceptions.json expire 2026-11-20; an expired record fails the gate on its own.
@@ -8,14 +9,18 @@ The ten records are PIN records: each documents a workspace override that keeps 
 
 The repository stays PARKED (owner directive 2026-11-06). Lead A allowed this one slice on 2026-11-17T21:39:47Z and ruled its shape (ruling R) the same evening: renew all ten as pin records with their own reasons and expiry 2026-12-17, add the dev-only picomatch exception, change only expiry and rationale text. No code, no dependency change, no release, no PARKED line.
 
+tests/audit/dependency-audit.test.ts fixes `NOW = 2026-09-01T12:00:00Z` (line 10). Its two AC13 "shipped configuration" tests evaluate the SHIPPED manifest at that NOW, so with the 90-day horizon any shipped expiry after 2026-11-30 fails there as over-horizon, although `audit:deps` passes at the real date. Lead A's ruling 2 (T): those two tests read the shipped manifest at the real clock; every fixture test keeps NOW; the horizon rule is unchanged; a mutant shows each test still fails for an expired shipped record and for an over-horizon one.
+
 ## Design (fixed for this slice)
-One commit that changes scripts/audit/audit-exceptions.json only:
+Commit 1 (done at 500b491) changes scripts/audit/audit-exceptions.json only:
 - Each of the ten existing records keeps `advisory`, `owner` and `pin` byte-identical. `expires` becomes `2026-12-17`. `rationale` keeps its current text and gains one sentence at the end, specific to that record, that says it was renewed on 2026-11-17 because the override is still in place and the advisory still does not resolve in the installed tree. The four root-workspace packages (ip-address, hono, qs, body-parser) also say that a workspace override does not reach someone who installs the published package, and that this is checked before the expiry.
 - One new record, appended after the ten: `advisory` `GHSA-fc5q-39xc-vjpf`, `owner` `ODIN Sentinel maintainers`, `expires` `2026-12-01`, no `pin`. Its `rationale` names the dev-only path (@vitest/coverage-v8 > vitest > vite/tinyglobby/fdir > picomatch), says that nothing in the published package carries picomatch, and says that the record is removed once picomatch 4.0.8 or later is on npm and the tree resolves it, whichever comes before the expiry.
 - `version` and `policy` are unchanged. The file stays two-space-indented JSON with a final newline, like the base.
 
+Commit 2 (after this re-pin) changes tests/audit/dependency-audit.test.ts only: in the two AC13 tests of `describe("shipped configuration")` (base lines 745 and 778), `now: NOW` becomes `now: new Date()`. No other byte of the file changes: NOW, every fixture test, MAX_EXPIRY_HORIZON_DAYS and the gate stay as they are.
+
 ## Write scope
-scripts/audit/audit-exceptions.json only.
+scripts/audit/audit-exceptions.json; tests/audit/dependency-audit.test.ts (the two `now:` lines named above, nothing else).
 
 ## Proofs
 Each proof gives what it guarantees, how to reopen it, and its fail-without mutant. Mutants run in a scratch `git clone` (never `cp -R` of a worktree), never in the worktree.
@@ -32,12 +37,16 @@ Each proof gives what it guarantees, how to reopen it, and its fail-without muta
 4. **horizon.** Every expiry is after the commit date and within the policy horizon (90 days); none is later than 2026-12-17.
    - Reopen: `jq -r '.exceptions[].expires' scripts/audit/audit-exceptions.json | sort -u`.
    - Fail-without mutant: set the picomatch record's expiry to `2027-06-01`; `pnpm run audit:deps` fails as over-horizon.
-5. **scope-only.** The diff against the base touches scripts/audit/audit-exceptions.json only. pnpm-workspace.yaml, telemetry/pnpm-workspace.yaml, package.json, every lockfile and every test are byte-identical to the base.
-   - Reopen: `git diff --stat 8c26fb3 -- . ':!charter/DONE/deps-exceptions-20261117.md' ':!charter/.dispatch'`.
+5. **scope-only.** The diff against the base touches scripts/audit/audit-exceptions.json and, in tests/audit/dependency-audit.test.ts, exactly the two `now:` lines of the Design. pnpm-workspace.yaml, telemetry/pnpm-workspace.yaml, package.json, every lockfile and every other test byte are identical to the base.
+   - Reopen: `git diff --stat 8c26fb3 -- . ':!charter/DONE/deps-exceptions-20261117.md' ':!charter/.dispatch'`; `git diff -U0 8c26fb3 -- tests/` shows two `-      now: NOW` / `+      now: new Date()` pairs and nothing else.
    - Fail-without mutant: change the hono override in pnpm-workspace.yaml to `"^4.12.19"`; `pnpm run audit:deps` fails because the recorded pin has drifted from the override.
 6. **no-regression.** `pnpm run audit:deps`, `pnpm run audit:public` and `pnpm vitest run tests/audit --testTimeout=30000` pass. Charter (c6c9843, main's declared pin): `check --strict` exits 0 and `gate <slice> --verify` exits 0 for every slice in charter/.dispatch/. The commit and push went through the installed hooks (no bypass). PR CI is green on the head apart from the charter job, which may be red only because the charter source is unreachable.
    - Reopen: the same commands; `gh pr checks <pr>` per-job lines.
    - Fail-without mutant: n/a (aggregate).
+7. **shipped-clock.** Each AC13 test passes on the shipped manifest at the real date and still fails for an expired shipped record and for an over-horizon one in its own workspace; the horizon rule is unchanged.
+   - Reopen: `pnpm vitest run tests/audit --testTimeout=30000 -t AC13` passes (2 tests); `git diff 8c26fb3 -- scripts/audit/dependency-audit.mjs` is empty.
+   - Fail-without mutants (four, each alone, reverted after): set the expiry of GHSA-v2v4-37r5-5v8g (root) to `date -u +%Y-%m-%d` (today counts as expired) — the root AC13 test fails naming it as expired; set it to `date -u -v+120d +%Y-%m-%d` — the root AC13 test fails naming it over-horizon; repeat both with GHSA-96hv-2xvq-fx4p (telemetry) — the telemetry AC13 test fails the same two ways. Record each failing test name and error line.
+   - Negative case: with commit 2 reverted (both lines back to `now: NOW`), the two AC13 tests fail over-horizon on the shipped dates, which is why the change is needed.
 
 ## Gates (exact commands)
 - The shared hooks are installed at 69c421a (PR #46, which lands after this slice), while main declares c6c9843. Every commit, push and charter command in this slice therefore runs with `CHARTER_BIN=$HOME/.local/share/charter/bin/c6c9843bfc837e611a1d275a69d7b682f80bbd9c/bin/charter` exported. That is the hook's documented way to resolve the binary; the hook still runs its full check.
@@ -50,7 +59,7 @@ Each proof gives what it guarantees, how to reopen it, and its fail-without muta
 - pnpm vitest run tests/audit --testTimeout=30000
 
 ## Out of scope
-- Any override, dependency, lockfile, test or code change; a newer MCP SDK.
+- Any override, dependency, lockfile or code change; any test change beyond the two `now:` lines; a newer MCP SDK.
 - What someone who installs the published package resolves for ip-address, hono, qs and body-parser through the MCP SDK, and whether a newer SDK retires the four root pins. Lead A recorded that as one follow-up for odin, due before 2026-12-17, in its own slice.
 - A `- PARKED:` line; any release.
 
