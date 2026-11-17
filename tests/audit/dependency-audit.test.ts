@@ -742,7 +742,7 @@ describe("shipped configuration", () => {
       manifest: shipped,
       reportText: report([]),
       workspaceText,
-      now: NOW
+      now: new Date()
     });
     expect(result.errors).toEqual([]);
     expect(result.ok).toBe(true);
@@ -775,7 +775,7 @@ describe("shipped configuration", () => {
       reportText: report([]),
       workspaceText: telemetryText,
       workspaceLabel: "telemetry",
-      now: NOW
+      now: new Date()
     });
     expect(result.errors).toEqual([]);
     expect(result.ok).toBe(true);
