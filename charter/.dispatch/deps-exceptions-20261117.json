@@ -1,7 +1,7 @@
 {
-  "base_commit": "17ebc66fb34081512b0dff1f69e9f3235e9b2115",
+  "base_commit": "5bcdb3fc4980277632e48fb03ef99983f38527a1",
   "brief_sha256": null,
-  "done_sha256": "babc27e4a3d1626a184bc36153d29883f340799973524158c22173720ff8d3ba",
+  "done_sha256": "45a20fc24b73af55b79048472ae9a20e4e8c031333003071554f49aaf25fa606",
   "schema_version": "charter.dispatch/1",
   "slice": "deps-exceptions-20261117"
 }
