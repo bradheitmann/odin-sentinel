@@ -10,72 +10,118 @@
     {
       "advisory": "GHSA-v2v4-37r5-5v8g",
       "owner": "ODIN Sentinel maintainers",
-      "expires": "2026-11-20",
-      "rationale": "ip-address is transitive through the MCP SDK HTTP transport stack. The stdio server does not invoke those code paths, and the override pins a patched version so the advisory does not resolve in the installed tree. Review whether the pin is still needed when the SDK next moves.",
-      "pin": { "package": "ip-address", "range": "^10.1.1", "workspace": "." }
+      "expires": "2026-12-17",
+      "rationale": "ip-address is transitive through the MCP SDK HTTP transport stack. The stdio server does not invoke those code paths, and the override pins a patched version so the advisory does not resolve in the installed tree. Review whether the pin is still needed when the SDK next moves. Renewed on 2026-11-17: the ip-address override is still in place and GHSA-v2v4-37r5-5v8g still does not resolve in the installed tree. A workspace override does not reach someone who installs the published package, and that is checked before this expiry.",
+      "pin": {
+        "package": "ip-address",
+        "range": "^10.1.1",
+        "workspace": "."
+      }
     },
     {
       "advisory": "GHSA-qp7p-654g-cw7p",
       "owner": "ODIN Sentinel maintainers",
-      "expires": "2026-11-20",
-      "rationale": "hono is transitive through the MCP SDK HTTP transport stack. The stdio server does not invoke those code paths, and the override pins a patched version so the advisory does not resolve in the installed tree. Review whether the pin is still needed when the SDK next moves.",
-      "pin": { "package": "hono", "range": "^4.12.18", "workspace": "." }
+      "expires": "2026-12-17",
+      "rationale": "hono is transitive through the MCP SDK HTTP transport stack. The stdio server does not invoke those code paths, and the override pins a patched version so the advisory does not resolve in the installed tree. Review whether the pin is still needed when the SDK next moves. Renewed on 2026-11-17: the hono override is still in place and GHSA-qp7p-654g-cw7p still does not resolve in the installed tree. A workspace override does not reach someone who installs the published package, and that is checked before this expiry.",
+      "pin": {
+        "package": "hono",
+        "range": "^4.12.18",
+        "workspace": "."
+      }
     },
     {
       "advisory": "GHSA-p77w-8qqv-26rm",
       "owner": "ODIN Sentinel maintainers",
-      "expires": "2026-11-20",
-      "rationale": "hono is transitive through the MCP SDK HTTP transport stack. The stdio server does not invoke those code paths, and the override pins a patched version so the advisory does not resolve in the installed tree. Review whether the pin is still needed when the SDK next moves.",
-      "pin": { "package": "hono", "range": "^4.12.18", "workspace": "." }
+      "expires": "2026-12-17",
+      "rationale": "hono is transitive through the MCP SDK HTTP transport stack. The stdio server does not invoke those code paths, and the override pins a patched version so the advisory does not resolve in the installed tree. Review whether the pin is still needed when the SDK next moves. Renewed on 2026-11-17: the hono override is still in place and GHSA-p77w-8qqv-26rm still does not resolve in the installed tree. A workspace override does not reach someone who installs the published package, and that is checked before this expiry.",
+      "pin": {
+        "package": "hono",
+        "range": "^4.12.18",
+        "workspace": "."
+      }
     },
     {
       "advisory": "GHSA-hm8q-7f3q-5f36",
       "owner": "ODIN Sentinel maintainers",
-      "expires": "2026-11-20",
-      "rationale": "hono is transitive through the MCP SDK HTTP transport stack. The stdio server does not invoke those code paths, and the override pins a patched version so the advisory does not resolve in the installed tree. Review whether the pin is still needed when the SDK next moves.",
-      "pin": { "package": "hono", "range": "^4.12.18", "workspace": "." }
+      "expires": "2026-12-17",
+      "rationale": "hono is transitive through the MCP SDK HTTP transport stack. The stdio server does not invoke those code paths, and the override pins a patched version so the advisory does not resolve in the installed tree. Review whether the pin is still needed when the SDK next moves. Renewed on 2026-11-17: the hono override is still in place and GHSA-hm8q-7f3q-5f36 still does not resolve in the installed tree. A workspace override does not reach someone who installs the published package, and that is checked before this expiry.",
+      "pin": {
+        "package": "hono",
+        "range": "^4.12.18",
+        "workspace": "."
+      }
     },
     {
       "advisory": "GHSA-q8mj-m7cp-5q26",
       "owner": "ODIN Sentinel maintainers",
-      "expires": "2026-11-20",
-      "rationale": "qs is transitive through the MCP SDK HTTP transport stack. The stdio server does not invoke those code paths, and the override pins a patched version so the advisory does not resolve in the installed tree. Review whether the pin is still needed when the SDK next moves.",
-      "pin": { "package": "qs", "range": "^6.15.2", "workspace": "." }
+      "expires": "2026-12-17",
+      "rationale": "qs is transitive through the MCP SDK HTTP transport stack. The stdio server does not invoke those code paths, and the override pins a patched version so the advisory does not resolve in the installed tree. Review whether the pin is still needed when the SDK next moves. Renewed on 2026-11-17: the qs override is still in place and GHSA-q8mj-m7cp-5q26 still does not resolve in the installed tree. A workspace override does not reach someone who installs the published package, and that is checked before this expiry.",
+      "pin": {
+        "package": "qs",
+        "range": "^6.15.2",
+        "workspace": "."
+      }
     },
     {
       "advisory": "GHSA-27r3-jxmh-p828",
       "owner": "ODIN Sentinel maintainers",
-      "expires": "2026-11-20",
-      "rationale": "body-parser is transitive through express under the MCP SDK HTTP transport stack. The stdio server does not invoke those code paths, and the override pins the patched 2.4 line so the advisory does not resolve in the installed tree. Review whether the pin is still needed when the SDK or express next moves.",
-      "pin": { "package": "body-parser", "range": "^2.4.0", "workspace": "." }
+      "expires": "2026-12-17",
+      "rationale": "body-parser is transitive through express under the MCP SDK HTTP transport stack. The stdio server does not invoke those code paths, and the override pins the patched 2.4 line so the advisory does not resolve in the installed tree. Review whether the pin is still needed when the SDK or express next moves. Renewed on 2026-11-17: the body-parser override is still in place and GHSA-27r3-jxmh-p828 still does not resolve in the installed tree. A workspace override does not reach someone who installs the published package, and that is checked before this expiry.",
+      "pin": {
+        "package": "body-parser",
+        "range": "^2.4.0",
+        "workspace": "."
+      }
     },
     {
       "advisory": "GHSA-96hv-2xvq-fx4p",
       "owner": "ODIN Sentinel maintainers",
-      "expires": "2026-11-20",
-      "rationale": "ws is transitive through wrangler's WebSocket stack in the telemetry worker. The override pins a patched version so the advisory does not resolve in the installed tree. Review whether the pin is still needed when wrangler next moves.",
-      "pin": { "package": "ws", "range": "^8.21.0", "workspace": "telemetry" }
+      "expires": "2026-12-17",
+      "rationale": "ws is transitive through wrangler's WebSocket stack in the telemetry worker. The override pins a patched version so the advisory does not resolve in the installed tree. Review whether the pin is still needed when wrangler next moves. Renewed on 2026-11-17: the ws override is still in place and GHSA-96hv-2xvq-fx4p still does not resolve in the installed tree.",
+      "pin": {
+        "package": "ws",
+        "range": "^8.21.0",
+        "workspace": "telemetry"
+      }
     },
     {
       "advisory": "GHSA-vmh5-mc38-953g",
       "owner": "ODIN Sentinel maintainers",
-      "expires": "2026-11-20",
-      "rationale": "undici is bundled through wrangler in the telemetry worker. The override pins a patched version so the advisory does not resolve in the installed tree. Review whether the pin is still needed when wrangler next moves.",
-      "pin": { "package": "undici", "range": "^7.28.0", "workspace": "telemetry" }
+      "expires": "2026-12-17",
+      "rationale": "undici is bundled through wrangler in the telemetry worker. The override pins a patched version so the advisory does not resolve in the installed tree. Review whether the pin is still needed when wrangler next moves. Renewed on 2026-11-17: the undici override is still in place and GHSA-vmh5-mc38-953g still does not resolve in the installed tree.",
+      "pin": {
+        "package": "undici",
+        "range": "^7.28.0",
+        "workspace": "telemetry"
+      }
     },
     {
       "advisory": "GHSA-vxpw-j846-p89q",
       "owner": "ODIN Sentinel maintainers",
-      "expires": "2026-11-20",
-      "rationale": "undici is bundled through wrangler in the telemetry worker. The override pins a patched version so the advisory does not resolve in the installed tree. Review whether the pin is still needed when wrangler next moves.",
-      "pin": { "package": "undici", "range": "^7.28.0", "workspace": "telemetry" }
+      "expires": "2026-12-17",
+      "rationale": "undici is bundled through wrangler in the telemetry worker. The override pins a patched version so the advisory does not resolve in the installed tree. Review whether the pin is still needed when wrangler next moves. Renewed on 2026-11-17: the undici override is still in place and GHSA-vxpw-j846-p89q still does not resolve in the installed tree.",
+      "pin": {
+        "package": "undici",
+        "range": "^7.28.0",
+        "workspace": "telemetry"
+      }
     },
     {
       "advisory": "GHSA-rgj7-g3m4-5g8c",
       "owner": "ODIN Sentinel maintainers",
-      "expires": "2026-11-20",
-      "rationale": "sharp is transitive through wrangler -> miniflare in the telemetry worker (dev-only tooling; the worker never invokes sharp or libheif). The override pins the patched release so the advisory does not resolve in the installed tree. Review whether the pin is still needed when wrangler next moves.",
-      "pin": { "package": "sharp", "range": "^0.35.4", "workspace": "telemetry" }
+      "expires": "2026-12-17",
+      "rationale": "sharp is transitive through wrangler -> miniflare in the telemetry worker (dev-only tooling; the worker never invokes sharp or libheif). The override pins the patched release so the advisory does not resolve in the installed tree. Review whether the pin is still needed when wrangler next moves. Renewed on 2026-11-17: the sharp override is still in place and GHSA-rgj7-g3m4-5g8c still does not resolve in the installed tree.",
+      "pin": {
+        "package": "sharp",
+        "range": "^0.35.4",
+        "workspace": "telemetry"
+      }
+    },
+    {
+      "advisory": "GHSA-fc5q-39xc-vjpf",
+      "owner": "ODIN Sentinel maintainers",
+      "expires": "2026-12-01",
+      "rationale": "picomatch <=4.0.7 is a ReDoS through single-branch repeated extglobs; npm does not publish the patched 4.0.8 yet. It resolves only on a dev-only path (@vitest/coverage-v8 > vitest > vite/tinyglobby/fdir > picomatch), and nothing in the published package carries picomatch. Remove this record once picomatch 4.0.8 or later is on npm and the tree resolves it, whichever comes before the expiry."
     }
   ]
 }
