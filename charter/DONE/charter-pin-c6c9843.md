@@ -11,9 +11,9 @@ The repository stays PARKED (owner directive 2026-11-06). Lead A ruled this one 
 - With c6c9843 on main 633aef4: `check --strict` exits 0 (warnings: the old SPEC text, the hooks before re-install); `gate <slice> --verify` exits 0 for all 35 dispatched slices.
 
 ## Design (fixed for this slice)
-Following PM-CHARTER's ordered list (~/.local/share/charter/PIN-NOTES-2026-11-17.md), as one commit:
+Following PM-CHARTER's ordered list (its pin notes of 2026-11-17, private, outside this repository), as one commit:
 - .github/workflows/ci.yml: `CHARTER_REV: c6c9843bfc837e611a1d275a69d7b682f80bbd9c`. Nothing else in the file changes. Template v3 is unchanged at this pin.
-- `charter init --refresh-spec` with c6c9843. It replaces charter/SPEC.md, and also any unedited older charter/GOVERNANCE.md or charter/schemas/charter-toml.schema.json if odin has them. Whatever it rewrites is committed as written, and the DEV report lists every such path.
+- `charter init --refresh-spec` with c6c9843. It replaces charter/SPEC.md, and installs charter/GOVERNANCE.md and charter/schemas/charter-toml.schema.json when they are absent (or replaces an earlier published copy), as its `--help` states. Whatever it rewrites is committed as written, and the DEV report lists every such path.
 - charter/PIN.toml, new, exactly one line: `commit = "c6c9843bfc837e611a1d275a69d7b682f80bbd9c"`.
 - charter/STATE.md, hand-edited (NOT `charter state --write`, which drops the hand-written header):
   - line 1 becomes `# State — odin-sentinel — <UTC>, written by OD/DEV (deepseek/deepseek-flash) for slice charter-pin-c6c9843`;
@@ -24,7 +24,7 @@ Following PM-CHARTER's ordered list (~/.local/share/charter/PIN-NOTES-2026-11-17
   - every other line stays byte-identical, including the PARKED paragraph and the historical entries that cite older pins.
 
 ## Write scope
-.github/workflows/ci.yml (the CHARTER_REV line); charter/PIN.toml (new); charter/STATE.md (the lines named above); the files `charter init --refresh-spec` rewrites (charter/SPEC.md, and only if present and rewritten by the tool, charter/GOVERNANCE.md and charter/schemas/charter-toml.schema.json).
+.github/workflows/ci.yml (the CHARTER_REV line); charter/PIN.toml (new); charter/STATE.md (the lines named above); the files `charter init --refresh-spec` rewrites (charter/SPEC.md, charter/GOVERNANCE.md and charter/schemas/charter-toml.schema.json, each byte-identical to what the binary embeds).
 
 ## Proofs
 Each proof gives what it guarantees, how to reopen it, and its fail-without mutant.
@@ -40,7 +40,7 @@ Each proof gives what it guarantees, how to reopen it, and its fail-without muta
    - Fail-without mutant: restore the base SPEC.md; the warning returns.
 4. **state-marker.** charter/STATE.md has exactly one `- HEAD: ` line. Its sha is a commit on the branch; its recorded UTC equals line 1's UTC; that UTC is not later than the committer time of the commit that writes it; and `"$B" check --strict` reports no STATE freshness or cadence refusal. The diff of STATE.md against the base touches only the lines the Design names.
    - Reopen: `grep -n '^- HEAD: ' charter/STATE.md`; `git cat-file -t <sha>`; `git log -1 --format=%cI -- charter/STATE.md`; `git diff 633aef4 -- charter/STATE.md`.
-   - Fail-without mutant: in a scratch copy, set the recorded UTC to 8 days before now; `check --strict` refuses "charter/STATE.md is older than 7 days".
+   - Fail-without mutant: in a scratch copy, set the recorded UTC to 8 days before now; `check --landing` refuses "charter/STATE.md is older than 7 days" (on a branch `check --strict` only notes it; STATE is judged on main and by `--landing`).
 5. **ci-rev-only.** The ci.yml diff against the base is exactly the one CHARTER_REV line.
    - Reopen: `git diff 633aef4 -- .github/workflows/ci.yml`.
    - Fail-without mutant: change any other byte in the charter job; the diff shows a second line.
