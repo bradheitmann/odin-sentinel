@@ -1,0 +1,12 @@
+{
+  "accepted_unix_s": 1794968024,
+  "accepted_utc": "2026-11-18T02:13:44Z",
+  "base_commit": "5bcdb3fc4980277632e48fb03ef99983f38527a1",
+  "brief_sha256": null,
+  "done_sha256": "45a20fc24b73af55b79048472ae9a20e4e8c031333003071554f49aaf25fa606",
+  "receipt": ".odin/receipts/OD-QA-deps-exceptions-20261117.receipt.json",
+  "receipt_sha256": "8514f0d1f512d55e58264a88984905509ada49b70a743724b1848b87a7d2ade4",
+  "schema_version": "charter.dispatch/1",
+  "slice": "deps-exceptions-20261117",
+  "state": "accepted"
+}
